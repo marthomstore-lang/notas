@@ -1,0 +1,1267 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { LogOut, Plus, Users, BookOpen, GraduationCap, Menu, X, Printer, User, Upload, Edit2, Trash2, BarChart3, Settings } from 'lucide-react';
+import { EnrollmentForm } from '../components/OfficialForm/EnrollmentForm';
+import { OfficialEnrollmentForm } from '../components/OfficialForm/OfficialEnrollmentForm';
+import { StudentWindow } from '../components/StudentWindow';
+import { GradesSheet } from '../components/Grades/GradesSheet';
+import Swal from 'sweetalert2';
+import withReactContent from 'sweetalert2-react-content';
+import './Dashboard.css';
+
+const MySwal = withReactContent(Swal);
+
+export const AdminDashboard = () => {
+    const { user, logout, token } = useAuth();
+    const [activeTab, setActiveTab] = useState<'config' | 'students' | 'grades' | 'audit' | 'profile'>(() => {
+        const saved = localStorage.getItem('adminActiveTab');
+        return (['config', 'students', 'grades', 'audit', 'profile'].includes(saved as string)) ? (saved as any) : 'grades';
+    });
+    const [configSubTab, setConfigSubTab] = useState<'teachers' | 'courses' | 'subjects' | 'assignments' | 'homeroom'>(() => {
+        const saved = localStorage.getItem('adminConfigSubTab');
+        return (['teachers', 'courses', 'subjects', 'assignments', 'homeroom'].includes(saved as string)) ? (saved as any) : 'teachers';
+    });
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+    useEffect(() => {
+        localStorage.setItem('adminActiveTab', activeTab);
+    }, [activeTab]);
+
+    useEffect(() => {
+        localStorage.setItem('adminConfigSubTab', configSubTab);
+    }, [configSubTab]);
+    
+    // Data states
+    const [teachers, setTeachers] = useState<any[]>([]);
+    const [subjects, setSubjects] = useState<any[]>([]);
+    const [levels, setLevels] = useState<any[]>([]);
+    const [students, setStudents] = useState<any[]>([]);
+    const [assignments, setAssignments] = useState<any[]>([]);
+    const [showEnrollmentForm, setShowEnrollmentForm] = useState(false);
+    const [printingStudentData, setPrintingStudentData] = useState<any>(null);
+    const [selectedStudentForObs, setSelectedStudentForObs] = useState<any>(null);
+    const [observations, setObservations] = useState<any[]>([]);
+    const [newObs, setNewObs] = useState({ content: '', type: 'Positive' });
+    const [viewingStudentId, setViewingStudentId] = useState<string | null>(null);
+    const [selectedLevelFilter, setSelectedLevelFilter] = useState<string>(() => {
+        return localStorage.getItem('adminStudentLevelFilter') || '';
+    });
+
+    useEffect(() => {
+        localStorage.setItem('adminStudentLevelFilter', selectedLevelFilter);
+    }, [selectedLevelFilter]);
+    const [isUploading, setIsUploading] = useState(false);
+    const [auditLogs, setAuditLogs] = useState<any[]>([]);
+    const [auditFilters, setAuditFilters] = useState({ teacher: '', action: '' });
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const fetchData = async () => {
+        if (!token) return;
+        try {
+            const headers = { 'Authorization': `Bearer ${token}` };
+            
+            const [tRes, sRes, lRes, stuRes, aRes] = await Promise.all([
+                fetch('/api/admin/teachers', { headers }),
+                fetch('/api/admin/subjects', { headers }),
+                fetch('/api/admin/levels', { headers }),
+                fetch('/api/admin/students', { headers }),
+                fetch('/api/admin/assignments', { headers })
+            ]);
+            
+            const handleRes = async (res: Response, label: string) => {
+                if (!res.ok) {
+                    const text = await res.text();
+                    console.error(`${label} fetch failed:`, text);
+                    return [];
+                }
+                const data = await res.json();
+                return Array.isArray(data) ? data : [];
+            };
+
+            const teachersData = await handleRes(tRes, 'Teachers');
+            const subjectsData = await handleRes(sRes, 'Subjects');
+            const levelsData = await handleRes(lRes, 'Levels');
+            const stuData = await handleRes(stuRes, 'Students');
+            const assignmentsData = await handleRes(aRes, 'Assignments');
+
+            // Orden y Filtrado de Niveles
+            const levelOrder = [
+                'Pre-Kinder', 'Kínder', 
+                '1° Básico', '2° Básico', '3° Básico', '4° Básico', 
+                '5° Básico', '6° Básico', '7° Básico', '8° Básico',
+                '1° Medio', '2° Medio A', '2° Medio B',
+                '3° Mecánica', '3° Medio Párvulo', 
+                '4° Mecánica', '4° Medio Párvulo',
+                'Taller Laboral'
+            ];
+
+            const sortedLevels = levelsData
+                .filter(l => levelOrder.includes(l.name))
+                .sort((a, b) => levelOrder.indexOf(a.name) - levelOrder.indexOf(b.name));
+
+            setTeachers(teachersData);
+            setSubjects(subjectsData);
+            setLevels(sortedLevels);
+            setStudents(stuData);
+            setAssignments(assignmentsData);
+
+            if (activeTab === 'audit') {
+                try {
+                    const aLogRes = await fetch('/api/admin/system/audit-logs', { headers });
+                    if (aLogRes.ok) {
+                        const logs = await aLogRes.json();
+                        setAuditLogs(logs);
+                    } else {
+                        console.error("Audit logs fetch failed:", aLogRes.status);
+                    }
+                } catch (err) {
+                    console.error("Error fetching audit logs:", err);
+                }
+            }
+        } catch (error) {
+            console.error("Error in fetchData:", error);
+        }
+    };
+
+    const handleListNumberChange = async (studentId: string, value: string) => {
+        const num = parseInt(value);
+        if (isNaN(num)) {
+            // Update local state to allow clearing the input
+            setStudents(students.map(s => s.id === studentId ? { ...s, list_number: null } : s));
+            return;
+        }
+
+        // Optimistic update
+        setStudents(students.map(s => s.id === studentId ? { ...s, list_number: num } : s));
+
+        try {
+            await fetch('/api/admin/grades/update-position', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ studentId, listNumber: num })
+            });
+        } catch (error) {
+            console.error("Error updating list number:", error);
+        }
+    };
+
+    useEffect(() => {
+        fetchData();
+    }, [token, activeTab, configSubTab]);
+
+    // Handle Forms
+    const handleCreateTeacher = async (e?: React.FormEvent) => {
+        if (e) e.preventDefault();
+        const { value: formValues } = await MySwal.fire({
+            title: 'Nuevo Usuario',
+            html:
+                '<div class="swal-form">' +
+                '<label>RUT</label><input id="swal-input1" class="swal2-input" placeholder="Ej: 12345678-9">' +
+                '<label>Nombre Completo</label><input id="swal-input2" class="swal2-input" placeholder="Nombre completo">' +
+                '<label>Email</label><input id="swal-input3" class="swal2-input" type="email" placeholder="email@ejemplo.com">' +
+                '<label>Contraseña (Opcional)</label><input id="swal-input4" class="swal2-input" type="password" placeholder="Mínimo 6 caracteres (Defecto: 123)">' +
+                '<label>Rol del Usuario</label>' +
+                '<select id="swal-input5" class="swal2-input">' +
+                '<option value="Docente">Docente / Profesor</option>' +
+                '<option value="Admin">Administrador</option>' +
+                '</select>' +
+                '</div>',
+            focusConfirm: false,
+            showCancelButton: true,
+            confirmButtonText: 'Crear Usuario',
+            cancelButtonText: 'Cancelar',
+            didOpen: () => {
+                const rutInput = document.getElementById('swal-input1') as HTMLInputElement;
+                if (rutInput) {
+                    rutInput.addEventListener('input', (e: any) => {
+                        const val = e.target.value.replace(/[^0-9kK]/g, '');
+                        if (val.length > 1) {
+                            const body = val.slice(0, -1);
+                            const dv = val.slice(-1).toUpperCase();
+                            e.target.value = `${body}-${dv}`;
+                        } else {
+                            e.target.value = val;
+                        }
+                    });
+                }
+            },
+            preConfirm: () => {
+                return {
+                    run: (document.getElementById('swal-input1') as HTMLInputElement).value,
+                    name: (document.getElementById('swal-input2') as HTMLInputElement).value,
+                    email: (document.getElementById('swal-input3') as HTMLInputElement).value,
+                    password: (document.getElementById('swal-input4') as HTMLInputElement).value,
+                    role: (document.getElementById('swal-input5') as HTMLSelectElement).value
+                }
+            }
+        });
+
+        if (formValues) {
+            const { run, name, email, password, role } = formValues;
+            if (run && name && email) {
+                try {
+                    const res = await fetch('/api/admin/teachers', {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ run, name, email, password, role })
+                    });
+                    
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data.error || 'Error al crear usuario');
+
+                    fetchData();
+                    MySwal.fire({
+                        title: '¡Éxito!',
+                        text: "Usuario creado correctamente.",
+                        icon: 'success'
+                    });
+                } catch (error: any) {
+                    console.error("Fetch error:", error);
+                    MySwal.fire('Error', error.message, 'error');
+                }
+            }
+        }
+    };
+
+    const handleEditTeacher = async (teacher: any) => {
+        const { value: formValues } = await MySwal.fire({
+            title: 'Editar Usuario',
+            html:
+                '<div class="swal-form">' +
+                `<label>Nombre Completo</label><input id="swal-input1" class="swal2-input" placeholder="Nombre" value="${teacher.name}">` +
+                `<label>Email</label><input id="swal-input2" class="swal2-input" placeholder="Email" value="${teacher.email}">` +
+                `<label>Contraseña Actual / Nueva</label>` +
+                `<div style="position: relative;">` +
+                `<input id="swal-input3" class="swal2-input" type="text" placeholder="Escribe aquí la nueva clave" value="${teacher.password_plain || ''}">` +
+                `<small style="display: block; color: #64748b; margin-top: 5px;">Si el campo está vacío, la clave no se actualizará. Escribe una clave para guardarla.</small>` +
+                `</div>` +
+                `<label>Rol del Usuario</label>` +
+                `<select id="swal-input4" class="swal2-input">` +
+                `<option value="Docente" ${teacher.role === 'Docente' ? 'selected' : ''}>Docente / Profesor</option>` +
+                `<option value="Admin" ${teacher.role === 'Admin' ? 'selected' : ''}>Administrador</option>` +
+                `</select>` +
+                '</div>',
+            focusConfirm: false,
+            showCancelButton: true,
+            confirmButtonText: 'Guardar Cambios',
+            cancelButtonText: 'Cancelar',
+            preConfirm: () => {
+                return {
+                    name: (document.getElementById('swal-input1') as HTMLInputElement).value,
+                    email: (document.getElementById('swal-input2') as HTMLInputElement).value,
+                    password: (document.getElementById('swal-input3') as HTMLInputElement).value,
+                    role: (document.getElementById('swal-input4') as HTMLSelectElement).value
+                }
+            }
+        });
+
+        if (formValues) {
+            const { name, email, password, role } = formValues;
+            try {
+                const res = await fetch(`/api/admin/teachers/${teacher.id}`, {
+                    method: 'PUT',
+                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, email, password, role })
+                });
+                
+                const data = await res.json();
+                
+                if (!res.ok) {
+                    throw new Error(data.error || 'Error al actualizar');
+                }
+                
+                fetchData();
+                MySwal.fire('Éxito', 'Usuario actualizado correctamente', 'success');
+            } catch (error: any) {
+                console.error("Fetch error:", error);
+                MySwal.fire('Error', error.message, 'error');
+            }
+        }
+    };
+
+    const handleDeleteTeacher = async (id: string) => {
+        console.log('Deleting teacher with ID:', id);
+        const result = await MySwal.fire({
+            title: '¿Estás seguro?',
+            text: "No podrás revertir esto y el docente no debe tener cursos asignados.",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#3085d6',
+            confirmButtonText: 'Sí, eliminar',
+            cancelButtonText: 'Cancelar'
+        });
+
+        if (result.isConfirmed) {
+            const res = await fetch(`/api/admin/teachers/${id}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const data = await res.json();
+            if (res.ok) {
+                MySwal.fire('Eliminado', 'El docente ha sido eliminado.', 'success');
+                fetchData();
+            } else {
+                MySwal.fire('Error', data.error || 'Error al eliminar', 'error');
+            }
+        }
+    };
+
+    const handleCreateSubject = async () => {
+        const { value: name } = await MySwal.fire({
+            title: 'Nueva Asignatura Global',
+            input: 'text',
+            inputPlaceholder: 'Nombre de la asignatura',
+            showCancelButton: true
+        });
+        if (name) {
+            await fetch('/api/admin/subjects', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name })
+            });
+            fetchData();
+            MySwal.fire('Éxito', 'Asignatura creada', 'success');
+        }
+    };
+
+    const handleAssign = async (e: React.FormEvent) => {
+        e.preventDefault();
+        const form = e.target as HTMLFormElement;
+        const data = {
+            teacherId: form.teacherId.value,
+            levelId: form.levelId.value,
+            subjectId: form.subjectId.value,
+            academicYear: new Date().getFullYear()
+        };
+        const res = await fetch('/api/admin/assignments', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        if (res.ok) {
+            fetchData();
+            MySwal.fire('Éxito', "Asignación creada con éxito.", 'success');
+        } else {
+            MySwal.fire('Error', "Asignación ya existe o datos inválidos.", 'error');
+        }
+    };
+
+    const handleDeleteAssignment = async (id: string) => {
+        const result = await MySwal.fire({
+            title: '¿Eliminar asignación?',
+            text: "Esto quitará al profesor de la asignatura en este curso.",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Sí, eliminar',
+            cancelButtonText: 'Cancelar'
+        });
+
+        if (result.isConfirmed) {
+            const res = await fetch(`/api/admin/assignments/${id}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (res.ok) {
+                fetchData();
+                MySwal.fire('Eliminado', 'Asignación eliminada', 'success');
+            }
+        }
+    };
+
+    const handleUpdateCapacity = async (level: any) => {
+        const { value: capacity } = await MySwal.fire({
+            title: `Capacidad para ${level.name}`,
+            input: 'number',
+            inputValue: level.total_capacity,
+            showCancelButton: true,
+            confirmButtonText: 'Actualizar',
+            cancelButtonText: 'Cancelar',
+            inputAttributes: {
+                min: '1',
+                max: '100'
+            }
+        });
+
+        if (capacity) {
+            try {
+                const res = await fetch(`/api/admin/levels/${level.id}/capacity`, {
+                    method: 'PUT',
+                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ capacity: parseInt(capacity) })
+                });
+                if (res.ok) {
+                    fetchData();
+                    MySwal.fire('Éxito', 'Capacidad actualizada', 'success');
+                }
+            } catch (error) {
+                console.error("Error updating capacity:", error);
+            }
+        }
+    };
+
+    const handleExport = async () => {
+        if (!token) return;
+        try {
+            const response = await fetch(`/api/admin/export`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Error al exportar');
+            }
+
+            const blobData = await response.blob();
+            const blob = new Blob([blobData], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `BASE_DATOS_ESTUDIANTES_${new Date().getFullYear()}.xlsx`;
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => {
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+            }, 100);
+            
+            MySwal.fire({
+                icon: 'success',
+                title: 'Descarga Iniciada',
+                text: 'La base de datos se ha exportado correctamente.',
+                timer: 2000,
+                showConfirmButton: false
+            });
+        } catch (error: any) {
+            console.error("Error exporting data:", error);
+            MySwal.fire('Error', error.message || "Error al descargar planilla", 'error');
+        }
+    };
+
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file || !token) return;
+
+        const resultConfirm = await MySwal.fire({
+            title: 'ATENCIÓN',
+            text: 'Esto reemplazará TODOS los datos actuales de los estudiantes con la información de este archivo. ¿Estás seguro de que deseas continuar?',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#3085d6',
+            confirmButtonText: 'Sí, reemplazar',
+            cancelButtonText: 'Cancelar'
+        });
+
+        if (!resultConfirm.isConfirmed) {
+            if (fileInputRef.current) fileInputRef.current.value = '';
+            return;
+        }
+
+        setIsUploading(true);
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            const response = await fetch('/api/admin/import', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` },
+                body: formData
+            });
+            const result = await response.json();
+            if (response.ok) {
+                MySwal.fire({
+                    title: 'Importación exitosa',
+                    html: `Estudiantes: ${result.students}<br>Titulares: ${result.titulares}<br>Suplentes: ${result.suplentes}`,
+                    icon: 'success'
+                });
+                fetchData(); // Reload table
+            } else {
+                MySwal.fire('Error al importar', result.error || result.details, 'error');
+            }
+        } catch (error) {
+            console.error("Error importing file:", error);
+            MySwal.fire('Error', "Hubo un error de conexión al subir el archivo.", 'error');
+        } finally {
+            setIsUploading(false);
+            if (fileInputRef.current) fileInputRef.current.value = '';
+        }
+    };
+
+    const handleEnrollSubmit = async (payload: any) => {
+        const res = await fetch('/api/enrollments', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        if (res.ok) {
+            MySwal.fire('Éxito', "Matrícula Oficial Registrada con éxito.", 'success');
+            setShowEnrollmentForm(false);
+            fetchData();
+        } else {
+            const err = await res.json();
+            MySwal.fire('Error', err.error, 'error');
+        }
+    };
+
+    const handlePrintOfficial = async (studentId: string) => {
+        const res = await fetch(`/api/admin/students/${studentId}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+            const data = await res.json();
+            setPrintingStudentData(data);
+        } else {
+            MySwal.fire('Error', "Error al obtener expediente para impresión.", 'error');
+        }
+    };
+
+    const handleViewObservations = async (student: any) => {
+        setSelectedStudentForObs(student);
+        const res = await fetch(`/api/admin/students/${student.id}/observations`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+            setObservations(await res.json());
+        }
+    };
+
+    const handleAddObservation = async (e: React.FormEvent) => {
+        e.preventDefault();
+        const res = await fetch(`/api/admin/students/${selectedStudentForObs.id}/observations`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify(newObs)
+        });
+        if (res.ok) {
+            handleViewObservations(selectedStudentForObs);
+            setNewObs({ content: '', type: 'Positive' });
+        }
+    };
+
+    const handleDeleteStudent = async (id: string) => {
+        const { value: withdrawalDate } = await MySwal.fire({
+            title: 'Retirar Estudiante',
+            html: '<p>¿Seguro que desea retirar a este estudiante? Ingrese la fecha de retiro:</p>',
+            input: 'date',
+            inputValue: new Date().toISOString().split('T')[0],
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            confirmButtonText: 'Sí, retirar',
+            cancelButtonText: 'Cancelar'
+        });
+
+        if (withdrawalDate) {
+            const res = await fetch(`/api/admin/students/${id}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ withdrawalDate })
+            });
+            if (res.ok) {
+                fetchData();
+                MySwal.fire('Retirado', 'El estudiante ha sido marcado como retirado.', 'success');
+            }
+        }
+    };
+
+    if (printingStudentData) {
+        return (
+            <div style={{ background: '#f5f5f5', minHeight: '100vh', padding: '20px 0' }}>
+                <div className="no-print" style={{ 
+                    width: '210mm', 
+                    margin: '0 auto 20px auto', 
+                    display: 'flex', 
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    background: 'white',
+                    padding: '12px 25px',
+                    borderRadius: '12px',
+                    boxShadow: '0 4px 15px rgba(0,0,0,0.08)',
+                    position: 'sticky',
+                    top: '20px',
+                    zIndex: 100
+                }}>
+                    <div style={{ display: 'flex', gap: '15px' }}>
+                        <button className="secondary-btn" onClick={() => setPrintingStudentData(null)} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <X size={18} /> Volver al Listado
+                        </button>
+                        <button className="primary-btn" onClick={() => window.print()} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <Printer size={18} /> Imprimir Documento
+                        </button>
+                    </div>
+                    
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <span style={{ fontSize: '0.85rem', color: '#666', fontWeight: '500' }}>Vista Previa Oficial</span>
+                        <div style={{ height: '24px', width: '1px', background: '#eee' }}></div>
+                        <button className="primary-btn" onClick={() => {
+                            setViewingStudentId(printingStudentData.student.id);
+                            setPrintingStudentData(null);
+                        }} style={{ background: '#059669', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <Edit2 size={18} /> Editar Datos en Base de Datos
+                        </button>
+                    </div>
+                </div>
+                <div className="printable">
+                    <OfficialEnrollmentForm data={printingStudentData} />
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="dashboard-layout">
+            <div className={`sidebar-overlay ${isSidebarOpen ? 'open' : ''}`} onClick={() => setIsSidebarOpen(false)}></div>
+            <aside className={`sidebar ${isSidebarOpen ? 'open' : ''}`}>
+                <div className="sidebar-header">
+                    <div style={{ textAlign: 'center', marginBottom: '15px' }}>
+                        <img src="/assets/logo.png" alt="Logo" style={{ width: '80px', height: '80px', borderRadius: '50%', background: 'white', padding: '5px' }} />
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <h2>Administración</h2>
+                        {isSidebarOpen && <button className="mobile-menu-toggle" style={{ color: 'white' }} onClick={() => setIsSidebarOpen(false)}><X size={24} /></button>}
+                    </div>
+                    <p>{user?.name}</p>
+                </div>
+                <nav className="sidebar-nav">
+                    <button className={activeTab === 'grades' ? 'active' : ''} onClick={() => { setActiveTab('grades'); setIsSidebarOpen(false); }}>
+                        <BookOpen size={18} /> Notas (Libro de Clases)
+                    </button>
+                    <button className={activeTab === 'students' ? 'active' : ''} onClick={() => { setActiveTab('students'); setIsSidebarOpen(false); }}>
+                        <Users size={18} /> Matrícula y Alumnos
+                    </button>
+                    <button className={activeTab === 'audit' ? 'active' : ''} onClick={() => { setActiveTab('audit'); setIsSidebarOpen(false); }}>
+                        <BarChart3 size={18} /> Bitácora de Actividad
+                    </button>
+                    <button className={activeTab === 'profile' ? 'active' : ''} onClick={() => { setActiveTab('profile'); setIsSidebarOpen(false); }}>
+                        <User size={18} /> Mi Cuenta
+                    </button>
+                    
+                    <div className="sidebar-divider">Configuración de Sistema</div>
+                    
+                    <button className={activeTab === 'config' && configSubTab === 'courses' ? 'active' : ''} onClick={() => { setActiveTab('config'); setConfigSubTab('courses'); setIsSidebarOpen(false); }}>
+                        <BookOpen size={16} /> Niveles / Cursos
+                    </button>
+                    <button className={activeTab === 'config' && configSubTab === 'subjects' ? 'active' : ''} onClick={() => { setActiveTab('config'); setConfigSubTab('subjects'); setIsSidebarOpen(false); }}>
+                        <Settings size={16} /> Asignaturas
+                    </button>
+                    <button className={activeTab === 'config' && configSubTab === 'teachers' ? 'active' : ''} onClick={() => { setActiveTab('config'); setConfigSubTab('teachers'); setIsSidebarOpen(false); }}>
+                        <Users size={16} /> Usuarios / Docentes
+                    </button>
+                    <button className={activeTab === 'config' && configSubTab === 'assignments' ? 'active' : ''} onClick={() => { setActiveTab('config'); setConfigSubTab('assignments'); setIsSidebarOpen(false); }}>
+                        <Plus size={16} /> Asignación de Carga
+                    </button>
+                    <button className={activeTab === 'config' && configSubTab === 'homeroom' ? 'active' : ''} onClick={() => { setActiveTab('config'); setConfigSubTab('homeroom'); setIsSidebarOpen(false); }}>
+                        <User size={16} /> Profesores Jefe
+                    </button>
+                </nav>
+                <div className="sidebar-footer">
+                    <button onClick={logout} className="logout-btn">
+                        <LogOut size={18} /> Salir
+                    </button>
+                </div>
+            </aside>
+            <main className="dashboard-content">
+                <header className="content-header">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <button className="mobile-menu-toggle" onClick={() => setIsSidebarOpen(true)}>
+                            <Menu size={24} />
+                        </button>
+                        <h1>
+                            {activeTab === 'config' && (
+                                <>
+                                    Configuración de Sistema: {
+                                        configSubTab === 'teachers' ? 'Usuarios del Sistema' :
+                                        configSubTab === 'courses' ? 'Cursos' :
+                                        configSubTab === 'subjects' ? 'Asignaturas' :
+                                        configSubTab === 'assignments' ? 'Asignaciones' :
+                                        configSubTab === 'homeroom' ? 'Profesores Jefe' : ''
+                                    }
+                                </>
+                            )}
+                            {activeTab === 'students' && 'Matrícula'}
+                            {activeTab === 'grades' && 'Libro de Clases: Calificaciones'}
+                            {activeTab === 'audit' && 'Control y Auditoría del Sistema'}
+                            {activeTab === 'profile' && 'Configuración de Mi Cuenta (Admin)'}
+                        </h1>
+                    </div>
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                        <button className="secondary-btn" onClick={async () => {
+                            const { value: formValues } = await MySwal.fire({
+                                title: 'Configuración Institucional',
+                                html:
+                                    '<label>Nombre del Director</label><input id="swal-director" class="swal2-input" placeholder="Nombre Director">' +
+                                    '<label>Nombre del Colegio</label><input id="swal-school" class="swal2-input" placeholder="Nombre Colegio">',
+                                focusConfirm: false,
+                                showCancelButton: true,
+                                preConfirm: () => {
+                                    return {
+                                        directorName: (document.getElementById('swal-director') as HTMLInputElement).value,
+                                        schoolName: (document.getElementById('swal-school') as HTMLInputElement).value
+                                    }
+                                }
+                            });
+                            if (formValues) {
+                                await fetch('/api/admin/settings', {
+                                    method: 'POST',
+                                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                                    body: JSON.stringify(formValues)
+                                });
+                                MySwal.fire('Éxito', 'Configuración actualizada', 'success');
+                            }
+                        }}><Settings size={18} /> Institución</button>
+                    </div>
+                </header>
+                
+                {activeTab === 'grades' && <GradesSheet />}
+                
+                {activeTab === 'audit' && (
+                    <div className="card">
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
+                            <h3>Historial de Acciones</h3>
+                            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                                <button 
+                                    className="secondary-btn" 
+                                    style={{ height: '35px', padding: '0 12px' }}
+                                    onClick={() => fetchData()}
+                                    title="Actualizar Historial"
+                                >
+                                    Actualizar
+                                </button>
+                                <select 
+                                    className="swal2-input" 
+                                    style={{ margin: 0, fontSize: '0.8rem', height: '35px' }}
+                                    value={auditFilters.teacher}
+                                    onChange={(e) => setAuditFilters({...auditFilters, teacher: e.target.value})}
+                                >
+                                    <option value="">Todos los Docentes</option>
+                                    {teachers.map(t => <option key={t.id} value={t.name}>{t.name}</option>)}
+                                </select>
+                                <select 
+                                    className="swal2-input" 
+                                    style={{ margin: 0, fontSize: '0.8rem', height: '35px' }}
+                                    value={auditFilters.action}
+                                    onChange={(e) => setAuditFilters({...auditFilters, action: e.target.value})}
+                                >
+                                    <option value="">Todas las Acciones</option>
+                                    <option value="SAVE_GRADES">Guardado de Planilla</option>
+                                    <option value="ADD_GRADE">Ingreso de Nota</option>
+                                    <option value="UPDATE_GRADE">Actualización de Nota</option>
+                                    <option value="DELETE_GRADE">Eliminación de Nota</option>
+                                    <option value="LOCK_GRADES">Bloqueo de Notas</option>
+                                    <option value="UNLOCK_GRADES">Desbloqueo de Notas</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div style={{ maxHeight: '600px', overflowY: 'auto' }}>
+                            <table className="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Fecha / Hora</th>
+                                        <th>Usuario</th>
+                                        <th>Acción</th>
+                                        <th>Detalle</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {auditLogs
+                                        .filter(log => !auditFilters.teacher || log.user_name === auditFilters.teacher)
+                                        .filter(log => !auditFilters.action || log.action === auditFilters.action)
+                                        .map(log => (
+                                        <tr key={log.id}>
+                                            <td style={{ fontSize: '0.8rem', color: '#64748b' }}>
+                                                {new Date(log.created_at.replace(' ', 'T') + 'Z').toLocaleString()}
+                                            </td>
+                                            <td style={{ fontWeight: '600' }}>{log.user_name}</td>
+                                            <td>
+                                                <span className={`badge ${
+                                                    log.action.includes('LOCK') ? 'admin' : 
+                                                    log.action === 'SAVE_GRADES' ? 'docente' : 'secondary'
+                                                }`}>
+                                                    {log.action === 'SAVE_GRADES' ? 'GUARDADO' : 
+                                                     log.action === 'LOCK_GRADES' ? 'BLOQUEO' : 
+                                                     log.action === 'UNLOCK_GRADES' ? 'DESBLOQUEO' : 
+                                                     log.action === 'DELETE_GRADE' ? 'ELIMINACIÓN' : 
+                                                     log.action === 'UPDATE_GRADE' ? 'ACTUALIZACIÓN' :
+                                                     log.action === 'ADD_GRADE' ? 'INGRESO' : log.action}
+                                                </span>
+                                            </td>
+                                            <td style={{ fontSize: '0.9rem' }}>{log.details}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                )}
+                
+                {activeTab === 'config' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                        {configSubTab === 'teachers' && (
+                            <div className="card">
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
+                                    <h3>Gestión de Usuarios</h3>
+                                    <button className="primary-btn" onClick={handleCreateTeacher}><Plus size={18} /> Nuevo Usuario</button>
+                                </div>
+                                <table className="data-table">
+                                    <thead><tr><th>RUT</th><th>NOMBRE</th><th>ROL</th><th>EMAIL</th><th>ACCIONES</th></tr></thead>
+                                    <tbody>
+                                        {teachers.map(t => (
+                                            <tr key={t.id}>
+                                                <td>{t.run}</td>
+                                                <td>{t.name}</td>
+                                                <td>
+                                                    <span className={`badge ${t.role === 'Admin' ? 'admin' : 'docente'}`}>
+                                                        {t.role === 'Admin' ? 'Administrador' : 'Docente'}
+                                                    </span>
+                                                </td>
+                                                <td>{t.email}</td>
+                                                <td>
+                                                    <div style={{ display: 'flex', gap: '15px' }}>
+                                                        <button 
+                                                            type="button"
+                                                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#3b82f6', padding: '5px' }}
+                                                            onClick={(e) => { e.stopPropagation(); handleEditTeacher(t); }}
+                                                            title="Editar"
+                                                        >
+                                                            <Edit2 size={20} />
+                                                        </button>
+                                                        <button 
+                                                            type="button"
+                                                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: '5px' }}
+                                                            onClick={(e) => { e.stopPropagation(); handleDeleteTeacher(t.id); }}
+                                                            title="Eliminar"
+                                                        >
+                                                            <Trash2 size={20} />
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+
+                        {configSubTab === 'courses' && (
+                            <div className="card">
+                                <h3>Gestión de Cursos (Niveles)</h3>
+                                <p style={{ color: '#64748b' }}>Los cursos se configuran automáticamente según la estructura del liceo.</p>
+                                <table className="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Nombre</th>
+                                            <th>Capacidad</th>
+                                            <th>Matriculados</th>
+                                            <th>Cupos Disponibles (SAE)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {levels.map(l => (
+                                            <tr key={l.id}>
+                                                <td>{l.name}</td>
+                                                <td>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                        {l.total_capacity}
+                                                        <button 
+                                                            onClick={() => handleUpdateCapacity(l)}
+                                                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#3b82f6', padding: '4px' }}
+                                                            title="Editar Capacidad"
+                                                        >
+                                                            <Edit2 size={16} />
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                                <td style={{ fontWeight: '600', color: '#1e293b' }}>{l.current_enrolled}</td>
+                                                <td style={{ 
+                                                    fontWeight: '700', 
+                                                    color: (l.total_capacity - l.current_enrolled) > 5 ? '#059669' : 
+                                                           (l.total_capacity - l.current_enrolled) > 0 ? '#d97706' : '#dc2626'
+                                                }}>
+                                                    {l.total_capacity - l.current_enrolled}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+
+                        {configSubTab === 'subjects' && (
+                            <div className="card">
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
+                                    <h3>Asignaturas Globales</h3>
+                                    <button className="primary-btn" onClick={handleCreateSubject}><Plus size={18} /> Nueva Asignatura</button>
+                                </div>
+                                <table className="data-table">
+                                    <thead><tr><th>Nombre</th><th>Acciones</th></tr></thead>
+                                    <tbody>
+                                        {subjects.map(s => (
+                                            <tr key={s.id}>
+                                                <td>{s.name}</td>
+                                                <td>
+                                                    <button style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'not-allowed' }} title="Eliminar (Deshabilitado)">
+                                                        <Trash2 size={18} />
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+
+                        {configSubTab === 'assignments' && (
+                            <div className="card">
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px', borderBottom: '1px solid #f1f5f9', paddingBottom: '10px' }}>
+                                    <h3 style={{ margin: 0, color: '#1e293b' }}>Crear Asignación de Asignaturas</h3>
+                                </div>
+                                <form onSubmit={handleAssign} className="admin-form">
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px' }}>
+                                        <div>
+                                            <label>Docente:</label>
+                                            <select name="teacherId" required>
+                                                <option value="">Seleccione Docente...</option>
+                                                {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label>Curso (Nivel):</label>
+                                            <select name="levelId" required>
+                                                <option value="">Seleccione Curso...</option>
+                                                {levels.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label>Asignatura:</label>
+                                            <select name="subjectId" required>
+                                                <option value="">Seleccione Asignatura...</option>
+                                                {subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                                            </select>
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'flex-end', marginBottom: '0' }}>
+                                            <div style={{ width: '100%' }}>
+                                                <label style={{ visibility: 'hidden' }}>Botón</label>
+                                                <button type="submit" className="primary-btn" style={{ width: '100%', height: '42px', justifyContent: 'center' }}>Guardar Asignación</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </form>
+
+                                <div style={{ marginTop: '20px' }}>
+                                    <h4 style={{ color: '#64748b', fontSize: '0.9rem', marginBottom: '10px' }}>Listado de Asignaturas por Curso</h4>
+                                    <table className="data-table" style={{ fontSize: '0.9rem' }}>
+                                        <thead><tr><th>Curso</th><th>Asignatura</th><th>Docente</th><th style={{ textAlign: 'center' }}>Acciones</th></tr></thead>
+                                        <tbody>
+                                            {assignments.map(a => (
+                                                <tr key={a.id}>
+                                                    <td>{a.level_name}</td>
+                                                    <td>{a.subject_name}</td>
+                                                    <td>{a.teacher_name}</td>
+                                                    <td style={{ textAlign: 'center' }}>
+                                                        <button 
+                                                            onClick={() => handleDeleteAssignment(a.id)}
+                                                            style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}
+                                                            title="Eliminar Asignación"
+                                                        >
+                                                            <Trash2 size={16} />
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        )}
+
+                        {configSubTab === 'homeroom' && (
+                            <div className="card">
+                                <h3 style={{ marginBottom: '20px' }}>Asignación de Profesor Jefe</h3>
+                                <form onSubmit={async (e) => {
+                                    e.preventDefault();
+                                    const form = e.target as HTMLFormElement;
+                                    const levelId = form.levelId.value;
+                                    const teacherId = form.teacherId.value;
+                                    const res = await fetch('/api/admin/set-homeroom', {
+                                        method: 'POST',
+                                        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ levelId, teacherId })
+                                    });
+                                    if (res.ok) {
+                                        fetchData();
+                                        MySwal.fire('Éxito', "Profesor Jefe asignado.", 'success');
+                                    }
+                                }} className="admin-form">
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px' }}>
+                                        <div>
+                                            <label>Curso (Nivel):</label>
+                                            <select name="levelId" required>
+                                                <option value="">Seleccione Curso...</option>
+                                                {levels.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label>Profesor Jefe:</label>
+                                            <select name="teacherId" required>
+                                                <option value="">Seleccione Docente...</option>
+                                                {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                                            </select>
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'flex-end', marginBottom: '0' }}>
+                                            <div style={{ width: '100%' }}>
+                                                <label style={{ visibility: 'hidden' }}>Botón</label>
+                                                <button type="submit" className="primary-btn" style={{ width: '100%', height: '42px', justifyContent: 'center' }}>Asignar P. Jefe</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </form>
+
+                                <div style={{ marginTop: '20px' }}>
+                                    <h4 style={{ color: '#64748b', fontSize: '0.9rem', marginBottom: '10px' }}>Listado Actual de Profesores Jefe</h4>
+                                    <table className="data-table" style={{ fontSize: '0.9rem' }}>
+                                        <thead><tr><th>Curso</th><th>Profesor Jefe</th></tr></thead>
+                                        <tbody>
+                                            {levels.map(l => (
+                                                <tr key={l.id}>
+                                                    <td>{l.name}</td>
+                                                    <td style={{ color: l.homeroom_teacher_name ? 'inherit' : '#94a3b8', fontStyle: l.homeroom_teacher_name ? 'normal' : 'italic' }}>
+                                                        {l.homeroom_teacher_name || 'Sin asignar'}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {activeTab === 'profile' && (
+                    <div className="card" style={{ maxWidth: '600px' }}>
+                        <h3>Datos de Cuenta Administrador</h3>
+                        <p style={{ color: '#64748b', marginBottom: '20px' }}>Actualice su información personal o cambie su clave de acceso maestro.</p>
+                        
+                        <form onSubmit={async (e) => {
+                            e.preventDefault();
+                            const form = e.target as any;
+                            const email = form.email.value;
+                            const password = form.password.value;
+                            const confirm = form.confirm.value;
+
+                            if (password && password !== confirm) {
+                                return MySwal.fire('Error', 'Las contraseñas no coinciden', 'error');
+                            }
+
+                            try {
+                                const res = await fetch('/api/auth/me', {
+                                    method: 'PUT',
+                                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ email, password })
+                                });
+                                if (res.ok) {
+                                    MySwal.fire('Éxito', 'Perfil actualizado correctamente', 'success');
+                                    form.password.value = '';
+                                    form.confirm.value = '';
+                                } else {
+                                    const data = await res.json();
+                                    MySwal.fire('Error', data.error || 'Error al procesar la solicitud', 'error');
+                                }
+                            } catch (err) {
+                                MySwal.fire({
+                                    title: 'Error de Conexión',
+                                    text: 'No se pudo establecer comunicación con la base de datos. Por favor, verifique su conexión.',
+                                    icon: 'error',
+                                    confirmButtonColor: '#6366f1'
+                                });
+                            }
+                        }}>
+                            <div className="form-group" style={{ marginBottom: '15px' }}>
+                                <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500' }}>Nombre Administrador</label>
+                                <input type="text" className="swal2-input" style={{ width: '100%', margin: 0, background: '#f1f5f9' }} value={user?.name} disabled />
+                            </div>
+                            <div className="form-group" style={{ marginBottom: '15px' }}>
+                                <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500' }}>Correo Electrónico</label>
+                                <input name="email" type="email" className="swal2-input" style={{ width: '100%', margin: 0 }} defaultValue={(user as any)?.email} required />
+                            </div>
+                            <hr style={{ margin: '25px 0', border: 'none', borderTop: '1px solid #e2e8f0' }} />
+                            <div className="form-group" style={{ marginBottom: '15px' }}>
+                                <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500' }}>Nueva Contraseña Maestro</label>
+                                <input name="password" type="password" className="swal2-input" style={{ width: '100%', margin: 0 }} placeholder="Dejar en blanco para no cambiar" />
+                            </div>
+                            <div className="form-group" style={{ marginBottom: '25px' }}>
+                                <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500' }}>Confirmar Nueva Contraseña</label>
+                                <input name="confirm" type="password" className="swal2-input" style={{ width: '100%', margin: 0 }} placeholder="Confirmar contraseña" />
+                            </div>
+                            <button type="submit" className="primary-btn" style={{ width: '100%', padding: '12px' }}>
+                                Guardar Cambios de Perfil
+                            </button>
+                        </form>
+                    </div>
+                )}
+
+                {activeTab === 'students' && (
+                    <div className="card">
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
+                            <h3>Base de Datos de Estudiantes</h3>
+                            {!showEnrollmentForm && (
+                                <div style={{ display: 'flex', gap: '10px' }}>
+                                    <button className="primary-btn" style={{ background: '#10b981' }} onClick={handleExport} disabled={isUploading}>
+                                        Descargar Planilla
+                                    </button>
+                                    <input 
+                                        type="file" 
+                                        ref={fileInputRef} 
+                                        style={{ display: 'none' }} 
+                                        accept=".xlsx" 
+                                        onChange={handleFileChange} 
+                                    />
+                                    <button 
+                                        className="primary-btn" 
+                                        style={{ background: '#6366f1' }} 
+                                        onClick={() => fileInputRef.current?.click()}
+                                        disabled={isUploading}
+                                    >
+                                        {isUploading ? 'Subiendo...' : <><Upload size={18} /> Subir Planilla</>}
+                                    </button>
+                                    <button className="primary-btn" onClick={() => setShowEnrollmentForm(true)} disabled={isUploading}>
+                                        <Plus size={18} /> Nueva Matrícula Oficial
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+
+                        {showEnrollmentForm ? (
+                            <EnrollmentForm levels={levels} onSubmit={handleEnrollSubmit} onCancel={() => setShowEnrollmentForm(false)} />
+                        ) : (
+                            <div>
+                                <div style={{ marginBottom: '20px' }}>
+                                    <label style={{ fontWeight: 'bold', marginRight: '10px' }}>Filtrar por Curso:</label>
+                                    <select 
+                                        value={selectedLevelFilter} 
+                                        onChange={(e) => setSelectedLevelFilter(e.target.value)}
+                                        style={{ padding: '8px', borderRadius: '4px', border: '1px solid #cbd5e1' }}
+                                    >
+                                        <option value="">Seleccione un curso...</option>
+                                        {levels.map(l => <option key={l.id} value={l.name}>{l.name}</option>)}
+                                    </select>
+                                </div>
+                                
+                                {selectedLevelFilter === '' ? (
+                                    <div style={{ padding: '40px', textAlign: 'center', background: '#f8fafc', borderRadius: '8px', border: '1px dashed #cbd5e1' }}>
+                                        <GraduationCap size={48} style={{ color: '#94a3b8', margin: '0 auto 10px' }} />
+                                        <p style={{ color: '#64748b' }}>Seleccione un curso en el menú desplegable para ver el listado de estudiantes.</p>
+                                    </div>
+                                ) : (
+                                    <table className="data-table">
+                                        <thead><tr><th>N°</th><th>RUT</th><th>Nombre</th><th>Curso</th><th>Registrado</th><th>Acciones</th></tr></thead>
+                                        <tbody>
+                                            {students
+                                                .filter(s => s.level_name === selectedLevelFilter)
+                                                .sort((a, b) => (a.list_number || 999) - (b.list_number || 999))
+                                                .map((s, idx) => (
+                                                <tr key={s.id} style={s.status === 'RETIRADO' ? { color: '#ef4444', textDecoration: 'line-through', fontWeight: '500' } : {}}>
+                                                    <td>
+                                                        <input 
+                                                            type="number"
+                                                            defaultValue={s.list_number || ''}
+                                                            onBlur={(e) => handleListNumberChange(s.id, e.target.value)}
+                                                            style={{ width: '50px', padding: '4px', textAlign: 'center', borderRadius: '4px', border: '1px solid #cbd5e1' }}
+                                                        />
+                                                    </td>
+                                                    <td>{s.run}</td>
+                                                    <td>{s.full_name}</td>
+                                                    <td>{s.level_name}</td>
+                                                    <td>{new Date(s.created_at).toLocaleDateString()}</td>
+                                                    <td style={{ display: 'flex', gap: '5px' }}>
+                                                        <button onClick={() => setViewingStudentId(s.id)} title="Editar Datos Base de Datos" style={{ padding: '6px', background: '#059669', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+                                                            <Edit2 size={14} />
+                                                        </button>
+                                                        <button onClick={() => handlePrintOfficial(s.id)} title="Ver/Imprimir Ficha Oficial" style={{ padding: '6px', background: '#38bdf8', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+                                                            <Printer size={14} />
+                                                        </button>
+                                                        <button onClick={() => handleViewObservations(s)} title="Libro de Vida" style={{ padding: '6px', background: '#10b981', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+                                                            <BookOpen size={14} />
+                                                        </button>
+                                                        <button onClick={() => handleDeleteStudent(s.id)} title="Dar de baja" style={{ padding: '6px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+                                                            <X size={14} />
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                            {students.filter(s => s.level_name === selectedLevelFilter).length === 0 && (
+                                                <tr>
+                                                    <td colSpan={6} style={{ textAlign: 'center', padding: '20px', color: '#64748b' }}>
+                                                        No hay estudiantes registrados en este curso.
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </tbody>
+                                    </table>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {viewingStudentId && (
+                    <StudentWindow 
+                        studentId={viewingStudentId} 
+                        token={token || ''} 
+                        onClose={() => setViewingStudentId(null)} 
+                        onPrint={handlePrintOfficial}
+                    />
+                )}
+
+                {selectedStudentForObs && (
+                    <div className="card" style={{ marginTop: '20px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <h3>Libro de Vida: {selectedStudentForObs.full_name}</h3>
+                            <button onClick={() => setSelectedStudentForObs(null)} className="logout-btn" style={{ width: 'auto', background: '#64748b' }}>Cerrar</button>
+                        </div>
+                        
+                        <form onSubmit={handleAddObservation} style={{ margin: '20px 0', padding: '15px', background: '#f1f5f9', borderRadius: '8px' }}>
+                            <div style={{ display: 'flex', gap: '10px' }}>
+                                <textarea 
+                                    style={{ flex: 1, padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                                    placeholder="Nueva observación..."
+                                    value={newObs.content}
+                                    onChange={e => setNewObs({ ...newObs, content: e.target.value })}
+                                    required
+                                />
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                                    <select 
+                                        value={newObs.type}
+                                        onChange={e => setNewObs({ ...newObs, type: e.target.value as any })}
+                                        style={{ padding: '8px', borderRadius: '6px' }}
+                                    >
+                                        <option value="Positive">Positiva</option>
+                                        <option value="Negative">Negativa</option>
+                                    </select>
+                                    <button type="submit" className="primary-btn">Agregar</button>
+                                </div>
+                            </div>
+                        </form>
+
+                        <div className="observations-list">
+                            {observations.length === 0 ? <p>No hay observaciones registradas.</p> : observations.map(obs => (
+                                <div key={obs.id} style={{ 
+                                    padding: '12px', 
+                                    borderLeft: `4px solid ${obs.type === 'Positive' ? '#10b981' : '#ef4444'}`,
+                                    background: '#fff',
+                                    marginBottom: '10px',
+                                    boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+                                }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#64748b', marginBottom: '5px' }}>
+                                        <span>{obs.teacher_name}</span>
+                                        <span>{new Date(obs.created_at).toLocaleString()}</span>
+                                    </div>
+                                    <p style={{ margin: 0 }}>{obs.content}</p>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+            </main>
+        </div>
+    );
+};

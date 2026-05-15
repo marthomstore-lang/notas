@@ -1,0 +1,166 @@
+.official-form-container {
+    background: white;
+    padding: 25mm 20mm; /* Standard margin for A4 */
+    font-family: 'Times New Roman', serif; /* More official feel */
+    color: #1a1a1a;
+    width: 210mm;
+    min-height: 297mm;
+    margin: 0 auto;
+    box-sizing: border-box;
+    box-shadow: 0 0 20px rgba(0,0,0,0.05);
+    line-height: 1.2;
+}
+
+.official-header {
+    text-align: center;
+    border-bottom: 2px solid #333;
+    padding-bottom: 15px;
+    margin-bottom: 25px;
+    position: relative;
+}
+
+.official-header p {
+    margin: 0 0 2px 0;
+    font-size: 0.75rem;
+    color: #555;
+}
+
+.official-header h1 {
+    margin: 2px 0;
+    font-size: 1.4rem;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.official-header h2 {
+    margin: 5px 0 0 0;
+    font-size: 0.8rem;
+    font-weight: bold;
+    color: #444;
+    letter-spacing: 2px;
+    border-top: 1px solid #eee;
+    padding-top: 5px;
+    display: inline-block;
+}
+
+.form-section {
+    margin-bottom: 25px;
+}
+
+.section-title {
+    background: #f8f9fa;
+    border-left: 4px solid #333;
+    border-bottom: 1px solid #ddd;
+    padding: 5px 12px;
+    font-weight: bold;
+    font-size: 0.85rem;
+    margin-bottom: 12px;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+}
+
+.subsection-title {
+    font-size: 0.8rem;
+    color: #333;
+    margin: 15px 0 8px 0;
+    font-weight: bold;
+    border-bottom: 1.5px solid #333;
+    padding-bottom: 2px;
+    text-transform: uppercase;
+}
+
+.form-row {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 15px;
+}
+
+.field {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.field label {
+    font-family: Arial, sans-serif; /* Clean sans for labels */
+    font-size: 0.65rem;
+    font-weight: bold;
+    color: #4b5563;
+    margin-bottom: 3px;
+    text-transform: uppercase;
+}
+
+.field .value {
+    border-bottom: 1px solid #444;
+    padding-bottom: 2px;
+    font-size: 0.9rem;
+    min-height: 18px;
+    color: #000;
+    font-weight: 500;
+}
+
+.compromise-box {
+    border: 1px solid #333;
+    padding: 15px;
+    margin-top: 30px;
+}
+
+.compromise-box h4 {
+    margin: 0 0 10px 0;
+    font-size: 0.85rem;
+}
+
+.compromise-box p {
+    margin: 0;
+    font-size: 0.8rem;
+    line-height: 1.5;
+    text-align: justify;
+}
+
+.signatures {
+    display: flex;
+    justify-content: space-around;
+    margin-top: 60px;
+}
+
+.signature-box {
+    text-align: center;
+    width: 250px;
+}
+
+.signature-box .line {
+    border-bottom: 1px solid #ccc;
+    margin-bottom: 10px;
+}
+
+.signature-box p {
+    margin: 0 0 4px 0;
+    font-size: 0.8rem;
+    font-weight: bold;
+    font-family: Arial, sans-serif;
+}
+
+.signature-box .sub {
+    font-size: 0.75rem;
+    font-weight: normal;
+    color: #555;
+}
+
+@media print {
+    body * {
+        visibility: hidden;
+    }
+    .printable, .printable * {
+        visibility: visible;
+    }
+    .printable {
+        position: absolute;
+        left: 0;
+        top: 0;
+        box-shadow: none;
+        padding: 0;
+        margin: 0;
+    }
+}

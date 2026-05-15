@@ -1,0 +1,166 @@
+import React, { Fragment } from 'react';
+import './GradesReport.css';
+
+interface Props {
+    data: any[]; 
+    period: string;
+    year: string;
+    onClose: () => void;
+}
+
+export const GradesReport: React.FC<Props> = ({ data, period, year, onClose }) => {
+    const reports = Array.isArray(data) ? data : [data];
+
+    if (!reports || reports.length === 0) {
+        return (
+            <div className="report-overlay no-print">
+                <div className="report-actions">
+                    <p style={{ color: 'white' }}>No hay datos para mostrar</p>
+                    <button className="secondary-btn" onClick={onClose}>Cerrar</button>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="report-overlay">
+            <div className="report-actions no-print">
+                <button 
+                    className="primary-btn" 
+                    onClick={() => window.print()}
+                    style={{ background: '#4f46e5', color: 'white', padding: '14px 28px', borderRadius: '8px', fontWeight: '900', fontSize: '1.1rem', boxShadow: '0 4px 15px rgba(0,0,0,0.5)' }}
+                >
+                    IMPRIMIR / DESCARGAR PDF ({reports.length} REPORTES)
+                </button>
+                <button className="secondary-btn" onClick={onClose} style={{ padding: '14px 28px' }}>CERRAR</button>
+            </div>
+            
+            <div className="all-reports-container">
+                {reports.map((report, rIdx) => {
+                    const { student, homeroomTeacherName, directorName, periodData, isAnnual } = report;
+                    return (
+                        <div key={student.id || rIdx} className="report-page-wrapper">
+                            <div className="report-paper A4">
+                                <header className="report-header">
+                                    <div className="institutional-header">
+                                        <img src="/assets/logo.png" alt="Logo" className="header-logo" />
+                                        <div className="school-info">
+                                            <h2>LICEO T.P. CAMPANARIO</h2>
+                                            <p>Yungay, Región de Ñuble</p>
+                                        </div>
+                                    </div>
+                                </header>
+
+                                <div className="report-title-centered">
+                                    <h1>{isAnnual ? 'INFORME ANUAL DE CALIFICACIONES' : 'INFORME DE CALIFICACIONES'}</h1>
+                                    <p>{period} - Año Escolar {year}</p>
+                                </div>
+
+                                <section className="student-info-section">
+                                    <div className="info-grid">
+                                        <div className="info-item">
+                                            <label>ESTUDIANTE :</label>
+                                            <span className="info-value">{student?.full_name || 'N/A'}</span>
+                                        </div>
+                                        <div className="info-item">
+                                            <label>RUT :</label>
+                                            <span className="info-value">{student?.run || 'N/A'}</span>
+                                        </div>
+                                        <div className="info-item">
+                                            <label>CURSO :</label>
+                                            <span className="info-value">{student?.level_name || 'N/A'}</span>
+                                        </div>
+                                        <div className="info-item">
+                                            <label>FECHA :</label>
+                                            <span className="info-value">{new Date().toLocaleDateString('es-CL')}</span>
+                                        </div>
+                                    </div>
+                                </section>
+
+                                <table className="report-table">
+                                    <thead>
+                                        {isAnnual ? (
+                                            <tr>
+                                                <th>ASIGNATURA / PERIODO</th>
+                                                {Array.from({ length: 10 }).map((_, i) => (
+                                                    <th key={i} className="grade-cell">N{i + 1}</th>
+                                                ))}
+                                                <th>PROM. SEM.</th>
+                                                <th>PROM. FINAL</th>
+                                            </tr>
+                                        ) : (
+                                            <tr>
+                                                <th>ASIGNATURA</th>
+                                                <th colSpan={10}>CALIFICACIONES PARCIALES</th>
+                                                <th>PROMEDIO</th>
+                                            </tr>
+                                        )}
+                                    </thead>
+                                    <tbody>
+                                        {periodData && periodData.map((row: any, idx: number) => (
+                                            <Fragment key={idx}>
+                                                {isAnnual ? (
+                                                    <>
+                                                        <tr>
+                                                            <td className="subject-name" style={{ borderBottom: 'none' }}>{row.subjectName}</td>
+                                                            {row.s1 && row.s1.map((g: any, i: number) => (
+                                                                <td key={i} className="grade-cell">{g || ''}</td>
+                                                            ))}
+                                                            <td className="average-cell">{row.avgS1}</td>
+                                                            <td className="average-cell" rowSpan={2} style={{ verticalAlign: 'middle', fontSize: '1.2rem' }}>{row.average}</td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td className="subject-name" style={{ fontSize: '0.7rem', color: '#64748b', paddingTop: 0 }}>2DO SEMESTRE</td>
+                                                            {row.s2 && row.s2.map((g: any, i: number) => (
+                                                                <td key={i} className="grade-cell">{g || ''}</td>
+                                                            ))}
+                                                            <td className="average-cell">{row.avgS2}</td>
+                                                        </tr>
+                                                        <tr className="subject-divider"><td colSpan={13}></td></tr>
+                                                    </>
+                                                ) : (
+                                                    <tr>
+                                                        <td className="subject-name">{row.subjectName}</td>
+                                                        {Array.from({ length: 10 }).map((_, i) => (
+                                                            <td key={i} className="grade-cell">
+                                                                {row.grades && row.grades[i] || ''}
+                                                            </td>
+                                                        ))}
+                                                        <td className="average-cell">{row.average}</td>
+                                                    </tr>
+                                                )}
+                                            </Fragment>
+                                        ))}
+                                    </tbody>
+                                </table>
+
+                                <footer className="report-footer">
+                                    <div className="signatures">
+                                        <div className="signature-box">
+                                            <div className="line"></div>
+                                            <p className="name">
+                                                {(!homeroomTeacherName || homeroomTeacherName === 'No asignado') 
+                                                    ? '________________________' 
+                                                    : homeroomTeacherName}
+                                            </p>
+                                            <p className="title">Profesor(a) Jefe</p>
+                                        </div>
+                                        <div className="signature-box">
+                                            <div className="line"></div>
+                                            <p className="name">{directorName || '________________________'}</p>
+                                            <p className="title">Director(a)</p>
+                                        </div>
+                                    </div>
+                                    <div className="footer-notes">
+                                        <p>Documento oficial generado por el Sistema de Gestión Educacional <strong>Liceo Pro</strong>.</p>
+                                        <p>La información contenida en este informe es de carácter confidencial y para fines académicos.</p>
+                                    </div>
+                                </footer>
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
+    );
+};
