@@ -93,7 +93,7 @@ export const GradesSheet: React.FC<GradesSheetProps> = ({ initialLevelId, initia
 
         setIsSaving(true);
         try {
-            await fetch('/api/admin/grades/sheet', {
+            await fetch('/_/backend/api/admin/grades/sheet', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify({ ...filters, columns, gradesData })
@@ -107,7 +107,7 @@ export const GradesSheet: React.FC<GradesSheetProps> = ({ initialLevelId, initia
 
     const handlePrint = async (studentId: string) => {
         try {
-            const res = await fetch(`/api/reports/grades/${studentId}?year=${filters.year}&period=${filters.period}`, {
+            const res = await fetch(`/_/backend/api/reports/grades/${studentId}?year=${filters.year}&period=${filters.period}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await res.json();
@@ -134,7 +134,7 @@ export const GradesSheet: React.FC<GradesSheetProps> = ({ initialLevelId, initia
         });
 
         try {
-            const res = await fetch(`/api/reports/grades/level/${filters.levelId}?year=${filters.year}&period=${filters.period}`, {
+            const res = await fetch(`/_/backend/api/reports/grades/level/${filters.levelId}?year=${filters.year}&period=${filters.period}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await res.json();
@@ -155,7 +155,7 @@ export const GradesSheet: React.FC<GradesSheetProps> = ({ initialLevelId, initia
 
     const fetchFilters = async () => {
         try {
-            const res = await fetch('/api/admin/grades/filters', {
+            const res = await fetch('/_/backend/api/admin/grades/filters', {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await res.json();
@@ -191,7 +191,7 @@ export const GradesSheet: React.FC<GradesSheetProps> = ({ initialLevelId, initia
         if (!filters.levelId || !filters.subjectId) return;
         setLoading(true);
         try {
-            const res = await fetch(`/api/admin/grades/sheet?levelId=${filters.levelId}&subjectId=${filters.subjectId}&period=${filters.period}&year=${filters.year}`, {
+            const res = await fetch(`/_/backend/api/admin/grades/sheet?levelId=${filters.levelId}&subjectId=${filters.subjectId}&period=${filters.period}&year=${filters.year}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await res.json();
@@ -234,7 +234,7 @@ export const GradesSheet: React.FC<GradesSheetProps> = ({ initialLevelId, initia
         setStudents(prev => prev.map(s => s.id === studentId ? { ...s, list_number: newListNumber } : s));
 
         try {
-            await fetch('/api/admin/grades/student-position', {
+            await fetch('/_/backend/api/admin/grades/student-position', {
                 method: 'POST',
                 headers: { 
                     'Content-Type': 'application/json',
@@ -267,7 +267,7 @@ export const GradesSheet: React.FC<GradesSheetProps> = ({ initialLevelId, initia
 
         if (result.isConfirmed) {
             try {
-                const res = await fetch('/api/admin/grades/bulk-position', {
+                const res = await fetch('/_/backend/api/admin/grades/bulk-position', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                     body: JSON.stringify({ levelId: filters.levelId, academicYear: filters.year, positions })
@@ -360,7 +360,7 @@ export const GradesSheet: React.FC<GradesSheetProps> = ({ initialLevelId, initia
                 return { student_id: studentId, position: parseInt(position), grade_value: val };
             });
 
-            const res = await fetch('/api/admin/grades/sheet', {
+            const res = await fetch('/_/backend/api/admin/grades/sheet', {
                 method: 'POST',
                 headers: { 
                     'Content-Type': 'application/json',
@@ -397,7 +397,7 @@ export const GradesSheet: React.FC<GradesSheetProps> = ({ initialLevelId, initia
         if ((user as any).role !== 'Admin') return;
         
         try {
-            const res = await fetch('/api/admin/grades/toggle-lock', {
+            const res = await fetch('/_/backend/api/admin/grades/toggle-lock', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify({ ...filters, academicYear: filters.year, lock: !isLocked })

@@ -60,11 +60,11 @@ export const AdminDashboard = () => {
             const headers = { 'Authorization': `Bearer ${token}` };
             
             const [tRes, sRes, lRes, stuRes, aRes] = await Promise.all([
-                fetch('/api/admin/teachers', { headers }),
-                fetch('/api/admin/subjects', { headers }),
-                fetch('/api/admin/levels', { headers }),
-                fetch('/api/admin/students', { headers }),
-                fetch('/api/admin/assignments', { headers })
+                fetch('/_/backend/api/admin/teachers', { headers }),
+                fetch('/_/backend/api/admin/subjects', { headers }),
+                fetch('/_/backend/api/admin/levels', { headers }),
+                fetch('/_/backend/api/admin/students', { headers }),
+                fetch('/_/backend/api/admin/assignments', { headers })
             ]);
             
             const handleRes = async (res: Response, label: string) => {
@@ -106,7 +106,7 @@ export const AdminDashboard = () => {
 
             if (activeTab === 'audit') {
                 try {
-                    const aLogRes = await fetch('/api/admin/system/audit-logs', { headers });
+                    const aLogRes = await fetch('/_/backend/api/admin/system/audit-logs', { headers });
                     if (aLogRes.ok) {
                         const logs = await aLogRes.json();
                         setAuditLogs(logs);
@@ -134,7 +134,7 @@ export const AdminDashboard = () => {
         setStudents(students.map(s => s.id === studentId ? { ...s, list_number: num } : s));
 
         try {
-            await fetch('/api/admin/grades/update-position', {
+            await fetch('/_/backend/api/admin/grades/update-position', {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
                 body: JSON.stringify({ studentId, listNumber: num })
@@ -199,7 +199,7 @@ export const AdminDashboard = () => {
             const { run, name, email, password, role } = formValues;
             if (run && name && email) {
                 try {
-                    const res = await fetch('/api/admin/teachers', {
+                    const res = await fetch('/_/backend/api/admin/teachers', {
                         method: 'POST',
                         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
                         body: JSON.stringify({ run, name, email, password, role })
@@ -257,7 +257,7 @@ export const AdminDashboard = () => {
         if (formValues) {
             const { name, email, password, role } = formValues;
             try {
-                const res = await fetch(`/api/admin/teachers/${teacher.id}`, {
+                const res = await fetch(`/_/backend/api/admin/teachers/${teacher.id}`, {
                     method: 'PUT',
                     headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
                     body: JSON.stringify({ name, email, password, role })
@@ -292,7 +292,7 @@ export const AdminDashboard = () => {
         });
 
         if (result.isConfirmed) {
-            const res = await fetch(`/api/admin/teachers/${id}`, {
+            const res = await fetch(`/_/backend/api/admin/teachers/${id}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -314,7 +314,7 @@ export const AdminDashboard = () => {
             showCancelButton: true
         });
         if (name) {
-            await fetch('/api/admin/subjects', {
+            await fetch('/_/backend/api/admin/subjects', {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name })
@@ -333,7 +333,7 @@ export const AdminDashboard = () => {
             subjectId: form.subjectId.value,
             academicYear: new Date().getFullYear()
         };
-        const res = await fetch('/api/admin/assignments', {
+        const res = await fetch('/_/backend/api/admin/assignments', {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
@@ -357,7 +357,7 @@ export const AdminDashboard = () => {
         });
 
         if (result.isConfirmed) {
-            const res = await fetch(`/api/admin/assignments/${id}`, {
+            const res = await fetch(`/_/backend/api/admin/assignments/${id}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -384,7 +384,7 @@ export const AdminDashboard = () => {
 
         if (capacity) {
             try {
-                const res = await fetch(`/api/admin/levels/${level.id}/capacity`, {
+                const res = await fetch(`/_/backend/api/admin/levels/${level.id}/capacity`, {
                     method: 'PUT',
                     headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
                     body: JSON.stringify({ capacity: parseInt(capacity) })
@@ -402,7 +402,7 @@ export const AdminDashboard = () => {
     const handleExport = async () => {
         if (!token) return;
         try {
-            const response = await fetch(`/api/admin/export`, {
+            const response = await fetch(`/_/backend/api/admin/export`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             
@@ -462,7 +462,7 @@ export const AdminDashboard = () => {
         formData.append('file', file);
 
         try {
-            const response = await fetch('/api/admin/import', {
+            const response = await fetch('/_/backend/api/admin/import', {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${token}` },
                 body: formData
@@ -488,7 +488,7 @@ export const AdminDashboard = () => {
     };
 
     const handleEnrollSubmit = async (payload: any) => {
-        const res = await fetch('/api/enrollments', {
+        const res = await fetch('/_/backend/api/enrollments', {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
@@ -504,7 +504,7 @@ export const AdminDashboard = () => {
     };
 
     const handlePrintOfficial = async (studentId: string) => {
-        const res = await fetch(`/api/admin/students/${studentId}`, {
+        const res = await fetch(`/_/backend/api/admin/students/${studentId}`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         if (res.ok) {
@@ -517,7 +517,7 @@ export const AdminDashboard = () => {
 
     const handleViewObservations = async (student: any) => {
         setSelectedStudentForObs(student);
-        const res = await fetch(`/api/admin/students/${student.id}/observations`, {
+        const res = await fetch(`/_/backend/api/admin/students/${student.id}/observations`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         if (res.ok) {
@@ -527,7 +527,7 @@ export const AdminDashboard = () => {
 
     const handleAddObservation = async (e: React.FormEvent) => {
         e.preventDefault();
-        const res = await fetch(`/api/admin/students/${selectedStudentForObs.id}/observations`, {
+        const res = await fetch(`/_/backend/api/admin/students/${selectedStudentForObs.id}/observations`, {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
             body: JSON.stringify(newObs)
@@ -551,7 +551,7 @@ export const AdminDashboard = () => {
         });
 
         if (withdrawalDate) {
-            const res = await fetch(`/api/admin/students/${id}`, {
+            const res = await fetch(`/_/backend/api/admin/students/${id}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
                 body: JSON.stringify({ withdrawalDate })
@@ -700,7 +700,7 @@ export const AdminDashboard = () => {
                                 }
                             });
                             if (formValues) {
-                                await fetch('/api/admin/settings', {
+                                await fetch('/_/backend/api/admin/settings', {
                                     method: 'POST',
                                     headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
                                     body: JSON.stringify(formValues)
@@ -981,7 +981,7 @@ export const AdminDashboard = () => {
                                     const form = e.target as HTMLFormElement;
                                     const levelId = form.levelId.value;
                                     const teacherId = form.teacherId.value;
-                                    const res = await fetch('/api/admin/set-homeroom', {
+                                    const res = await fetch('/_/backend/api/admin/set-homeroom', {
                                         method: 'POST',
                                         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
                                         body: JSON.stringify({ levelId, teacherId })
@@ -1053,7 +1053,7 @@ export const AdminDashboard = () => {
                             }
 
                             try {
-                                const res = await fetch('/api/auth/me', {
+                                const res = await fetch('/_/backend/api/auth/me', {
                                     method: 'PUT',
                                     headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
                                     body: JSON.stringify({ email, password })

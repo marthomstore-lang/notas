@@ -73,7 +73,7 @@ export const StudentWindow: React.FC<StudentWindowProps> = ({ studentId, token, 
     const fetchStudent = async () => {
         setLoading(true);
         try {
-            const res = await fetch(`/api/admin/students/${studentId}`, {
+            const res = await fetch(`/_/backend/api/admin/students/${studentId}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (res.ok) {
@@ -100,7 +100,7 @@ export const StudentWindow: React.FC<StudentWindowProps> = ({ studentId, token, 
                 updatedStudent.full_name = `${student.paternal_surname || ''} ${student.maternal_surname || ''} ${student.first_name || ''}`.replace(/\s+/g, ' ').trim();
             }
 
-            const res = await fetch(`/api/admin/students/${studentId}`, {
+            const res = await fetch(`/_/backend/api/admin/students/${studentId}`, {
                 method: 'PUT',
                 headers: { 
                     'Content-Type': 'application/json',
@@ -153,7 +153,7 @@ export const StudentWindow: React.FC<StudentWindowProps> = ({ studentId, token, 
 
         if (date) {
             try {
-                const res = await fetch(`/api/admin/students/${studentId}`, {
+                const res = await fetch(`/_/backend/api/admin/students/${studentId}`, {
                     method: 'DELETE',
                     headers: { 
                         'Authorization': `Bearer ${token}`,
@@ -772,7 +772,7 @@ export const StudentWindow: React.FC<StudentWindowProps> = ({ studentId, token, 
                                         cancelButtonText: 'Cancelar'
                                     });
                                     if (confirm.isConfirmed) {
-                                        const res = await fetch(`/api/admin/students/${studentId}/reincorporate`, {
+                                        const res = await fetch(`/_/backend/api/admin/students/${studentId}/reincorporate`, {
                                             method: 'POST',
                                             headers: { 'Authorization': `Bearer ${token}` }
                                         });

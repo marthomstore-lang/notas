@@ -28,7 +28,7 @@ export const TeacherDashboard = () => {
 
     useEffect(() => {
         if (token) {
-            fetch('/api/teacher/assignments', {
+            fetch('/_/backend/api/teacher/assignments', {
                 headers: { 'Authorization': `Bearer ${token}` }
             })
             .then(res => res.json())
@@ -39,7 +39,7 @@ export const TeacherDashboard = () => {
 
     const loadStudentsForObs = async (assignmentId: string) => {
         setSelectedLevelId(assignmentId as any);
-        const res = await fetch(`/api/teacher/grades/${assignmentId}`, {
+        const res = await fetch(`/_/backend/api/teacher/grades/${assignmentId}`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         if (res.ok) {
@@ -50,7 +50,7 @@ export const TeacherDashboard = () => {
 
     const loadObservations = async (studentId: string) => {
         setSelectedStudentId(studentId);
-        const res = await fetch(`/api/admin/students/${studentId}/observations`, {
+        const res = await fetch(`/_/backend/api/admin/students/${studentId}/observations`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         if (res.ok) {
@@ -60,7 +60,7 @@ export const TeacherDashboard = () => {
 
     const handleAddObservation = async (e: React.FormEvent) => {
         e.preventDefault();
-        const res = await fetch(`/api/admin/students/${selectedStudentId}/observations`, {
+        const res = await fetch(`/_/backend/api/admin/students/${selectedStudentId}/observations`, {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
             body: JSON.stringify(newObs)
@@ -238,7 +238,7 @@ export const TeacherDashboard = () => {
                             }
 
                             try {
-                                const res = await fetch('/api/auth/me', {
+                                const res = await fetch('/_/backend/api/auth/me', {
                                     method: 'PUT',
                                     headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
                                     body: JSON.stringify({ email, password })

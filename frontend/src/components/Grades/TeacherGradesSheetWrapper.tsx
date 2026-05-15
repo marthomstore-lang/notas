@@ -15,7 +15,7 @@ export const TeacherGradesSheetWrapper: React.FC = () => {
         if (!token || !assignmentId) return;
         
         // Fetch assignment details to get levelId and subjectId
-        fetch(`/api/teacher/assignments`, {
+        fetch(`/_/backend/api/teacher/assignments`, {
             headers: { 'Authorization': `Bearer ${token}` }
         })
         .then(res => res.json())

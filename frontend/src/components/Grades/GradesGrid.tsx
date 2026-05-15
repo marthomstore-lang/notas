@@ -30,7 +30,7 @@ export const GradesGrid: React.FC = () => {
     useEffect(() => {
         if (!token || !assignmentId) return;
         
-        fetch(`/api/teacher/grades/${assignmentId}`, {
+        fetch(`/_/backend/api/teacher/grades/${assignmentId}`, {
             headers: { 'Authorization': `Bearer ${token}` }
         })
         .then(res => res.json())
@@ -55,7 +55,7 @@ export const GradesGrid: React.FC = () => {
         if (!title) return;
 
         try {
-            const res = await fetch(`/api/teacher/grades/${assignmentId}/columns`, {
+            const res = await fetch(`/_/backend/api/teacher/grades/${assignmentId}/columns`, {
                 method: 'POST',
                 headers: { 
                     'Authorization': `Bearer ${token}`,
@@ -75,7 +75,7 @@ export const GradesGrid: React.FC = () => {
         debounce(async (studentId: string, columnId: string, gradeValue: number) => {
             setSaving(true);
             try {
-                await fetch('/api/teacher/grades/save', {
+                await fetch('/_/backend/api/teacher/grades/save', {
                     method: 'POST',
                     headers: { 
                         'Authorization': `Bearer ${token}`,

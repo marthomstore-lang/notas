@@ -41,57 +41,61 @@ const authMiddleware = (req: Request, res: Response, next: NextFunction) => {
     }
 };
 
+const router = express.Router();
+
 // Rutas Públicas
-app.post('/api/auth/login', login);
-app.put('/api/auth/me', authMiddleware, updateProfile);
+router.post('/auth/login', login);
+router.put('/auth/me', authMiddleware, updateProfile);
 
 // Rutas Estudiantes (Fase 1)
-app.post('/api/enrollments', authMiddleware, registerEnrollment);
+router.post('/enrollments', authMiddleware, registerEnrollment);
 
 // Rutas Admin (Fase 4)
-app.get('/api/admin/teachers', authMiddleware, getTeachers);
-app.post('/api/admin/teachers', authMiddleware, createTeacher);
-app.put('/api/admin/teachers/:id', authMiddleware, updateTeacher);
-app.delete('/api/admin/teachers/:id', authMiddleware, deleteTeacher);
-app.get('/api/admin/subjects', authMiddleware, getSubjects);
-app.post('/api/admin/subjects', authMiddleware, createSubject);
-app.get('/api/admin/levels', authMiddleware, getLevels);
-app.put('/api/admin/levels/:id/capacity', authMiddleware, updateLevelCapacity);
-app.get('/api/admin/assignments', authMiddleware, getAssignmentsAdmin);
-app.post('/api/admin/assignments', authMiddleware, createAssignment);
-app.delete('/api/admin/assignments/:id', authMiddleware, deleteAssignment);
-app.post('/api/admin/set-homeroom', authMiddleware, setHomeroomTeacher);
-app.get('/api/admin/students', authMiddleware, getStudents);
-app.get('/api/admin/export', authMiddleware, exportData);
-app.post('/api/admin/import', authMiddleware, upload.single('file'), importDataWeb);
-app.get('/api/admin/students/:id', authMiddleware, getStudentById);
-app.put('/api/admin/students/:id', authMiddleware, updateStudent);
-app.delete('/api/admin/students/:id', authMiddleware, deleteStudent);
-app.post('/api/admin/students/:id/reincorporate', authMiddleware, reincorporateStudent);
-app.get('/api/admin/students/:id/observations', authMiddleware, getStudentObservations);
-app.post('/api/admin/students/:id/observations', authMiddleware, addObservation);
+router.get('/admin/teachers', authMiddleware, getTeachers);
+router.post('/admin/teachers', authMiddleware, createTeacher);
+router.put('/admin/teachers/:id', authMiddleware, updateTeacher);
+router.delete('/admin/teachers/:id', authMiddleware, deleteTeacher);
+router.get('/admin/subjects', authMiddleware, getSubjects);
+router.post('/admin/subjects', authMiddleware, createSubject);
+router.get('/admin/levels', authMiddleware, getLevels);
+router.put('/admin/levels/:id/capacity', authMiddleware, updateLevelCapacity);
+router.get('/admin/assignments', authMiddleware, getAssignmentsAdmin);
+router.post('/admin/assignments', authMiddleware, createAssignment);
+router.delete('/admin/assignments/:id', authMiddleware, deleteAssignment);
+router.post('/admin/set-homeroom', authMiddleware, setHomeroomTeacher);
+router.get('/admin/students', authMiddleware, getStudents);
+router.get('/admin/export', authMiddleware, exportData);
+router.post('/admin/import', authMiddleware, upload.single('file'), importDataWeb);
+router.get('/admin/students/:id', authMiddleware, getStudentById);
+router.put('/admin/students/:id', authMiddleware, updateStudent);
+router.delete('/admin/students/:id', authMiddleware, deleteStudent);
+router.post('/admin/students/:id/reincorporate', authMiddleware, reincorporateStudent);
+router.get('/admin/students/:id/observations', authMiddleware, getStudentObservations);
+router.post('/admin/students/:id/observations', authMiddleware, addObservation);
 
 // Rutas Calificaciones (Notas)
-app.get('/api/admin/grades/filters', authMiddleware, getFiltersData);
-app.get('/api/admin/grades/sheet', authMiddleware, getGradesSheet);
-app.post('/api/admin/grades/sheet', authMiddleware, saveGradesSheet);
-app.post('/api/admin/grades/student-position', authMiddleware, updateStudentPosition);
-app.post('/api/admin/grades/bulk-position', authMiddleware, bulkUpdateStudentPositions);
-app.post('/api/admin/grades/toggle-lock', authMiddleware, toggleLockAssignment);
-app.get('/api/admin/system/audit-logs', authMiddleware, getAuditLogs);
+router.get('/admin/grades/filters', authMiddleware, getFiltersData);
+router.get('/admin/grades/sheet', authMiddleware, getGradesSheet);
+router.post('/admin/grades/sheet', authMiddleware, saveGradesSheet);
+router.post('/admin/grades/student-position', authMiddleware, updateStudentPosition);
+router.post('/admin/grades/bulk-position', authMiddleware, bulkUpdateStudentPositions);
+router.post('/admin/grades/toggle-lock', authMiddleware, toggleLockAssignment);
+router.get('/admin/system/audit-logs', authMiddleware, getAuditLogs);
 
 // Rutas Reportes y Configuración
-app.get('/api/reports/grades/:studentId', authMiddleware, getStudentGradesReport);
-app.get('/api/reports/grades/level/:levelId', authMiddleware, getLevelGradesReport);
-app.post('/api/admin/settings', authMiddleware, updateInstitutionalSettings);
-app.post('/api/admin/homeroom-teacher', authMiddleware, setHomeroomTeacher);
+router.get('/reports/grades/:studentId', authMiddleware, getStudentGradesReport);
+router.get('/reports/grades/level/:levelId', authMiddleware, getLevelGradesReport);
+router.post('/admin/settings', authMiddleware, updateInstitutionalSettings);
+router.post('/admin/homeroom-teacher', authMiddleware, setHomeroomTeacher);
 
 // Rutas Docente (Fase 3)
-app.get('/api/teacher/assignments', authMiddleware, getAssignments);
-app.get('/api/teacher/grades/:assignmentId', authMiddleware, getGrades);
-app.post('/api/teacher/grades/:assignmentId/columns', authMiddleware, addColumn);
-app.post('/api/teacher/grades/save', authMiddleware, saveGrade);
-app.post('/api/teacher/grades/save', authMiddleware, saveGrade);
+router.get('/teacher/assignments', authMiddleware, getAssignments);
+router.get('/teacher/grades/:assignmentId', authMiddleware, getGrades);
+router.post('/teacher/grades/:assignmentId/columns', authMiddleware, addColumn);
+router.post('/teacher/grades/save', authMiddleware, saveGrade);
+
+app.use('/_/backend/api', router);
+
 
 app.listen(PORT, () => {
     console.log('=========================================');
