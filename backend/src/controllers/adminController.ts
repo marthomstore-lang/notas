@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import bcrypt from 'bcrypt';
 import { v4 as uuidv4 } from 'uuid';
-import db, { getDb } from '../config/db';
+import db from '../config/db';
 import * as xlsx from 'xlsx';
 
 export const getStudents = async (req: Request, res: Response) => {
@@ -46,17 +46,16 @@ export const deleteStudent = async (req: Request, res: Response) => {
         const { id } = req.params;
         const { withdrawalDate } = req.body;
         const user = (req as any).user;
-        const sqlite = await getDb();
         
-        const student = await sqlite.get("SELECT full_name FROM students WHERE id = ?", [id]);
+        const student = await db.get("SELECT full_name FROM students WHERE id = ?", [id]);
         if (!student) return res.status(404).json({ error: 'Estudiante no encontrado' });
 
         // Cambiamos a Soft Delete con Fecha de Retiro por solicitud del usuario
-        await sqlite.run("UPDATE students SET status = 'RETIRADO', withdrawal_date = ? WHERE id = ?", [withdrawalDate || new Date().toISOString().split('T')[0], id]);
+        await db.run("UPDATE students SET status = 'RETIRADO', withdrawal_date = ? WHERE id = ?", [withdrawalDate || new Date().toISOString().split('T')[0], id]);
 
         // Audit Log
         try {
-            await sqlite.run(`
+            await db.run(`
                 INSERT INTO audit_logs (id, user_id, user_name, action, details)
                 VALUES (?, ?, ?, ?, ?)
             `, [uuidv4(), user?.id, user?.name || user?.run || 'Sistema', 'WITHDRAW_STUDENT', `Retiro de estudiante: ${student.full_name} - Fecha: ${withdrawalDate}`]);
@@ -74,20 +73,19 @@ export const reincorporateStudent = async (req: Request, res: Response) => {
         const { id } = req.params;
         console.log(`[reincorporateStudent] Intentando reincorporar ID: ${id}`);
         const user = (req as any).user;
-        const sqlite = await getDb();
         
-        const student = await sqlite.get("SELECT full_name FROM students WHERE id = ?", [id]);
+        const student = await db.get("SELECT full_name FROM students WHERE id = ?", [id]);
         if (!student) {
             console.warn(`[reincorporateStudent] Estudiante no encontrado: ${id}`);
             return res.status(404).json({ error: 'Estudiante no encontrado' });
         }
 
-        const result = await sqlite.run("UPDATE students SET status = 'Active', withdrawal_date = NULL WHERE id = ?", [id]);
+        const result = await db.run("UPDATE students SET status = 'Active', withdrawal_date = NULL WHERE id = ?", [id]);
         console.log(`[reincorporateStudent] Resultado del update:`, result);
 
         // Audit Log
         try {
-            await sqlite.run(`
+            await db.run(`
                 INSERT INTO audit_logs (id, user_id, user_name, action, details)
                 VALUES (?, ?, ?, ?, ?)
             `, [uuidv4(), user?.id, user?.name || user?.run || 'Sistema', 'REINCORPORATE_STUDENT', `Reincorporación de estudiante: ${student.full_name}`]);
@@ -283,12 +281,10 @@ export const updateTeacher = async (req: Request, res: Response) => {
         const { name, email, password, role } = req.body;
         console.log(`[updateTeacher] Recibido PUT para ID: ${id}. Body:`, { name, email, password, role });
         
-        const sqlite = await getDb();
-        
         if (password && password.trim() !== "") {
             console.log(`[updateTeacher] Actualizando CON contraseña: ${password}`);
             const hashedPass = await bcrypt.hash(password, 10);
-            const result = await sqlite.run(`
+            const result = await db.run(`
                 UPDATE users 
                 SET name = ?, email = ?, password_hash = ?, password_plain = ?, role = ? 
                 WHERE id = ?
@@ -296,7 +292,7 @@ export const updateTeacher = async (req: Request, res: Response) => {
             
             if (result.changes === 0) return res.status(404).json({ error: 'Usuario no encontrado' });
         } else {
-            const result = await sqlite.run(`
+            const result = await db.run(`
                 UPDATE users SET name = ?, email = ?, role = ? WHERE id = ?
             `, [name, email, role, id]);
             
@@ -314,53 +310,46 @@ export const deleteTeacher = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
         const user = (req as any).user;
-        const sqlite = await getDb();
         
         // Fetch teacher name for audit log
-        const teacher = await sqlite.get("SELECT name FROM users WHERE id = ?", [id]);
+        const teacher = await db.get("SELECT name FROM users WHERE id = ?", [id]);
         if (!teacher) return res.status(404).json({ error: 'Docente no encontrado' });
 
-        await sqlite.run("BEGIN TRANSACTION");
+        // NOTE: Postgres handles transactions differently. 
+        // For simplicity, we execute sequential queries as the wrapper doesn't support complex transactions across both.
+        // On Supabase, this is usually fast enough.
 
-        try {
-            // 1. Delete assignments
-            await sqlite.run("DELETE FROM teacher_assignments WHERE teacher_id = ?", [id]);
-            
-            // 2. Clear homeroom teacher in levels
-            await sqlite.run("UPDATE levels SET homeroom_teacher_id = NULL WHERE homeroom_teacher_id = ?", [id]);
+        // 1. Delete assignments
+        await db.run("DELETE FROM teacher_assignments WHERE teacher_id = ?", [id]);
+        
+        // 2. Clear homeroom teacher in levels
+        await db.run("UPDATE levels SET homeroom_teacher_id = NULL WHERE homeroom_teacher_id = ?", [id]);
 
-            // 3. Clear teacher in observations
-            await sqlite.run("UPDATE observations SET teacher_id = NULL WHERE teacher_id = ?", [id]);
+        // 3. Clear teacher in observations
+        await db.run("UPDATE observations SET teacher_id = NULL WHERE teacher_id = ?", [id]);
 
-            // 4. Clear user_id in audit_logs
-            await sqlite.run("UPDATE audit_logs SET user_id = NULL WHERE user_id = ?", [id]);
+        // 4. Clear user_id in audit_logs
+        await db.run("UPDATE audit_logs SET user_id = NULL WHERE user_id = ?", [id]);
 
-            // 5. Delete regulatory acceptances
-            await sqlite.run("DELETE FROM regulatory_acceptances WHERE user_id = ?", [id]);
+        // 5. Delete regulatory acceptances
+        await db.run("DELETE FROM regulatory_acceptances WHERE user_id = ?", [id]);
 
-            // 6. Delete the user
-            const result = await sqlite.run("DELETE FROM users WHERE id = ?", [id]);
-            
-            if (result.changes === 0) {
-                await sqlite.run("ROLLBACK");
-                return res.status(404).json({ error: 'Docente no encontrado' });
-            }
-
-            // 7. Audit Log
-            await sqlite.run(`
-                INSERT INTO audit_logs (id, user_id, user_name, action, details)
-                VALUES (?, ?, ?, ?, ?)
-            `, [uuidv4(), user?.id, user?.name || user?.run || 'Sistema', 'DELETE_USER', `Eliminación de usuario/docente: ${teacher.name}`]);
-
-            await sqlite.run("COMMIT");
-            res.json({ message: 'Docente eliminado correctamente' });
-        } catch (error: any) {
-            await sqlite.run("ROLLBACK");
-            console.error("Error in deleteTeacher transaction:", error);
-            res.status(500).json({ error: 'Error interno', details: error.message });
+        // 6. Delete the user
+        const result = await db.run("DELETE FROM users WHERE id = ?", [id]);
+        
+        if (result.changes === 0) {
+            return res.status(404).json({ error: 'Docente no encontrado' });
         }
+
+        // 7. Audit Log
+        await db.run(`
+            INSERT INTO audit_logs (id, user_id, user_name, action, details)
+            VALUES (?, ?, ?, ?, ?)
+        `, [uuidv4(), user?.id, user?.name || user?.run || 'Sistema', 'DELETE_USER', `Eliminación de usuario/docente: ${teacher.name}`]);
+
+        res.json({ message: 'Docente eliminado correctamente' });
     } catch (error: any) {
-        res.status(500).json({ error: 'Error de conexión', details: error.message });
+        res.status(500).json({ error: 'Error interno', details: error.message });
     }
 };
 
@@ -450,10 +439,9 @@ export const deleteAssignment = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
         const user = (req as any).user;
-        const sqlite = await getDb();
         
         // Fetch details for audit log
-        const info = await sqlite.get(`
+        const info = await db.get(`
             SELECT u.name as teacher_name, l.name as level_name, s.name as subject_name
             FROM teacher_assignments ta
             JOIN users u ON ta.teacher_id = u.id
@@ -462,11 +450,11 @@ export const deleteAssignment = async (req: Request, res: Response) => {
             WHERE ta.id = ?
         `, [id]);
 
-        await sqlite.run("DELETE FROM teacher_assignments WHERE id = ?", [id]);
+        await db.run("DELETE FROM teacher_assignments WHERE id = ?", [id]);
 
         if (info) {
             try {
-                await sqlite.run(`
+                await db.run(`
                     INSERT INTO audit_logs (id, user_id, user_name, action, details)
                     VALUES (?, ?, ?, ?, ?)
                 `, [uuidv4(), user?.id, user?.name || user?.run || 'Sistema', 'DELETE_ASSIGNMENT', `Eliminación de carga: ${info.teacher_name} - ${info.level_name} - ${info.subject_name}`]);
@@ -585,17 +573,16 @@ export const importDataWeb = async (req: Request, res: Response) => {
             return res.status(400).json({ error: 'No file uploaded' });
         }
 
-        const dbRaw = await getDb();
         const workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
 
-        await dbRaw.run("DELETE FROM observations");
-        await dbRaw.run("DELETE FROM enrollments");
-        await dbRaw.run("DELETE FROM health_records");
-        await dbRaw.run("DELETE FROM guardians");
-        await dbRaw.run("DELETE FROM students");
+        await db.run("DELETE FROM observations");
+        await db.run("DELETE FROM enrollments");
+        await db.run("DELETE FROM health_records");
+        await db.run("DELETE FROM guardians");
+        await db.run("DELETE FROM students");
 
         const levelMap: Record<string, number> = {};
-        const existingLevels = await dbRaw.all("SELECT id, name FROM levels");
+        const existingLevels = await db.all("SELECT id, name FROM levels");
         for (const lvl of existingLevels) {
             levelMap[lvl.name.toUpperCase()] = lvl.id;
         }
@@ -669,7 +656,6 @@ export const importDataWeb = async (req: Request, res: Response) => {
             if (fullName) {
                 const parts = String(fullName).trim().split(/\s+/);
                 if (parts.length >= 3) {
-                    // Chilean format in Excel is usually: Surname1 Surname2 Names
                     paternalSurname = parts[0];
                     maternalSurname = parts[1];
                     firstName = parts.slice(2).join(' ');
@@ -681,12 +667,8 @@ export const importDataWeb = async (req: Request, res: Response) => {
                 }
             }
 
-            // Ensure fullName follows Paternal Maternal First
             const cleanFullName = `${paternalSurname || ''} ${maternalSurname || ''} ${firstName || ''}`.replace(/\s+/g, ' ').trim() || fullName;
-            
-            // User said Column 5 is birth date. In 0-indexed, that's index 4.
             const birthDate = parseExcelDate(findCol(rowArr, ['FECHA NACIMIENTO', 'FECHAS NACIMIENTO', 'FECHA DE NACIMIENTO', 'FECHAS DE NACIMIENTO', 'F. NACIMIENTO', 'NACIMIENTO'], 4));
-            
             const gender = findCol(rowArr, ['SEXO']);
             const nationality = findCol(rowArr, ['NACIONALIDAD']);
             const address = findCol(rowArr, ['DIRECCIÓN', 'DIRECCION']);
@@ -717,14 +699,14 @@ export const importDataWeb = async (req: Request, res: Response) => {
                 if (levelMap[cursoStr]) {
                     levelId = levelMap[cursoStr];
                 } else {
-                    const result = await dbRaw.run("INSERT INTO levels (name, total_capacity, current_enrolled) VALUES (?, 40, 0)", [cursoStr]);
+                    const result = await db.run("INSERT INTO levels (name, total_capacity, current_enrolled) VALUES (?, 40, 0)", [cursoStr]);
                     levelId = result.lastID!;
                     levelMap[cursoStr] = levelId;
                 }
             }
 
             const studentId = uuidv4();
-            await dbRaw.run(`
+            await db.run(`
                 INSERT INTO students (
                     id, run, full_name, first_name, paternal_surname, maternal_surname,
                     birth_date, gender, nationality, religion, marital_status, ethnicity,
@@ -738,30 +720,28 @@ export const importDataWeb = async (req: Request, res: Response) => {
                 livesWith, familyMembers, totalSiblings, schoolSiblings, liceoSiblings, siblingPosition, status, entryDate, observaciones
             ]);
 
-            await dbRaw.run(`
+            await db.run(`
                 INSERT INTO health_records (id, student_id, blood_type, allergies, chronic_diseases)
                 VALUES (?, ?, ?, ?, ?)
             `, [
                 uuidv4(), studentId, findCol(rowArr, ['GRUPO SANGUÍNEO', 'GRUPO_SANGUINEO']) || '', findCol(rowArr, ['ALERGIAS']) || '', findCol(rowArr, ['ENFERMEDADES', 'ENFERMEDADES_CRONICAS']) || ''
             ]);
 
-            await dbRaw.run(`
+            await db.run(`
                 INSERT INTO enrollments (id, student_id, level_id, academic_year)
                 VALUES (?, ?, ?, 2026)
             `, [uuidv4(), studentId, levelId]);
             studentsCount++;
         }
 
-        // --- Multi-sheet fallback logic ---
-        // 2. Apoderados Titulares
         if (workbook.SheetNames.includes('bd_titulares')) {
             const titularesData = xlsx.utils.sheet_to_json<any>(workbook.Sheets['bd_titulares'], { defval: "" });
             for (const row of titularesData) {
                 const studentRun = row['RUN Estudiante']?.trim();
                 if (!studentRun) continue;
-                const existingStudent = await dbRaw.get("SELECT id FROM students WHERE run = ?", [studentRun]);
+                const existingStudent = await db.get("SELECT id FROM students WHERE run = ?", [studentRun]);
                 if (existingStudent) {
-                    await dbRaw.run(`
+                    await db.run(`
                         INSERT INTO guardians (id, student_id, guardian_type, run, full_name, relationship, phone, email, address)
                         VALUES (?, ?, 'Titular', ?, ?, ?, ?, ?, ?)
                     `, [uuidv4(), existingStudent.id, row['RUN/IPA'] || 'S/R', row['Nombre Apoderado Titular'] || 'Sin Nombre', row['Parentesco'] || '', row['Teléfono Titular'] || '', row['Email'] || '', row['Dirección'] || '']);
@@ -769,15 +749,14 @@ export const importDataWeb = async (req: Request, res: Response) => {
                 }
             }
         }
-        // 3. Apoderados Suplentes
         if (workbook.SheetNames.includes('bd_suplentes')) {
             const suplentesData = xlsx.utils.sheet_to_json<any>(workbook.Sheets['bd_suplentes'], { defval: "" });
             for (const row of suplentesData) {
                 const studentRun = row['RUN Estudiante']?.trim();
                 if (!studentRun) continue;
-                const existingStudent = await dbRaw.get("SELECT id FROM students WHERE run = ?", [studentRun]);
+                const existingStudent = await db.get("SELECT id FROM students WHERE run = ?", [studentRun]);
                 if (existingStudent) {
-                    await dbRaw.run(`
+                    await db.run(`
                         INSERT INTO guardians (id, student_id, guardian_type, run, full_name, relationship, phone, email, address)
                         VALUES (?, ?, 'Suplente', ?, ?, ?, ?, ?, ?)
                     `, [uuidv4(), existingStudent.id, row['RUN/IPA'] || 'S/R', row['Nombre Apoderado Suplente'] || 'Sin Nombre', row['Parentesco'] || '', row['Teléfono Suplente'] || '', row['Email'] || '', row['Dirección'] || '']);

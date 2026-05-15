@@ -37,14 +37,17 @@ export const getDb = async () => {
     return dbInstance;
 };
 
-// Export a wrapper that mimics pg connection to minimize refactoring
-export default {
+// Export a wrapper that mimics pg connection and provides sqlite-like helpers
+const dbWrapper = {
     connect: async () => {
         if (isPostgres && pgPool) {
             const client = await pgPool.connect();
             return {
                 query: async (text: string, params?: any[]) => {
-                    const res = await client.query(text, params);
+                    // Convert ? to $1, $2, etc. for Postgres
+                    let index = 1;
+                    const postgresText = text.replace(/\?/g, () => `$${index++}`);
+                    const res = await client.query(postgresText, params);
                     return { rows: res.rows, rowCount: res.rowCount };
                 },
                 release: () => client.release()
@@ -76,7 +79,10 @@ export default {
     },
     query: async (text: string, params?: any[]) => {
         if (isPostgres && pgPool) {
-            const res = await pgPool.query(text, params);
+            // Convert ? to $1, $2, etc. for Postgres
+            let index = 1;
+            const postgresText = text.replace(/\?/g, () => `$${index++}`);
+            const res = await pgPool.query(postgresText, params);
             return { rows: res.rows, rowCount: res.rowCount };
         }
 
@@ -91,6 +97,20 @@ export default {
             const res = await db.run(sqliteText, params);
             return { rowCount: res.changes };
         }
+    },
+    get: async (text: string, params?: any[]) => {
+        const res = await dbWrapper.query(text, params);
+        return res.rows[0] || null;
+    },
+    all: async (text: string, params?: any[]) => {
+        const res = await dbWrapper.query(text, params);
+        return res.rows;
+    },
+    run: async (text: string, params?: any[]) => {
+        const res = await dbWrapper.query(text, params);
+        return { changes: res.rowCount, lastID: (res.rows && res.rows[0]) ? res.rows[0].id : null };
     }
 };
+
+export default dbWrapper;
 

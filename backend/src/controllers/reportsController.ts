@@ -1,9 +1,9 @@
 import { Request, Response } from 'express';
-import { getDb } from '../config/db';
+import db from '../config/db';
 
-async function generateStudentReport(db: any, studentId: any, year: any, period: any) {
+async function generateStudentReport(dbInstance: any, studentId: any, year: any, period: any) {
     // 1. Get Student and Level Info
-    const student = await db.get(`
+    const student = await dbInstance.get(`
         SELECT s.*, l.name as level_name, l.homeroom_teacher_id, e.level_id
         FROM students s
         JOIN enrollments e ON s.id = e.student_id
@@ -16,16 +16,16 @@ async function generateStudentReport(db: any, studentId: any, year: any, period:
     // 2. Get Homeroom Teacher (Profesor Jefe)
     let homeroomTeacherName = 'No asignado';
     if (student.homeroom_teacher_id) {
-        const teacher = await db.get("SELECT name FROM users WHERE id = ?", [student.homeroom_teacher_id]);
+        const teacher = await dbInstance.get("SELECT name FROM users WHERE id = ?", [student.homeroom_teacher_id]);
         if (teacher) homeroomTeacherName = teacher.name;
     }
 
     // 3. Get Director Name
-    const directorSetting = await db.get("SELECT value FROM institutional_settings WHERE key = 'director_name'");
+    const directorSetting = await dbInstance.get("SELECT value FROM institutional_settings WHERE key = 'director_name'");
     const directorName = directorSetting ? directorSetting.value : 'Nombre del Director';
 
     // 4. Get Subjects and Grades
-    const subjects = await db.all(`
+    const subjects = await dbInstance.all(`
         SELECT DISTINCT sub.id, sub.name
         FROM teacher_assignments ta
         JOIN subjects sub ON ta.subject_id = sub.id
@@ -39,9 +39,9 @@ async function generateStudentReport(db: any, studentId: any, year: any, period:
         if (isAnnual) {
             const format = (v: number | null) => (v === null || isNaN(v)) ? '-' : v.toFixed(1).replace('.', ',');
             const getSemData = async (p: string) => {
-                const cols = await db.all("SELECT id, weighting, position FROM grade_columns WHERE level_id=? AND subject_id=? AND period=? AND academic_year=?", [student.level_id, sub.id, p, year]);
+                const cols = await dbInstance.all("SELECT id, weighting, position FROM grade_columns WHERE level_id=? AND subject_id=? AND period=? AND academic_year=?", [student.level_id, sub.id, p, year]);
                 const colIds = cols.map(c => c.id);
-                const gData = colIds.length > 0 ? await db.all(`SELECT grade_value, grade_column_id FROM grades WHERE student_id=? AND grade_column_id IN (${colIds.map(()=>'?').join(',')})`, [studentId, ...colIds]) : [];
+                const gData = colIds.length > 0 ? await dbInstance.all(`SELECT grade_value, grade_column_id FROM grades WHERE student_id=? AND grade_column_id IN (${colIds.map(()=>'?').join(',')})`, [studentId, ...colIds]) : [];
                 
                 let sum = 0, weight = 0, sSum = 0, sCount = 0;
                 const partials = Array.from({ length: 10 }).map((_, i) => {
@@ -82,7 +82,7 @@ async function generateStudentReport(db: any, studentId: any, year: any, period:
                 isAnnual: true
             });
         } else {
-            const columns = await db.all(`
+            const columns = await dbInstance.all(`
                 SELECT id, position, weighting, title
                 FROM grade_columns
                 WHERE level_id = ? AND subject_id = ? AND period = ? AND academic_year = ?
@@ -93,7 +93,7 @@ async function generateStudentReport(db: any, studentId: any, year: any, period:
             let grades = [];
             if (columnIds.length > 0) {
                 const placeholders = columnIds.map(() => '?').join(',');
-                grades = await db.all(`
+                grades = await dbInstance.all(`
                     SELECT grade_column_id, grade_value
                     FROM grades
                     WHERE student_id = ? AND grade_column_id IN (${placeholders})
@@ -151,15 +151,15 @@ async function generateStudentReport(db: any, studentId: any, year: any, period:
 export const getStudentGradesReport = async (req: Request, res: Response) => {
     const { studentId } = req.params;
     const { year, period } = req.query;
-    const db = await getDb();
 
     try {
         const yearStr = String(year || '');
         const periodStr = String(period || '');
-        const data = await generateStudentReport(db, studentId, yearStr as string, periodStr as string);
+        const data = await generateStudentReport(db, studentId, yearStr, periodStr);
         if (!data) return res.status(404).json({ error: 'Estudiante no encontrado' });
         res.json(data);
     } catch (error: any) {
+        console.error("Error in getStudentGradesReport", error);
         res.status(500).json({ error: error.message });
     }
 };
@@ -167,7 +167,6 @@ export const getStudentGradesReport = async (req: Request, res: Response) => {
 export const getLevelGradesReport = async (req: Request, res: Response) => {
     const { levelId } = req.params;
     const { year, period } = req.query;
-    const db = await getDb();
 
     try {
         const yearStr = String(year || '');
@@ -183,35 +182,48 @@ export const getLevelGradesReport = async (req: Request, res: Response) => {
 
         const reports = [];
         for (const s of students) {
-            const data = await generateStudentReport(db, s.student_id, yearStr as string, periodStr as string);
+            const data = await generateStudentReport(db, s.student_id, yearStr, periodStr);
             if (data) reports.push(data);
         }
 
         res.json(reports);
     } catch (error: any) {
+        console.error("Error in getLevelGradesReport", error);
         res.status(500).json({ error: error.message });
     }
 };
 
 export const updateInstitutionalSettings = async (req: Request, res: Response) => {
     const { directorName, schoolName } = req.body;
-    const db = await getDb();
     try {
-        if (directorName) await db.run("INSERT OR REPLACE INTO institutional_settings (key, value) VALUES ('director_name', ?)", [directorName]);
-        if (schoolName) await db.run("INSERT OR REPLACE INTO institutional_settings (key, value) VALUES ('school_name', ?)", [schoolName]);
+        if (directorName) {
+            await db.run(`
+                INSERT INTO institutional_settings (key, value) 
+                VALUES ('director_name', ?) 
+                ON CONFLICT(key) DO UPDATE SET value = EXCLUDED.value
+            `, [directorName]);
+        }
+        if (schoolName) {
+            await db.run(`
+                INSERT INTO institutional_settings (key, value) 
+                VALUES ('school_name', ?) 
+                ON CONFLICT(key) DO UPDATE SET value = EXCLUDED.value
+            `, [schoolName]);
+        }
         res.json({ success: true });
     } catch (error: any) {
+        console.error("Error in updateInstitutionalSettings", error);
         res.status(500).json({ error: error.message });
     }
 };
 
 export const setHomeroomTeacher = async (req: Request, res: Response) => {
     const { levelId, teacherId } = req.body;
-    const db = await getDb();
     try {
         await db.run("UPDATE levels SET homeroom_teacher_id = ? WHERE id = ?", [teacherId, levelId]);
         res.json({ success: true });
     } catch (error: any) {
+        console.error("Error in setHomeroomTeacher", error);
         res.status(500).json({ error: error.message });
     }
 };

@@ -1,11 +1,10 @@
 import { Request, Response } from 'express';
-import { getDb } from '../config/db';
+import db from '../config/db';
 import { v4 as uuidv4 } from 'uuid';
 
 export const getGradesSheet = async (req: Request, res: Response) => {
     const { levelId, subjectId, period, year } = req.query;
     const user = (req as any).user;
-    const db = await getDb();
 
     try {
         // Security check for teachers: Only assigned subjects OR Homeroom Teacher of the level
@@ -64,119 +63,65 @@ export const getGradesSheet = async (req: Request, res: Response) => {
 
         res.json({ students, columns, grades, isLocked: !!(lockInfo?.is_locked) });
     } catch (error: any) {
+        console.error("Error in getGradesSheet", error);
         res.status(500).json({ error: error.message });
     }
 };
 
 export const saveGradesSheet = async (req: Request, res: Response) => {
-    const { levelId, subjectId, period, year, columns, gradesData } = req.body;
+    const { levelId, subjectId, period, year, grades, columns } = req.body;
     const user = (req as any).user;
-    const db = await getDb();
 
     try {
-        // 0. Check for Locks
-        const lockStatus = await db.get(`
-            SELECT is_locked FROM grades_locks 
-            WHERE level_id = ? AND subject_id = ? AND academic_year = ? AND period = ?
-        `, [levelId, subjectId, year, period]);
+        // Log individual changes to compare later
+        const specificLogs = [];
+        
+        // 1. Fetch current data to detect changes
+        const existingGradesRes = await db.all(`
+            SELECT g.* 
+            FROM grades g
+            JOIN grade_columns gc ON g.grade_column_id = gc.id
+            WHERE gc.level_id = ? AND gc.subject_id = ? AND gc.period = ? AND gc.academic_year = ?
+        `, [levelId, subjectId, period, year]);
 
-        if (lockStatus && lockStatus.is_locked && user.role !== 'Admin') {
-            return res.status(403).json({ error: 'Este registro está bloqueado. Contacte al administrador.' });
-        }
-        // Security check for teachers: Only assigned subjects OR Homeroom Teacher of the level
-        if (user.role === 'Docente') {
-            const isHomeroomTeacher = await db.get('SELECT id FROM levels WHERE id = ? AND homeroom_teacher_id = ?', [levelId, user.id]);
-
-            if (!isHomeroomTeacher) {
-                const assignment = await db.get(`
-                    SELECT id FROM teacher_assignments 
-                    WHERE teacher_id = ? AND level_id = ? AND subject_id = ? AND academic_year = ?
-                `, [user.id, levelId, subjectId, year]);
-                
-                if (!assignment) {
-                    return res.status(403).json({ error: 'No tienes permiso para modificar este curso/asignatura' });
-                }
-            }
-        }
-
-        await db.run('BEGIN TRANSACTION');
-
-        // Pre-fetch students for detailed logging
-        const studentsInLevel = await db.all(`
-            SELECT s.id, s.full_name, s.status 
+        const studentRes = await db.all(`
+            SELECT s.id, s.full_name as name 
             FROM students s 
             JOIN enrollments e ON s.id = e.student_id 
             WHERE e.level_id = ? AND e.academic_year = ?
         `, [levelId, year]);
-        const studentMap = new Map(studentsInLevel.map(s => [s.id, { name: s.full_name, status: s.status }]));
-        const specificLogs: any[] = [];
 
-        // 1. Update or Insert Columns (Ponderaciones)
-        for (const col of columns) {
-            const existing = await db.get('SELECT id FROM grade_columns WHERE level_id = ? AND subject_id = ? AND period = ? AND academic_year = ? AND position = ?', 
-                [levelId, subjectId, period, year, col.position]);
+        const studentMap = new Map(studentRes.map(s => [s.id, s]));
+
+        // 2. Update/Insert each grade
+        for (const g of grades) {
+            const columnId = g.grade_column_id;
+            const newValue = g.grade_value;
+            const col = columns.find((c: any) => c.id === columnId);
             
-            let columnId = col.id;
-            if (existing) {
-                columnId = existing.id;
-                await db.run('UPDATE grade_columns SET weighting = ?, title = ? WHERE id = ?', [col.weighting, col.title || `N${col.position}`, columnId]);
-            } else {
-                columnId = col.id || uuidv4();
-                await db.run(`INSERT INTO grade_columns (id, level_id, subject_id, academic_year, period, position, weighting, title) 
-                             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, 
-                             [columnId, levelId, subjectId, year, period, col.position, col.weighting, col.title || `N${col.position}`]);
-            }
-            
-            // Map column IDs if they were generated
-            col.newId = columnId;
-        }
+            const existingGrade = existingGradesRes.find(eg => eg.student_id === g.student_id && eg.grade_column_id === columnId);
 
-        // 2. Update or Insert Grades
-        console.log(`Procesando ${gradesData.length} registros de notas...`);
-        for (const g of gradesData) {
-            const studentInfo = studentMap.get(g.student_id);
-            if (studentInfo?.status === 'RETIRADO') {
-                console.log(`Saltando registro: Estudiante retirado ${studentInfo.name}`);
-                continue;
-            }
-
-            // Find the correct column ID based on position if not provided
-            const col = columns.find((c: any) => c.position === g.position);
-            const columnId = col ? col.newId : g.grade_column_id;
-
-            if (!columnId) {
-                console.log(`Saltando registro: No se encontró columnId para posición ${g.position}`);
-                continue;
-            }
-
-            const existingGrade = await db.get('SELECT id, grade_value FROM grades WHERE student_id = ? AND grade_column_id = ?', [g.student_id, columnId]);
-            
-            // Normalizar el valor entrante
-            const newValue = (g.grade_value === undefined || g.grade_value === null) ? '' : String(g.grade_value).replace(',', '.').trim();
-            
             if (existingGrade) {
-                if (newValue === '') {
-                    // Si se borró el valor -> ELIMINAR fila y registrar
-                    specificLogs.push({
-                        action: 'DELETE_GRADE',
-                        details: `Eliminación de nota (${existingGrade.grade_value}) - Estudiante: ${studentMap.get(g.student_id)?.name || g.student_id} - Columna: ${col?.title || g.position}`
-                    });
-                    await db.run('DELETE FROM grades WHERE id = ?', [existingGrade.id]);
-                } else {
-                    const dbValue = existingGrade.grade_value !== null ? String(existingGrade.grade_value) : '';
-                    // Comparación robusta
-                    if (dbValue !== newValue && parseFloat(dbValue) !== parseFloat(newValue)) {
-                        console.log(`Actualizando: Est=${g.student_id} Col=${columnId} Old=${dbValue} New=${newValue}`);
+                const dbValue = existingGrade.grade_value;
+                if (dbValue !== newValue) {
+                    if (newValue === null || newValue === '') {
+                        // Delete if empty
                         specificLogs.push({
-                            action: 'UPDATE_GRADE', // Nuevo tipo de log interno
+                            action: 'DELETE_GRADE',
+                            details: `Nota eliminada: ${dbValue} -> (vacío) - Estudiante: ${studentMap.get(g.student_id)?.name || g.student_id} - Columna: ${col?.title || g.position}`
+                        });
+                        await db.run('DELETE FROM grades WHERE id = ?', [existingGrade.id]);
+                    } else {
+                        // Update
+                        specificLogs.push({
+                            action: 'UPDATE_GRADE',
                             details: `Cambio de nota: ${dbValue} -> ${newValue} - Estudiante: ${studentMap.get(g.student_id)?.name || g.student_id} - Columna: ${col?.title || g.position}`
                         });
                         await db.run('UPDATE grades SET grade_value = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [newValue, existingGrade.id]);
                     }
                 }
-            } else if (newValue !== '') {
-                // Log addition
-                console.log(`Insertando: Est=${g.student_id} Col=${columnId} Val=${newValue}`);
+            } else if (newValue !== null && newValue !== '') {
+                // Insert
                 specificLogs.push({
                     action: 'ADD_GRADE',
                     details: `Ingreso de nota (${newValue}) - Estudiante: ${studentMap.get(g.student_id)?.name || g.student_id} - Columna: ${col?.title || g.position}`
@@ -186,15 +131,11 @@ export const saveGradesSheet = async (req: Request, res: Response) => {
             }
         }
 
-        await db.run('COMMIT');
-        console.log(`Guardado completado. Logs específicos generados: ${specificLogs.length}`);
-
-        // 3. Log the Actions (In separate try-catches to not block the main save)
+        // Audit Logs
         try {
             const levelName = await db.get('SELECT name FROM levels WHERE id = ?', [levelId]);
             const subjectName = await db.get('SELECT name FROM subjects WHERE id = ?', [subjectId]);
             
-            // Log main save
             await db.run(`
                 INSERT INTO audit_logs (id, user_id, user_name, action, details, level_id, subject_id)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -205,7 +146,6 @@ export const saveGradesSheet = async (req: Request, res: Response) => {
                 levelId, subjectId
             ]);
 
-            // Log specific changes
             for (const log of specificLogs) {
                 await db.run(`
                     INSERT INTO audit_logs (id, user_id, user_name, action, details, level_id, subject_id)
@@ -221,15 +161,50 @@ export const saveGradesSheet = async (req: Request, res: Response) => {
 
         res.json({ success: true });
     } catch (error: any) {
-        if (db) await db.run('ROLLBACK');
         console.error("Save grades error:", error);
+        res.status(500).json({ error: error.message });
+    }
+};
+
+export const updateGradeColumns = async (req: Request, res: Response) => {
+    const { levelId, subjectId, period, year, columns } = req.body;
+    
+    try {
+        const newColumnIds = columns.filter((c: any) => c.id).map((c: any) => c.id);
+        if (newColumnIds.length > 0) {
+            const placeholders = newColumnIds.map(() => '?').join(',');
+            await db.run(`
+                DELETE FROM grade_columns 
+                WHERE level_id = ? AND subject_id = ? AND period = ? AND academic_year = ?
+                AND id NOT IN (${placeholders})
+            `, [levelId, subjectId, period, year, ...newColumnIds]);
+        } else {
+            await db.run(`
+                DELETE FROM grade_columns 
+                WHERE level_id = ? AND subject_id = ? AND period = ? AND academic_year = ?
+            `, [levelId, subjectId, period, year]);
+        }
+
+        for (const col of columns) {
+            const id = col.id || uuidv4();
+            await db.run(`
+                INSERT INTO grade_columns (id, level_id, subject_id, academic_year, period, title, position, weighting)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(id) DO UPDATE SET 
+                    title = excluded.title, 
+                    position = excluded.position,
+                    weighting = excluded.weighting
+            `, [id, levelId, subjectId, year, period, col.title, col.position, col.weighting]);
+        }
+
+        res.json({ message: 'Columnas actualizadas correctamente' });
+    } catch (error: any) {
         res.status(500).json({ error: error.message });
     }
 };
 
 export const updateStudentPosition = async (req: Request, res: Response) => {
     const { studentId, levelId, academicYear, newListNumber } = req.body;
-    const db = await getDb();
     try {
         await db.run(`
             UPDATE enrollments 
@@ -243,10 +218,8 @@ export const updateStudentPosition = async (req: Request, res: Response) => {
 };
 
 export const bulkUpdateStudentPositions = async (req: Request, res: Response) => {
-    const { levelId, academicYear, positions } = req.body; // positions: [{ studentId, listNumber }]
-    const db = await getDb();
+    const { levelId, academicYear, positions } = req.body;
     try {
-        await db.run('BEGIN TRANSACTION');
         for (const pos of positions) {
             await db.run(`
                 UPDATE enrollments 
@@ -254,17 +227,14 @@ export const bulkUpdateStudentPositions = async (req: Request, res: Response) =>
                 WHERE student_id = ? AND level_id = ? AND academic_year = ?
             `, [pos.listNumber, pos.studentId, levelId, academicYear]);
         }
-        await db.run('COMMIT');
         res.json({ success: true });
     } catch (error: any) {
-        if (db) await db.run('ROLLBACK');
         res.status(500).json({ error: error.message });
     }
 };
 
 export const getFiltersData = async (req: Request, res: Response) => {
     const user = (req as any).user;
-    const db = await getDb();
     try {
         if (user.role === 'Admin') {
             const levels = await db.all('SELECT * FROM levels');
@@ -272,8 +242,6 @@ export const getFiltersData = async (req: Request, res: Response) => {
             return res.json({ levels, subjects });
         }
 
-        // For Teachers:
-        // 1. Levels where they are either Homeroom Teacher or have at least one assignment
         const levels = await db.all(`
             SELECT DISTINCT l.* 
             FROM levels l
@@ -281,9 +249,6 @@ export const getFiltersData = async (req: Request, res: Response) => {
             WHERE l.homeroom_teacher_id = ? OR ta.teacher_id = ?
         `, [user.id, user.id]);
 
-        // 2. Subjects: If they are Homeroom Teacher for the level, they see ALL subjects in that level.
-        // Otherwise, only assigned subjects.
-        // Note: For the initial filter load, we return all subjects they have access to across ALL their levels.
         const subjects = await db.all(`
             SELECT DISTINCT s.* 
             FROM subjects s
@@ -304,9 +269,8 @@ export const getFiltersData = async (req: Request, res: Response) => {
 };
 
 export const toggleLockAssignment = async (req: Request, res: Response) => {
-    const { levelId, subjectId, academicYear, lock } = req.body;
+    const { levelId, subjectId, academicYear, lock, period } = req.body;
     const user = (req as any).user;
-    const db = await getDb();
 
     if (user.role !== 'Admin') return res.status(403).json({ error: 'Solo administradores pueden bloquear notas' });
 
@@ -316,7 +280,7 @@ export const toggleLockAssignment = async (req: Request, res: Response) => {
             VALUES (?, ?, ?, ?, ?)
             ON CONFLICT(level_id, subject_id, academic_year, period) 
             DO UPDATE SET is_locked = excluded.is_locked
-        `, [levelId, subjectId, academicYear, req.body.period, lock ? 1 : 0]);
+        `, [levelId, subjectId, academicYear, period, lock ? 1 : 0]);
 
         try {
             const levelName = await db.get('SELECT name FROM levels WHERE id = ?', [levelId]);
@@ -346,7 +310,6 @@ export const toggleLockAssignment = async (req: Request, res: Response) => {
 };
 
 export const getAuditLogs = async (req: Request, res: Response) => {
-    const db = await getDb();
     try {
         const logs = await db.all(`
             SELECT * FROM audit_logs 
