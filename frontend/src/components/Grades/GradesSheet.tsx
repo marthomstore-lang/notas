@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { 
-    ChevronLeft, FileText, Save, Printer, Lock, Unlock
+    FileText, Save, Printer, Lock, Unlock
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import Swal from 'sweetalert2';
@@ -33,7 +33,7 @@ interface GradesSheetProps {
     readOnly?: boolean;
 }
 
-export const GradesSheet: React.FC<GradesSheetProps> = ({ initialLevelId, initialSubjectId, readOnly }) => {
+export const GradesSheet: React.FC<GradesSheetProps> = ({ initialLevelId, initialSubjectId }) => {
     const { token, user } = useAuth();
     const { speak } = useA11y();
     
@@ -65,7 +65,6 @@ export const GradesSheet: React.FC<GradesSheetProps> = ({ initialLevelId, initia
         Array.from({ length: 10 }, (_, i) => ({ position: i + 1, weighting: 0, title: `N${i + 1}` }))
     );
     const [grades, setGrades] = useState<Record<string, number | string>>({});
-    const [loading, setLoading] = useState(false);
     const [reportData, setReportData] = useState<any>(null);
     const [isSaving, setIsSaving] = useState(false);
     const [focusedCell, setFocusedCell] = useState<string | null>(null);
@@ -189,7 +188,6 @@ export const GradesSheet: React.FC<GradesSheetProps> = ({ initialLevelId, initia
 
     const fetchSheet = async () => {
         if (!filters.levelId || !filters.subjectId) return;
-        setLoading(true);
         try {
             const res = await fetch(`/_/backend/api/admin/grades/sheet?levelId=${filters.levelId}&subjectId=${filters.subjectId}&period=${filters.period}&year=${filters.year}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
@@ -221,8 +219,6 @@ export const GradesSheet: React.FC<GradesSheetProps> = ({ initialLevelId, initia
             setIsLocked(!!data.isLocked);
         } catch (error) {
             console.error("Error fetching sheet:", error);
-        } finally {
-            setLoading(false);
         }
     };
 
@@ -347,11 +343,6 @@ export const GradesSheet: React.FC<GradesSheetProps> = ({ initialLevelId, initia
         }
     };
 
-    const handleWeightingChange = (position: number, value: string) => {
-        const val = parseFloat(value) || 0;
-        setColumns(columns.map(c => c.position === position ? { ...c, weighting: val } : c));
-    };
-
     const saveAll = async () => {
         try {
             // Prepare grades data for backend
@@ -416,7 +407,7 @@ export const GradesSheet: React.FC<GradesSheetProps> = ({ initialLevelId, initia
         let totalWeight = 0;
         columns.forEach(col => {
             const grade = grades[`${studentId}_${col.position}`];
-            if (grade) {
+            if (grade && typeof grade === 'number') {
                 sum += grade * (col.weighting || 0);
                 totalWeight += (col.weighting || 0);
             }
@@ -428,7 +419,7 @@ export const GradesSheet: React.FC<GradesSheetProps> = ({ initialLevelId, initia
             let total = 0;
             columns.forEach(col => {
                 const grade = grades[`${studentId}_${col.position}`];
-                if (grade) {
+                if (grade && typeof grade === 'number') {
                     total += grade;
                     count++;
                 }
@@ -604,7 +595,7 @@ export const GradesSheet: React.FC<GradesSheetProps> = ({ initialLevelId, initia
                                                 textDecoration: s.status === 'RETIRADO' ? 'line-through' : 'none',
                                                 cursor: s.status === 'RETIRADO' ? 'not-allowed' : 'text'
                                             }}
-                                            className={`grade-input-cell ${(grades[`${s.id}_${c.position}`] || 0) < 4 ? 'grade-fail' : 'grade-pass'}`}
+                                            className={`grade-input-cell ${Number(grades[`${s.id}_${c.position}`] || 0) < 4 ? 'grade-fail' : 'grade-pass'}`}
                                             value={focusedCell === `${s.id}_${c.position}` ? localValue : formatGrade(grades[`${s.id}_${c.position}`])}
                                             onChange={e => handleGradeChange(s.id, c.position, e.target.value)}
                                             onKeyDown={(e) => handleArrowNavigation(e, idx, c.position)}

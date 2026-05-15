@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { LogOut, Plus, Users, BookOpen, GraduationCap, Menu, X, Printer, User, Upload, Edit2, Trash2, BarChart3, Settings } from 'lucide-react';
+import { LogOut, Plus, Users, BookOpen, GraduationCap, Menu, X, Printer, User, Upload, Edit2, Trash2, BarChart3, Settings, Save, Heart, Users as UsersIcon } from 'lucide-react';
 import { EnrollmentForm } from '../components/OfficialForm/EnrollmentForm';
 import { OfficialEnrollmentForm } from '../components/OfficialForm/OfficialEnrollmentForm';
 import { StudentWindow } from '../components/StudentWindow';
@@ -1158,7 +1158,7 @@ export const AdminDashboard = () => {
                                             {students
                                                 .filter(s => s.level_name === selectedLevelFilter)
                                                 .sort((a, b) => (a.list_number || 999) - (b.list_number || 999))
-                                                .map((s, idx) => (
+                                                .map((s) => (
                                                 <tr key={s.id} style={s.status === 'RETIRADO' ? { color: '#ef4444', textDecoration: 'line-through', fontWeight: '500' } : {}}>
                                                     <td>
                                                         <input 
