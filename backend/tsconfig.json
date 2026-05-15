@@ -6,7 +6,7 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "strict": false,
-    "rootDir": "./src"
+    "rootDir": "./src", "outDir": "./dist"
   },
   "exclude": ["scratch"]
 }
