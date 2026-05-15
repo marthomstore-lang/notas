@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { getDb } from '../config/db';
 
-async function generateStudentReport(db: any, studentId: string, year: string, period: string) {
+async function generateStudentReport(db: any, studentId: any, year: any, period: any) {
     // 1. Get Student and Level Info
     const student = await db.get(`
         SELECT s.*, l.name as level_name, l.homeroom_teacher_id, e.level_id
@@ -156,7 +156,7 @@ export const getStudentGradesReport = async (req: Request, res: Response) => {
     try {
         const yearStr = String(year || '');
         const periodStr = String(period || '');
-        const data = await generateStudentReport(db, studentId, yearStr, periodStr);
+        const data = await generateStudentReport(db, studentId, yearStr as string, periodStr as string);
         if (!data) return res.status(404).json({ error: 'Estudiante no encontrado' });
         res.json(data);
     } catch (error: any) {
@@ -183,7 +183,7 @@ export const getLevelGradesReport = async (req: Request, res: Response) => {
 
         const reports = [];
         for (const s of students) {
-            const data = await generateStudentReport(db, s.student_id, yearStr, periodStr);
+            const data = await generateStudentReport(db, s.student_id, yearStr as string, periodStr as string);
             if (data) reports.push(data);
         }
 
