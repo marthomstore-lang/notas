@@ -14,8 +14,18 @@ export const registerEnrollment = async (req: Request, res: Response) => {
         if (!level || level.current_enrolled >= level.total_capacity) {
             return res.status(400).json({ error: 'No hay cupos disponibles en este nivel' });
         }
+        // Función para formatear RUT con guion
+        const formatRut = (rutStr: string) => {
+            if (!rutStr) return rutStr;
+            const clean = rutStr.replace(/[^0-9kK]/g, '');
+            if (clean.includes('-') || clean.length <= 1) return rutStr;
+            const body = clean.slice(0, -1);
+            const dv = clean.slice(-1);
+            return `${body}-${dv}`;
+        };
 
-        // 2. Transacción manual en SQLite (no soporta BEGIN automáticamente en node-sqlite3 si no usamos execute, pero podemos simularlo)
+        if (studentData.run) studentData.run = formatRut(studentData.run);
+        
         const studentId = uuidv4();
         
         await client.query(`
@@ -35,10 +45,11 @@ export const registerEnrollment = async (req: Request, res: Response) => {
 
         if (guardiansData && guardiansData.length > 0) {
             for (const g of guardiansData) {
+                const gRun = formatRut(g.run);
                 await client.query(`
                     INSERT INTO guardians (id, student_id, guardian_type, run, full_name, relationship, phone, email, address)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                `, [uuidv4(), studentId, g.guardian_type, g.run, g.full_name, g.relationship, g.phone, g.email, g.address]);
+                `, [uuidv4(), studentId, g.guardian_type, gRun, g.full_name, g.relationship, g.phone, g.email, g.address]);
             }
         }
 

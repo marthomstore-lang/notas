@@ -90,20 +90,10 @@ export const Login = () => {
         }
     };
 
-    const formatRut = (value: string) => {
-        // Remove everything except numbers and K/k
-        const cleanValue = value.replace(/[^0-9kK]/g, '');
-        if (cleanValue.length <= 1) return cleanValue;
-        
-        const body = cleanValue.slice(0, -1);
-        const dv = cleanValue.slice(-1).toUpperCase();
-        
-        return `${body}-${dv}`;
-    };
-
     const handleRutChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const formatted = formatRut(e.target.value);
-        setRut(formatted);
+        // Solo permitimos números y K/k
+        const val = e.target.value.replace(/[^0-9kK]/g, '');
+        setRut(val);
     };
 
     return (
@@ -216,7 +206,7 @@ export const Login = () => {
                         <UserIcon size={20} className="input-icon" />
                         <input 
                             type="text" 
-                            placeholder="RUT de usuario (ej: 12345678-9)" 
+                            placeholder="RUT de usuario (ej: 18803735)" 
                             value={rut} 
                             onChange={handleRutChange}
                             required 

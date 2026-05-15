@@ -103,6 +103,20 @@ export const updateStudent = async (req: Request, res: Response) => {
         const { id } = req.params;
         const { student, guardians, health } = req.body;
         const client = await db.connect();
+
+        // Función para calcular y formatear RUT con DV si falta
+        const ensureDV = (rutStr: string) => {
+            if (!rutStr) return rutStr;
+            const clean = rutStr.replace(/[^0-9kK]/g, '');
+            if (clean.includes('-') || clean.length <= 1) return rutStr;
+            
+            // Si no tiene guion y tiene longitud de RUT, calculamos DV
+            const body = clean.slice(0, -1);
+            const dv = clean.slice(-1);
+            return `${body}-${dv}`; // Por ahora simplemente asumimos que el último es el DV si viene pegado
+        };
+        
+        if (student.run) student.run = ensureDV(student.run);
         
         const fullName = `${student.paternal_surname || ''} ${student.maternal_surname || ''} ${student.first_name || ''}`.replace(/\s+/g, ' ').trim() || student.full_name;
 
@@ -254,12 +268,22 @@ export const getTeachers = async (req: Request, res: Response) => {
         res.status(500).json({ error: 'Error al obtener usuarios' });
     }
 };
-
 export const createTeacher = async (req: Request, res: Response) => {
     try {
         const { run, name, email, password, role } = req.body;
         const client = await db.connect();
         
+        // Formatear RUT con guion si viene solo números
+        let finalRun = run;
+        if (run && !run.includes('-')) {
+            const clean = run.replace(/[^0-9kK]/g, '');
+            if (clean.length > 1) {
+                const body = clean.slice(0, -1);
+                const dv = clean.slice(-1);
+                finalRun = `${body}-${dv}`;
+            }
+        }
+
         const id = uuidv4();
         const plainPass = password || '123';
         const hashedPass = await bcrypt.hash(plainPass, 10);
@@ -267,7 +291,7 @@ export const createTeacher = async (req: Request, res: Response) => {
         await client.query(`
             INSERT INTO users (id, run, name, email, password_hash, password_plain, role) 
             VALUES (?, ?, ?, ?, ?, ?, ?)
-        `, [id, run, name, email, hashedPass, plainPass, role || 'Docente']);
+        `, [id, finalRun, name, email, hashedPass, plainPass, role || 'Docente']);
 
         res.status(201).json({ message: `Docente creado correctamente${!password ? ' con contraseña por defecto 123' : ''}` });
     } catch (error) {

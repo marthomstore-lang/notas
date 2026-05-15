@@ -10,13 +10,24 @@ export const login = async (req: Request, res: Response) => {
         const { rut, password } = req.body;
         
         const client = await db.connect();
-        console.log(`[Login] Intentando ingresar con RUT: "${rut}"`);
+        // Limpiamos el RUT recibido para asegurar que solo tenemos el cuerpo numérico
+        const cleanRut = rut.replace(/[^0-9kK]/g, '');
+        // El usuario quiere entrar con 18803735. Si el campo en la DB es 18803735-6
+        // buscamos por patrón.
+        const searchPattern = `${cleanRut}-%`;
+
+        console.log(`[Login] Intentando ingresar con cuerpo de RUT: "${cleanRut}"`);
         
-        const result = await client.query('SELECT * FROM users WHERE run = ?', [rut]);
+        const result = await client.query('SELECT * FROM users WHERE run LIKE ?', [searchPattern]);
         
         if (result.rows.length === 0) {
-            console.warn(`[Login] Usuario no encontrado para el RUT: "${rut}"`);
-            return res.status(401).json({ error: 'Usuario o contraseña incorrectos' });
+            // Intentar búsqueda exacta por si acaso (ej: si se guardó sin guion)
+            const fallbackResult = await client.query('SELECT * FROM users WHERE run = ?', [cleanRut]);
+            if (fallbackResult.rows.length === 0) {
+                console.warn(`[Login] Usuario no encontrado para el cuerpo: "${cleanRut}"`);
+                return res.status(401).json({ error: 'Usuario o contraseña incorrectos' });
+            }
+            result.rows = fallbackResult.rows;
         }
 
         const user = result.rows[0];
