@@ -112,8 +112,9 @@ router.get('/debug/db', async (req, res) => {
     }
 });
 
+// Mount router for both local and Vercel environments
+app.use('/api', router);
 app.use('/_/backend/api', router);
-
 
 app.listen(PORT, () => {
     console.log('=========================================');
