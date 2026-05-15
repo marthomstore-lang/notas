@@ -7,5 +7,6 @@
     "forceConsistentCasingInFileNames": true,
     "strict": false,
     "rootDir": "./src"
-  }
+  },
+  "exclude": ["scratch"]
 }
