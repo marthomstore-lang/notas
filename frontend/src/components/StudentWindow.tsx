@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { X, Save, Edit2, Printer, User, Home, Heart, Users as UsersIcon } from 'lucide-react';
+import { X, Save, Edit2, Printer, User, Heart, Users as UsersIcon } from 'lucide-react';
 import Swal from 'sweetalert2';
 import withReactContent from 'sweetalert2-react-content';
 import './StudentWindow.css';
@@ -778,7 +778,7 @@ export const StudentWindow: React.FC<StudentWindowProps> = ({ studentId, token, 
                                         });
                                         if (res.ok) {
                                             MySwal.fire('Éxito', 'Estudiante reincorporado', 'success');
-                                            fetchStudentData(); // Refresh data
+                                            fetchStudent(); // Refresh data
                                         }
                                     }
                                 }}
