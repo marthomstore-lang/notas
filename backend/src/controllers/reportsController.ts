@@ -154,7 +154,9 @@ export const getStudentGradesReport = async (req: Request, res: Response) => {
     const db = await getDb();
 
     try {
-        const data = await generateStudentReport(db, studentId, year as string, period as string);
+        const yearStr = String(year || '');
+        const periodStr = String(period || '');
+        const data = await generateStudentReport(db, studentId, yearStr, periodStr);
         if (!data) return res.status(404).json({ error: 'Estudiante no encontrado' });
         res.json(data);
     } catch (error: any) {
@@ -168,6 +170,8 @@ export const getLevelGradesReport = async (req: Request, res: Response) => {
     const db = await getDb();
 
     try {
+        const yearStr = String(year || '');
+        const periodStr = String(period || '');
         const students = await db.all(`
             SELECT e.student_id 
             FROM enrollments e
@@ -175,11 +179,11 @@ export const getLevelGradesReport = async (req: Request, res: Response) => {
             WHERE e.level_id = ? AND e.academic_year = ? 
             AND s.status = 'Active'
             ORDER BY e.list_number ASC
-        `, [levelId, year as string]);
+        `, [levelId, yearStr]);
 
         const reports = [];
         for (const s of students) {
-            const data = await generateStudentReport(db, s.student_id, year as string, period as string);
+            const data = await generateStudentReport(db, s.student_id, yearStr, periodStr);
             if (data) reports.push(data);
         }
 

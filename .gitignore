@@ -8,3 +8,5 @@ backend/liceopro.db
 *.log
 .DS_Store
 .vscode/
+
+.vercel

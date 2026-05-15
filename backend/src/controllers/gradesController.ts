@@ -24,6 +24,11 @@ export const getGradesSheet = async (req: Request, res: Response) => {
             }
         }
 
+        const levelIdStr = String(levelId || '');
+        const subjectIdStr = String(subjectId || '');
+        const yearStr = String(year || '');
+        const periodStr = String(period || '');
+
         // 1. Get Students in the level (Include Active and Retired)
         const students = await db.all(`
             SELECT s.id, s.full_name, s.run, e.status, e.list_number
@@ -31,14 +36,14 @@ export const getGradesSheet = async (req: Request, res: Response) => {
             JOIN enrollments e ON s.id = e.student_id
             WHERE e.level_id = ? AND e.academic_year = ?
             ORDER BY e.list_number ASC
-        `, [levelId, year]);
+        `, [levelIdStr, yearStr]);
 
         // 2. Get Grade Columns settings
         const columns = await db.all(`
             SELECT * FROM grade_columns 
             WHERE level_id = ? AND subject_id = ? AND period = ? AND academic_year = ?
             ORDER BY position ASC
-        `, [levelId, subjectId, period, year]);
+        `, [levelIdStr, subjectIdStr, periodStr, yearStr]);
 
         // 3. Get All Grades for these columns
         const columnIds = columns.map(c => c.id);
@@ -55,7 +60,7 @@ export const getGradesSheet = async (req: Request, res: Response) => {
         const lockInfo = await db.get(`
             SELECT is_locked FROM grades_locks 
             WHERE level_id = ? AND subject_id = ? AND academic_year = ? AND period = ?
-        `, [levelId, subjectId, year, period]);
+        `, [levelIdStr, subjectIdStr, yearStr, periodStr]);
 
         res.json({ students, columns, grades, isLocked: !!(lockInfo?.is_locked) });
     } catch (error: any) {
