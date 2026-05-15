@@ -1,10 +1,28 @@
 import sqlite3 from 'sqlite3';
 import { open, Database } from 'sqlite';
 import path from 'path';
+import { Pool } from 'pg';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 let dbInstance: Database | null = null;
+let pgPool: Pool | null = null;
+
+const isPostgres = !!process.env.DATABASE_URL;
+
+if (isPostgres) {
+    pgPool = new Pool({
+        connectionString: process.env.DATABASE_URL,
+        ssl: {
+            rejectUnauthorized: false
+        }
+    });
+}
 
 export const getDb = async () => {
+    if (isPostgres) return null;
+
     if (dbInstance) {
         return dbInstance;
     }
@@ -22,7 +40,20 @@ export const getDb = async () => {
 // Export a wrapper that mimics pg connection to minimize refactoring
 export default {
     connect: async () => {
+        if (isPostgres && pgPool) {
+            const client = await pgPool.connect();
+            return {
+                query: async (text: string, params?: any[]) => {
+                    const res = await client.query(text, params);
+                    return { rows: res.rows, rowCount: res.rowCount };
+                },
+                release: () => client.release()
+            };
+        }
+
         const db = await getDb();
+        if (!db) throw new Error("No database instance");
+        
         return {
             query: async (text: string, params?: any[]) => {
                 // Adaptar sintaxis $1 a ? para SQLite
@@ -32,7 +63,6 @@ export default {
                     const rows = await db.all(sqliteText, params);
                     return { rows, rowCount: rows.length };
                 } else if (sqliteText.trim().toUpperCase().startsWith('INSERT') && sqliteText.includes('RETURNING id')) {
-                    // SQLite 'RETURNING' support depends on version, let's use lastID approach for INSERT if not supported
                     const cleanText = sqliteText.replace(/RETURNING id/g, '');
                     const result = await db.run(cleanText, params);
                     return { rows: [{ id: result.lastID }] };
@@ -45,14 +75,22 @@ export default {
         };
     },
     query: async (text: string, params?: any[]) => {
+        if (isPostgres && pgPool) {
+            const res = await pgPool.query(text, params);
+            return { rows: res.rows, rowCount: res.rowCount };
+        }
+
         const db = await getDb();
+        if (!db) throw new Error("No database instance");
+
         const sqliteText = text.replace(/\$\d+/g, '?');
         if (sqliteText.trim().toUpperCase().startsWith('SELECT')) {
             const rows = await db.all(sqliteText, params);
             return { rows, rowCount: rows.length };
         } else {
-            await db.run(sqliteText, params);
-            return {};
+            const res = await db.run(sqliteText, params);
+            return { rowCount: res.changes };
         }
     }
 };
+
