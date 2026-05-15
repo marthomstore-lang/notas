@@ -10,15 +10,20 @@ export const login = async (req: Request, res: Response) => {
         const { rut, password } = req.body;
         
         const client = await db.connect();
+        console.log(`[Login] Intentando ingresar con RUT: "${rut}"`);
+        
         const result = await client.query('SELECT * FROM users WHERE run = ?', [rut]);
         
         if (result.rows.length === 0) {
+            console.warn(`[Login] Usuario no encontrado para el RUT: "${rut}"`);
             return res.status(401).json({ error: 'Usuario o contraseña incorrectos' });
         }
 
         const user = result.rows[0];
+        console.log(`[Login] Usuario encontrado: ${user.name} (ID: ${user.id})`);
         
         const isValid = await bcrypt.compare(password, user.password_hash);
+        console.log(`[Login] ¿Contraseña válida?: ${isValid}`);
 
         if (!isValid) {
             return res.status(401).json({ error: 'Usuario o contraseña incorrectos' });

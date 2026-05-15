@@ -94,6 +94,24 @@ router.get('/teacher/grades/:assignmentId', authMiddleware, getGrades);
 router.post('/teacher/grades/:assignmentId/columns', authMiddleware, addColumn);
 router.post('/teacher/grades/save', authMiddleware, saveGrade);
 
+router.get('/debug/db', async (req, res) => {
+    try {
+        const isPostgres = !!process.env.DATABASE_URL;
+        const result = await dbWrapper.all('SELECT COUNT(*) as count FROM users');
+        res.json({
+            status: 'ok',
+            database: isPostgres ? 'PostgreSQL (Supabase)' : 'SQLite (Local)',
+            userCount: result[0]?.count || 0,
+            env: {
+                hasDatabaseUrl: !!process.env.DATABASE_URL,
+                nodeEnv: process.env.NODE_ENV
+            }
+        });
+    } catch (err: any) {
+        res.status(500).json({ status: 'error', message: err.message });
+    }
+});
+
 app.use('/_/backend/api', router);
 
 

@@ -18,6 +18,9 @@ if (isPostgres) {
             rejectUnauthorized: false
         }
     });
+    console.log('[DB] Inicializado con PostgreSQL (Supabase)');
+} else {
+    console.log('[DB] Inicializado con SQLite Local');
 }
 
 export const getDb = async () => {
@@ -113,4 +116,3 @@ const dbWrapper = {
 };
 
 export default dbWrapper;
-

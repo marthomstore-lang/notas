@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { LogOut, Book, Calendar, Menu, X, ClipboardCheck, User } from 'lucide-react';
 import { StudentWindow } from '../components/StudentWindow';
+import Swal from 'sweetalert2';
 import './Dashboard.css';
 
 interface Assignment {
@@ -234,7 +235,7 @@ export const TeacherDashboard = () => {
                             const confirm = form.confirm.value;
 
                             if (password && password !== confirm) {
-                                return import('sweetalert2').then(Swal => Swal.default.fire('Error', 'Las contraseñas no coinciden', 'error'));
+                                return Swal.fire('Error', 'Las contraseñas no coinciden', 'error');
                             }
 
                             try {
@@ -244,20 +245,20 @@ export const TeacherDashboard = () => {
                                     body: JSON.stringify({ email, password })
                                 });
                                 if (res.ok) {
-                                    import('sweetalert2').then(Swal => Swal.default.fire('Éxito', 'Perfil actualizado correctamente', 'success'));
+                                    Swal.fire('Éxito', 'Perfil actualizado correctamente', 'success');
                                     form.password.value = '';
                                     form.confirm.value = '';
                                 } else {
                                     const data = await res.json();
-                                    import('sweetalert2').then(Swal => Swal.default.fire('Error', data.error || 'Error al procesar la solicitud', 'error'));
+                                    Swal.fire('Error', data.error || 'Error al procesar la solicitud', 'error');
                                 }
                             } catch (err) {
-                                import('sweetalert2').then(Swal => Swal.default.fire({
+                                Swal.fire({
                                     title: 'Error de Conexión',
                                     text: 'No se pudo establecer comunicación con la base de datos. Por favor, verifique su conexión.',
                                     icon: 'error',
                                     confirmButtonColor: '#6366f1'
-                                }));
+                                });
                             }
                         }}>
                             <div className="form-group" style={{ marginBottom: '15px' }}>
