@@ -9,6 +9,7 @@ import { getTeachers, createTeacher, updateTeacher, deleteTeacher, getSubjects, 
 import { getFiltersData, getGradesSheet, saveGradesSheet, updateStudentPosition, bulkUpdateStudentPositions, toggleLockAssignment, getAuditLogs } from './controllers/gradesController';
 import { getStudentGradesReport, getLevelGradesReport, updateInstitutionalSettings, setHomeroomTeacher } from './controllers/reportsController';
 import multer from 'multer';
+import db from './config/db';
 
 const upload = multer({ storage: multer.memoryStorage() });
 const app = express();
@@ -97,7 +98,7 @@ router.post('/teacher/grades/save', authMiddleware, saveGrade);
 router.get('/debug/db', async (req, res) => {
     try {
         const isPostgres = !!process.env.DATABASE_URL;
-        const result = await dbWrapper.all('SELECT COUNT(*) as count FROM users');
+        const result = await db.all('SELECT COUNT(*) as count FROM users');
         res.json({
             status: 'ok',
             database: isPostgres ? 'PostgreSQL (Supabase)' : 'SQLite (Local)',

@@ -1,5 +1,5 @@
 import { getDb } from './config/db';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 
 async function testUpdate() {
     try {
