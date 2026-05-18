@@ -154,6 +154,7 @@ router.post('/debug/migrate-data', async (req, res) => {
                 level_id INTEGER REFERENCES levels(id),
                 subject_id INTEGER REFERENCES subjects(id),
                 academic_year INTEGER NOT NULL,
+                is_locked INTEGER DEFAULT 0,
                 UNIQUE(teacher_id, level_id, subject_id, academic_year)
             )`,
             `CREATE TABLE IF NOT EXISTS students (
@@ -327,7 +328,9 @@ router.post('/debug/migrate-data', async (req, res) => {
                 teacher_id TEXT REFERENCES users(id),
                 academic_year INTEGER NOT NULL,
                 UNIQUE(level_id, academic_year)
-            )`
+            )`,
+            `ALTER TABLE teacher_assignments ADD COLUMN IF NOT EXISTS is_locked INTEGER DEFAULT 0`,
+            `ALTER TABLE students ADD COLUMN IF NOT EXISTS list_number INTEGER DEFAULT 0`
         ];
 
         for (const statement of ddlStatements) {
