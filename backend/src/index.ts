@@ -125,6 +125,19 @@ router.post('/debug/migrate-data', async (req, res) => {
         console.log('[Migration] Iniciando DDL e inicialización estructural en Supabase...');
         const client = await db.connect();
 
+        // 0. Eliminar tablas vacías existentes en Supabase para evitar conflictos de columnas obsoletas
+        const tablesToDrop = [
+            'grades', 'grade_columns', 'enrollments', 'health_records', 'students',
+            'observations', 'attendance', 'regulatory_acceptances', 'audit_logs', 'grades_locks',
+            'teacher_assignments', 'guardians', 'subjects', 'levels', 'users',
+            'institutional_settings', 'homeroom_teachers'
+        ];
+
+        for (const table of tablesToDrop) {
+            await client.query(`DROP TABLE IF EXISTS ${table} CASCADE`);
+            console.log(`[Migration] Eliminada tabla física: ${table}`);
+        }
+
         // 1. Sentencias DDL compatibles con PostgreSQL
         const ddlStatements = [
             `CREATE TABLE IF NOT EXISTS users (
