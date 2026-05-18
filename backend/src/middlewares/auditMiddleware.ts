@@ -10,9 +10,15 @@ export const silentWatchAudit = async (
 ) => {
     try {
         await db.query(
-            `INSERT INTO audit_logs (id, user_id, table_name, action_type, old_value, new_value) 
-             VALUES (?, ?, ?, ?, ?, ?)`,
-            [uuidv4(), userId, tableName, actionType, JSON.stringify(oldValue), JSON.stringify(newValue)]
+            `INSERT INTO audit_logs (id, user_id, user_name, action, details) 
+             VALUES (?, ?, ?, ?, ?)`,
+            [
+                uuidv4(), 
+                userId, 
+                'Sistema (SilentWatch)', 
+                `${actionType}_${tableName.toUpperCase()}`, 
+                `Cambio automático en tabla ${tableName}. Anterior: ${JSON.stringify(oldValue)} - Nuevo: ${JSON.stringify(newValue)}`
+            ]
         );
     } catch (error) {
         console.error('CRITICAL: Fallo en el sistema de auditoría', error);

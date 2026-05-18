@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS users (
     name TEXT NOT NULL,
     email TEXT UNIQUE,
     password_hash TEXT NOT NULL,
+    password_plain TEXT,
     role TEXT CHECK (role IN ('Admin', 'Docente', 'Administrativo', 'Apoderado')) NOT NULL,
     temp_password BOOLEAN DEFAULT 1,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -199,10 +200,11 @@ CREATE TABLE IF NOT EXISTS attendance (
 CREATE TABLE IF NOT EXISTS audit_logs (
     id TEXT PRIMARY KEY,
     user_id TEXT,
-    table_name TEXT NOT NULL,
-    action_type TEXT NOT NULL,
-    old_value TEXT,
-    new_value TEXT,
-    action_timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+    user_name TEXT,
+    action TEXT,
+    details TEXT,
+    level_id TEXT,
+    subject_id TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
-CREATE INDEX IF NOT EXISTS idx_audit_logs_timestamp ON audit_logs(action_timestamp);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_timestamp ON audit_logs(created_at);

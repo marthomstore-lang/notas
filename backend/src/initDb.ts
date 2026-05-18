@@ -31,13 +31,14 @@ async function init() {
     
     const adminId = uuidv4();
     const teacherId = 't1'; 
-    const hashedPass = await bcrypt.hash('123', 10);
+    const hashedAdminPass = await bcrypt.hash('182011', 10);
+    const hashedTeacherPass = await bcrypt.hash('123', 10);
 
     // Solo creamos el administrador principal y un docente de prueba (o ninguno si prefieres)
     await db.run(`INSERT INTO users (id, run, name, email, password_hash, password_plain, role) VALUES 
-        (?, 'admin', 'Administrador Principal', 'admin@liceo.cl', ?, '123', 'Admin'),
+        (?, '18803735-6', 'Administrador Principal', 'admin@liceo.cl', ?, '182011', 'Admin'),
         (?, 'docente', 'Profesor Juan Pérez', 'juan@liceo.cl', ?, '123', 'Docente')
-    `, [adminId, hashedPass, teacherId, hashedPass]);
+    `, [adminId, hashedAdminPass, teacherId, hashedTeacherPass]);
 
     // Estructura básica de ejemplo (Opcional, se pueden crear desde el panel)
     await db.run(`INSERT INTO levels (id, name, total_capacity, current_enrolled) VALUES (1, '1° Medio A', 40, 0)`);

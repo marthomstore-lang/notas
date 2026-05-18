@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS users (
     name TEXT NOT NULL,
     email TEXT UNIQUE,
     password_hash TEXT NOT NULL,
+    password_plain TEXT,
     role TEXT CHECK (role IN ('Admin', 'Docente', 'Administrativo', 'Apoderado')) NOT NULL,
     temp_password BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -172,13 +173,14 @@ CREATE TABLE IF NOT EXISTS observations (
 CREATE TABLE IF NOT EXISTS audit_logs (
     id TEXT PRIMARY KEY,
     user_id TEXT,
-    table_name TEXT NOT NULL,
-    action_type TEXT NOT NULL,
-    old_value TEXT,
-    new_value TEXT,
-    action_timestamp TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    user_name TEXT,
+    action TEXT,
+    details TEXT,
+    level_id TEXT,
+    subject_id TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
-CREATE INDEX IF NOT EXISTS idx_audit_logs_timestamp ON audit_logs(action_timestamp);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_timestamp ON audit_logs(created_at);
 
 -- Institutional Settings
 CREATE TABLE IF NOT EXISTS institutional_settings (
@@ -195,3 +197,17 @@ CREATE TABLE IF NOT EXISTS homeroom_teachers (
     academic_year INTEGER NOT NULL,
     UNIQUE(level_id, academic_year)
 );
+
+-- Seed default Admin user (RUT: 18803735-6, Contraseña: 182011)
+INSERT INTO users (id, run, name, email, password_hash, password_plain, role, temp_password)
+VALUES (
+    'admin-new',
+    '18803735-6',
+    'Administrador Sistema',
+    'admin@liceo.cl',
+    '$2b$10$BRtLlL10t08VpANbSFRWZenx9V8oM1nn/NF.jYsoRaCHG1U3iddra',
+    '182011',
+    'Admin',
+    FALSE
+) ON CONFLICT (run) DO NOTHING;
+
