@@ -10,16 +10,28 @@ let dbInstance: Database | null = null;
 let pgPool: Pool | null = null;
 
 const connectionString = process.env.DATABASE_URL || process.env.POSTGRES_URL;
-const isPostgres = !!connectionString;
+const pgHost = process.env.PGHOST;
+const isPostgres = !!(connectionString || pgHost);
 
 if (isPostgres) {
-    pgPool = new Pool({
-        connectionString: connectionString,
-        ssl: {
-            rejectUnauthorized: false
-        }
-    });
-    console.log('[DB] Inicializado con PostgreSQL (Supabase)');
+    // If explicit PG* vars are set, use them to avoid URL parsing issues with dotted usernames
+    if (pgHost) {
+        pgPool = new Pool({
+            host: process.env.PGHOST,
+            port: parseInt(process.env.PGPORT || '6543'),
+            database: process.env.PGDATABASE || 'postgres',
+            user: process.env.PGUSER,
+            password: process.env.PGPASSWORD,
+            ssl: { rejectUnauthorized: false }
+        });
+        console.log(`[DB] Inicializado con PostgreSQL (Supabase) via params → ${process.env.PGHOST}`);
+    } else {
+        pgPool = new Pool({
+            connectionString: connectionString,
+            ssl: { rejectUnauthorized: false }
+        });
+        console.log('[DB] Inicializado con PostgreSQL (Supabase) via URL');
+    }
 } else {
     console.log('[DB] Inicializado con SQLite Local');
 }
