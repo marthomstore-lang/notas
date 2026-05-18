@@ -122,14 +122,225 @@ router.post('/debug/migrate-data', async (req, res) => {
     }
 
     try {
-        console.log('[Migration] Iniciando carga masiva de datos...');
+        console.log('[Migration] Iniciando DDL e inicialización estructural en Supabase...');
         const client = await db.connect();
 
+        // 1. Sentencias DDL compatibles con PostgreSQL
+        const ddlStatements = [
+            `CREATE TABLE IF NOT EXISTS users (
+                id TEXT PRIMARY KEY,
+                run TEXT UNIQUE NOT NULL,
+                name TEXT NOT NULL,
+                email TEXT UNIQUE,
+                password_hash TEXT NOT NULL,
+                password_plain TEXT,
+                role TEXT CHECK (role IN ('Admin', 'Docente', 'Administrativo', 'Apoderado')) NOT NULL,
+                temp_password BOOLEAN DEFAULT TRUE,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            )`,
+            `CREATE TABLE IF NOT EXISTS levels (
+                id SERIAL PRIMARY KEY,
+                name TEXT NOT NULL,
+                total_capacity INTEGER NOT NULL,
+                current_enrolled INTEGER DEFAULT 0
+            )`,
+            `CREATE TABLE IF NOT EXISTS subjects (
+                id SERIAL PRIMARY KEY,
+                name TEXT NOT NULL
+            )`,
+            `CREATE TABLE IF NOT EXISTS teacher_assignments (
+                id TEXT PRIMARY KEY,
+                teacher_id TEXT REFERENCES users(id),
+                level_id INTEGER REFERENCES levels(id),
+                subject_id INTEGER REFERENCES subjects(id),
+                academic_year INTEGER NOT NULL,
+                UNIQUE(teacher_id, level_id, subject_id, academic_year)
+            )`,
+            `CREATE TABLE IF NOT EXISTS students (
+                id TEXT PRIMARY KEY,
+                run TEXT UNIQUE NOT NULL,
+                full_name TEXT NOT NULL,
+                birth_date TEXT,
+                gender TEXT,
+                nationality TEXT,
+                marital_status TEXT,
+                religion TEXT,
+                has_religion BOOLEAN DEFAULT FALSE,
+                ethnicity TEXT,
+                address TEXT,
+                region TEXT,
+                commune TEXT,
+                postal_code TEXT,
+                previous_school TEXT,
+                phone TEXT,
+                mobile_phone TEXT,
+                phone_type TEXT,
+                email TEXT,
+                email_type TEXT,
+                health_system TEXT,
+                emergency_contact_name TEXT,
+                emergency_contact_phone TEXT,
+                enrollment_number TEXT,
+                enrollment_date TEXT,
+                incorporation_date TEXT,
+                entry_year INTEGER,
+                pie_program BOOLEAN DEFAULT FALSE,
+                pie_diagnosis TEXT,
+                differential_group BOOLEAN DEFAULT FALSE,
+                is_repeater BOOLEAN DEFAULT FALSE,
+                uses_mineduc_texts BOOLEAN DEFAULT TRUE,
+                indigenous_origin TEXT,
+                is_priority BOOLEAN DEFAULT FALSE,
+                is_preferential BOOLEAN DEFAULT FALSE,
+                is_vulnerable BOOLEAN DEFAULT FALSE,
+                is_high_vulnerability BOOLEAN DEFAULT FALSE,
+                scholarship_indigenous BOOLEAN DEFAULT FALSE,
+                scholarship_president BOOLEAN DEFAULT FALSE,
+                scholarship_retention BOOLEAN DEFAULT FALSE,
+                scholarship_junaeb BOOLEAN DEFAULT FALSE,
+                scholarship_other TEXT,
+                lives_with TEXT,
+                lives_with_other TEXT,
+                family_members INTEGER,
+                total_siblings INTEGER,
+                school_siblings INTEGER,
+                school_age_siblings INTEGER,
+                liceo_siblings INTEGER,
+                sibling_position INTEGER,
+                status TEXT DEFAULT 'Active',
+                entry_date TEXT,
+                observaciones TEXT,
+                list_number INTEGER DEFAULT 0,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            )`,
+            `CREATE TABLE IF NOT EXISTS guardians (
+                id TEXT PRIMARY KEY,
+                student_id TEXT REFERENCES students(id) ON DELETE CASCADE,
+                guardian_type TEXT NOT NULL,
+                run TEXT NOT NULL,
+                full_name TEXT NOT NULL,
+                first_name TEXT,
+                paternal_surname TEXT,
+                maternal_surname TEXT,
+                birth_date TEXT,
+                gender TEXT,
+                marital_status TEXT,
+                relationship TEXT,
+                phone TEXT,
+                email TEXT,
+                address TEXT,
+                region TEXT,
+                commune TEXT,
+                postal_code TEXT,
+                education_level TEXT,
+                occupation TEXT,
+                health_system TEXT,
+                is_health_load BOOLEAN DEFAULT FALSE,
+                is_financial_guardian BOOLEAN DEFAULT FALSE,
+                is_main_guardian BOOLEAN DEFAULT FALSE
+            )`,
+            `CREATE TABLE IF NOT EXISTS health_records (
+                id TEXT PRIMARY KEY,
+                student_id TEXT REFERENCES students(id) ON DELETE CASCADE,
+                blood_type TEXT,
+                allergies TEXT,
+                chronic_diseases TEXT,
+                general_observations TEXT
+            )`,
+            `CREATE TABLE IF NOT EXISTS enrollments (
+                id TEXT PRIMARY KEY,
+                student_id TEXT REFERENCES students(id) ON DELETE CASCADE,
+                level_id INTEGER REFERENCES levels(id),
+                academic_year INTEGER NOT NULL,
+                status TEXT DEFAULT 'Active',
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(student_id, academic_year)
+            )`,
+            `CREATE TABLE IF NOT EXISTS grade_columns (
+                id TEXT PRIMARY KEY,
+                level_id INTEGER REFERENCES levels(id),
+                subject_id INTEGER REFERENCES subjects(id),
+                academic_year INTEGER NOT NULL,
+                title TEXT NOT NULL,
+                position INTEGER,
+                weighting NUMERIC(5,2) DEFAULT 0,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            )`,
+            `CREATE TABLE IF NOT EXISTS grades (
+                id TEXT PRIMARY KEY,
+                student_id TEXT REFERENCES students(id) ON DELETE CASCADE,
+                grade_column_id TEXT REFERENCES grade_columns(id) ON DELETE CASCADE,
+                grade_value NUMERIC(3,1) CHECK (grade_value >= 1.0 AND grade_value <= 7.0),
+                updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(student_id, grade_column_id)
+            )`,
+            `CREATE TABLE IF NOT EXISTS regulatory_acceptances (
+                id TEXT PRIMARY KEY,
+                user_id TEXT,
+                accepted_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                ip_address TEXT NOT NULL,
+                regulation_version TEXT NOT NULL
+            )`,
+            `CREATE TABLE IF NOT EXISTS observations (
+                id TEXT PRIMARY KEY,
+                student_id TEXT REFERENCES students(id) ON DELETE CASCADE,
+                teacher_id TEXT REFERENCES users(id),
+                content TEXT NOT NULL,
+                type TEXT CHECK (type IN ('Positive', 'Negative')) DEFAULT 'Positive',
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            )`,
+            `CREATE TABLE IF NOT EXISTS attendance (
+                id TEXT PRIMARY KEY,
+                student_id TEXT REFERENCES students(id) ON DELETE CASCADE,
+                level_id INTEGER REFERENCES levels(id),
+                status TEXT CHECK (status IN ('Present', 'Absent', 'Justified')) DEFAULT 'Present',
+                date TEXT NOT NULL,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(student_id, date)
+            )`,
+            `CREATE TABLE IF NOT EXISTS audit_logs (
+                id TEXT PRIMARY KEY,
+                user_id TEXT,
+                user_name TEXT,
+                action TEXT,
+                details TEXT,
+                level_id TEXT,
+                subject_id TEXT,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            )`,
+            `CREATE TABLE IF NOT EXISTS grades_locks (
+                level_id INTEGER,
+                subject_id INTEGER,
+                academic_year INTEGER,
+                period TEXT,
+                is_locked INTEGER DEFAULT 0,
+                PRIMARY KEY (level_id, subject_id, academic_year, period)
+            )`,
+            `CREATE TABLE IF NOT EXISTS institutional_settings (
+                id SERIAL PRIMARY KEY,
+                key TEXT UNIQUE NOT NULL,
+                value TEXT NOT NULL
+            )`,
+            `CREATE TABLE IF NOT EXISTS homeroom_teachers (
+                id SERIAL PRIMARY KEY,
+                level_id INTEGER REFERENCES levels(id),
+                teacher_id TEXT REFERENCES users(id),
+                academic_year INTEGER NOT NULL,
+                UNIQUE(level_id, academic_year)
+            )`
+        ];
+
+        for (const statement of ddlStatements) {
+            await client.query(statement);
+        }
+        console.log('[Migration] Estructura de base de datos verificada/creada exitosamente.');
+
+        // 2. Limpieza de tablas (hijas primero)
         const tablesToDelete = [
             'grades', 'grade_columns', 'enrollments', 'health_records', 'students',
-            'observations', 'attendance', 'audit_logs', 'grades_locks',
+            'observations', 'attendance', 'regulatory_acceptances', 'audit_logs', 'grades_locks',
             'teacher_assignments', 'guardians', 'subjects', 'levels', 'users',
-            'institutional_settings'
+            'institutional_settings', 'homeroom_teachers'
         ];
 
         for (const table of tablesToDelete) {
@@ -137,11 +348,12 @@ router.post('/debug/migrate-data', async (req, res) => {
             console.log(`[Migration] Limpiada tabla: ${table}`);
         }
 
+        // 3. Inserción de datos (padres primero)
         const tablesToInsert = [
             'users', 'levels', 'subjects', 'teacher_assignments', 'guardians',
             'students', 'health_records', 'enrollments', 'grade_columns', 'grades',
-            'observations', 'attendance', 'audit_logs', 'grades_locks',
-            'institutional_settings'
+            'observations', 'attendance', 'regulatory_acceptances', 'audit_logs', 'grades_locks',
+            'institutional_settings', 'homeroom_teachers'
         ];
 
         for (const table of tablesToInsert) {
@@ -163,8 +375,25 @@ router.post('/debug/migrate-data', async (req, res) => {
             console.log(`[Migration] Tabla '${table}' insertada exitosamente.`);
         }
 
+        // 4. Sincronizar secuencias serial de PostgreSQL
+        const serialTables = ['levels', 'subjects', 'institutional_settings', 'homeroom_teachers'];
+        for (const table of serialTables) {
+            try {
+                await client.query(`
+                    SELECT setval(
+                        pg_get_serial_sequence('${table}', 'id'),
+                        COALESCE(MAX(id), 1),
+                        MAX(id) IS NOT NULL
+                    ) FROM ${table}
+                `);
+                console.log(`[Migration] Secuencias sincronizadas para '${table}'.`);
+            } catch (seqErr: any) {
+                console.warn(`[Migration] Advertencia al sincronizar secuencias de '${table}':`, seqErr.message);
+            }
+        }
+
         client.release();
-        res.json({ status: 'ok', message: '¡Migración completada exitosamente!' });
+        res.json({ status: 'ok', message: '¡Migración estructural y de datos completada exitosamente!' });
     } catch (err: any) {
         console.error('[Migration] Error:', err);
         res.status(500).json({ status: 'error', message: err.message, stack: err.stack });
