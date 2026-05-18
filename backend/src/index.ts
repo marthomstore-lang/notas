@@ -19,7 +19,8 @@ const JWT_SECRET = 'super-secret-key-liceo-pro';
 
 app.use(cors());
 app.use(helmet());
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // Auth Middleware
 const authMiddleware = (req: Request, res: Response, next: NextFunction) => {
@@ -111,6 +112,62 @@ router.get('/debug/db', async (req, res) => {
         });
     } catch (err: any) {
         res.status(500).json({ status: 'error', message: err.message });
+    }
+});
+
+router.post('/debug/migrate-data', async (req, res) => {
+    const { secret, data } = req.body;
+    if (secret !== 'liceopro-migration-2026-super-secret') {
+        return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    try {
+        console.log('[Migration] Iniciando carga masiva de datos...');
+        const client = await db.connect();
+
+        const tablesToDelete = [
+            'grades', 'grade_columns', 'enrollments', 'health_records', 'students',
+            'observations', 'attendance', 'audit_logs', 'grades_locks',
+            'teacher_assignments', 'guardians', 'subjects', 'levels', 'users',
+            'institutional_settings'
+        ];
+
+        for (const table of tablesToDelete) {
+            await client.query(`DELETE FROM ${table}`);
+            console.log(`[Migration] Limpiada tabla: ${table}`);
+        }
+
+        const tablesToInsert = [
+            'users', 'levels', 'subjects', 'teacher_assignments', 'guardians',
+            'students', 'health_records', 'enrollments', 'grade_columns', 'grades',
+            'observations', 'attendance', 'audit_logs', 'grades_locks',
+            'institutional_settings'
+        ];
+
+        for (const table of tablesToInsert) {
+            const rows = data[table];
+            if (!rows || rows.length === 0) continue;
+
+            console.log(`[Migration] Insertando ${rows.length} filas en '${table}'...`);
+
+            for (const row of rows) {
+                const keys = Object.keys(row);
+                const values = Object.values(row);
+
+                const columnsStr = keys.map(k => `"${k}"`).join(', ');
+                const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
+
+                const queryText = `INSERT INTO ${table} (${columnsStr}) VALUES (${placeholders})`;
+                await client.query(queryText, values);
+            }
+            console.log(`[Migration] Tabla '${table}' insertada exitosamente.`);
+        }
+
+        client.release();
+        res.json({ status: 'ok', message: '¡Migración completada exitosamente!' });
+    } catch (err: any) {
+        console.error('[Migration] Error:', err);
+        res.status(500).json({ status: 'error', message: err.message, stack: err.stack });
     }
 });
 
