@@ -155,7 +155,8 @@ router.post('/debug/migrate-data', async (req, res) => {
                 id SERIAL PRIMARY KEY,
                 name TEXT NOT NULL,
                 total_capacity INTEGER NOT NULL,
-                current_enrolled INTEGER DEFAULT 0
+                current_enrolled INTEGER DEFAULT 0,
+                homeroom_teacher_id TEXT REFERENCES users(id)
             )`,
             `CREATE TABLE IF NOT EXISTS subjects (
                 id SERIAL PRIMARY KEY,
@@ -224,7 +225,7 @@ router.post('/debug/migrate-data', async (req, res) => {
                 status TEXT DEFAULT 'Active',
                 entry_date TEXT,
                 observaciones TEXT,
-                list_number INTEGER DEFAULT 0,
+                withdrawal_date TEXT,
                 created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
             )`,
             `CREATE TABLE IF NOT EXISTS guardians (
@@ -267,6 +268,7 @@ router.post('/debug/migrate-data', async (req, res) => {
                 level_id INTEGER REFERENCES levels(id),
                 academic_year INTEGER NOT NULL,
                 status TEXT DEFAULT 'Active',
+                list_number INTEGER,
                 created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
                 UNIQUE(student_id, academic_year)
             )`,
@@ -276,6 +278,7 @@ router.post('/debug/migrate-data', async (req, res) => {
                 subject_id INTEGER REFERENCES subjects(id),
                 academic_year INTEGER NOT NULL,
                 title TEXT NOT NULL,
+                period TEXT,
                 position INTEGER,
                 weighting NUMERIC(5,2) DEFAULT 0,
                 created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -285,6 +288,7 @@ router.post('/debug/migrate-data', async (req, res) => {
                 student_id TEXT REFERENCES students(id) ON DELETE CASCADE,
                 grade_column_id TEXT REFERENCES grade_columns(id) ON DELETE CASCADE,
                 grade_value NUMERIC(3,1) CHECK (grade_value >= 1.0 AND grade_value <= 7.0),
+                is_locked INTEGER DEFAULT 0,
                 updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
                 UNIQUE(student_id, grade_column_id)
             )`,
@@ -331,8 +335,7 @@ router.post('/debug/migrate-data', async (req, res) => {
                 PRIMARY KEY (level_id, subject_id, academic_year, period)
             )`,
             `CREATE TABLE IF NOT EXISTS institutional_settings (
-                id SERIAL PRIMARY KEY,
-                key TEXT UNIQUE NOT NULL,
+                key TEXT PRIMARY KEY,
                 value TEXT NOT NULL
             )`,
             `CREATE TABLE IF NOT EXISTS homeroom_teachers (
@@ -341,9 +344,7 @@ router.post('/debug/migrate-data', async (req, res) => {
                 teacher_id TEXT REFERENCES users(id),
                 academic_year INTEGER NOT NULL,
                 UNIQUE(level_id, academic_year)
-            )`,
-            `ALTER TABLE teacher_assignments ADD COLUMN IF NOT EXISTS is_locked INTEGER DEFAULT 0`,
-            `ALTER TABLE students ADD COLUMN IF NOT EXISTS list_number INTEGER DEFAULT 0`
+            )`
         ];
 
         for (const statement of ddlStatements) {
@@ -392,7 +393,7 @@ router.post('/debug/migrate-data', async (req, res) => {
         }
 
         // 4. Sincronizar secuencias serial de PostgreSQL
-        const serialTables = ['levels', 'subjects', 'institutional_settings', 'homeroom_teachers'];
+        const serialTables = ['levels', 'subjects', 'homeroom_teachers'];
         for (const table of serialTables) {
             try {
                 await client.query(`
