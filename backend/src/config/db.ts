@@ -9,11 +9,12 @@ dotenv.config();
 let dbInstance: Database | null = null;
 let pgPool: Pool | null = null;
 
-const isPostgres = !!process.env.DATABASE_URL;
+const connectionString = process.env.DATABASE_URL || process.env.POSTGRES_URL;
+const isPostgres = !!connectionString;
 
 if (isPostgres) {
     pgPool = new Pool({
-        connectionString: process.env.DATABASE_URL,
+        connectionString: connectionString,
         ssl: {
             rejectUnauthorized: false
         }
