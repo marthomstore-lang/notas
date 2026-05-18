@@ -377,17 +377,32 @@ router.post('/debug/migrate-data', async (req, res) => {
             const rows = data[table];
             if (!rows || rows.length === 0) continue;
 
-            console.log(`[Migration] Insertando ${rows.length} filas en '${table}'...`);
+            console.log(`[Migration] Insertando ${rows.length} filas en '${table}' usando Bulk Insert...`);
 
-            for (const row of rows) {
-                const keys = Object.keys(row);
-                const values = Object.values(row);
-
+            if (rows.length > 0) {
+                const keys = Object.keys(rows[0]);
                 const columnsStr = keys.map(k => `"${k}"`).join(', ');
-                const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
-
-                const queryText = `INSERT INTO ${table} (${columnsStr}) VALUES (${placeholders})`;
-                await client.query(queryText, values);
+                
+                const chunkSize = 500;
+                for (let i = 0; i < rows.length; i += chunkSize) {
+                    const chunk = rows.slice(i, i + chunkSize);
+                    
+                    const values = [];
+                    const placeholdersArray = [];
+                    
+                    let paramIndex = 1;
+                    for (const row of chunk) {
+                        const rowPlaceholders = [];
+                        for (const key of keys) {
+                            values.push(row[key]);
+                            rowPlaceholders.push(`$${paramIndex++}`);
+                        }
+                        placeholdersArray.push(`(${rowPlaceholders.join(', ')})`);
+                    }
+                    
+                    const queryText = `INSERT INTO ${table} (${columnsStr}) VALUES ${placeholdersArray.join(', ')}`;
+                    await client.query(queryText, values);
+                }
             }
             console.log(`[Migration] Tabla '${table}' insertada exitosamente.`);
         }
