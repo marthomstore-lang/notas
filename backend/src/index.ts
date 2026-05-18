@@ -174,7 +174,11 @@ router.post('/debug/migrate-data', async (req, res) => {
             `CREATE TABLE IF NOT EXISTS students (
                 id TEXT PRIMARY KEY,
                 run TEXT UNIQUE NOT NULL,
+                document_type TEXT,
                 full_name TEXT NOT NULL,
+                first_name TEXT,
+                paternal_surname TEXT,
+                maternal_surname TEXT,
                 birth_date TEXT,
                 gender TEXT,
                 nationality TEXT,
