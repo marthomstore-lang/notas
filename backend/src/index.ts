@@ -353,8 +353,8 @@ router.post('/debug/migrate-data', async (req, res) => {
 
         // 3. Inserción de datos (padres primero)
         const tablesToInsert = [
-            'users', 'levels', 'subjects', 'teacher_assignments', 'guardians',
-            'students', 'health_records', 'enrollments', 'grade_columns', 'grades',
+            'users', 'levels', 'subjects', 'teacher_assignments', 'students',
+            'guardians', 'health_records', 'enrollments', 'grade_columns', 'grades',
             'observations', 'attendance', 'regulatory_acceptances', 'audit_logs', 'grades_locks',
             'institutional_settings', 'homeroom_teachers'
         ];
