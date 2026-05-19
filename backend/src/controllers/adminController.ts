@@ -824,7 +824,11 @@ export const importDataWeb = async (req: Request, res: Response) => {
             const ethnicity = findCol(rowArr, ['PUEBLO INDÍGENA', 'PUEBLO_INDIGENA']);
             const studentEmail = findCol(rowArr, ['EMAIL']);
             const studentPhone = findCol(rowArr, ['TELÉFONO ESTUDIANTE', 'TELEFONO_ESTUDIANTE']);
-            const status = findCol(rowArr, ['ESTADO', 'estado']) || 'Active';
+            const rawStatus = (findCol(rowArr, ['ESTADO', 'estado']) || 'Active').toString().trim().toUpperCase();
+            let status = 'Active';
+            if (rawStatus.startsWith('RET') || rawStatus.startsWith('INAC') || rawStatus === 'INACTIVE' || rawStatus === 'INACTIVO') {
+                status = 'RETIRADO';
+            }
             const observaciones = findCol(rowArr, ['OBSERVACIONES']);
             const entryDate = parseExcelDate(findCol(rowArr, ['FECHA DE INGRESO', 'FECHA INGRESO', 'FECHA_DE_INGRESO', 'FECHA_INGRESO', 'FECHA INGRESO']));
             
