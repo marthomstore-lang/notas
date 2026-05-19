@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { LogOut, Book, Calendar, Menu, X, ClipboardCheck, User } from 'lucide-react';
+import { LogOut, Book, Calendar, Menu, X, ClipboardCheck, User, LayoutGrid, LayoutList } from 'lucide-react';
 import { StudentWindow } from '../components/StudentWindow';
 import Swal from 'sweetalert2';
 import './Dashboard.css';
@@ -19,6 +19,12 @@ export const TeacherDashboard = () => {
     const [assignments, setAssignments] = useState<Assignment[]>([]);
     const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth >= 768);
     const [activeView, setActiveView] = useState<'courses' | 'observations' | 'schedule' | 'profile'>('courses');
+    const [viewMode, setViewMode] = useState<'list' | 'grid'>(() => (localStorage.getItem('teacherViewMode') as 'list' | 'grid') || 'list');
+
+    const toggleViewMode = (mode: 'list' | 'grid') => {
+        setViewMode(mode);
+        localStorage.setItem('teacherViewMode', mode);
+    };
 
     const handleNavClick = (view: 'courses' | 'observations' | 'schedule' | 'profile') => {
         setActiveView(view);
@@ -119,10 +125,28 @@ export const TeacherDashboard = () => {
                             {activeView === 'profile' && 'Configuración de Mi Cuenta'}
                         </h1>
                     </div>
+                    {((activeView === 'courses') || (activeView === 'observations' && !selectedLevelId)) && (
+                        <div className="view-mode-toggle">
+                            <button 
+                                className={`toggle-btn ${viewMode === 'list' ? 'active' : ''}`}
+                                onClick={() => toggleViewMode('list')}
+                                title="Vista de Lista"
+                            >
+                                <LayoutList size={20} />
+                            </button>
+                            <button 
+                                className={`toggle-btn ${viewMode === 'grid' ? 'active' : ''}`}
+                                onClick={() => toggleViewMode('grid')}
+                                title="Vista de Cuadrícula"
+                            >
+                                <LayoutGrid size={20} />
+                            </button>
+                        </div>
+                    )}
                 </header>
                 
                 {activeView === 'courses' && (
-                    <div className="assignments-grid">
+                    <div className={`assignments-grid view-${viewMode}`}>
                         {assignments.map(assignment => (
                             <button 
                                 key={assignment.assignment_id} 
@@ -143,7 +167,7 @@ export const TeacherDashboard = () => {
                 {activeView === 'observations' && (
                     <div>
                         {!selectedLevelId ? (
-                            <div className="assignments-grid">
+                            <div className={`assignments-grid view-${viewMode}`}>
                                 {assignments.map(assignment => (
                                     <button 
                                         key={assignment.assignment_id} 
