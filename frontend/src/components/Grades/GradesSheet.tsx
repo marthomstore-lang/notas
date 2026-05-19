@@ -59,6 +59,15 @@ export const GradesSheet: React.FC<GradesSheetProps> = ({ initialLevelId, initia
         subjects: [] as any[]
     });
 
+    const isQualitativeSubject = (name: string) => {
+        const lower = name.toLowerCase();
+        return lower.includes('religión') || lower.includes('religion') || lower.includes('orientación') || lower.includes('orientacion');
+    };
+
+    const selectedSubject = options.subjects.find(s => String(s.id) === String(filters.subjectId));
+    const subjectName = selectedSubject ? selectedSubject.name : '';
+    const isQualitative = isQualitativeSubject(subjectName);
+
     // Data
     const [students, setStudents] = useState<Student[]>([]);
     const [columns, setColumns] = useState<GradeColumn[]>(
@@ -200,10 +209,14 @@ export const GradesSheet: React.FC<GradesSheetProps> = ({ initialLevelId, initia
 
             setStudents(fetchedStudents);
             
-            // Map existing columns to our 10 columns grid
-            const newColumns = Array.from({ length: 10 }, (_, i) => {
+            const selectedSub = options.subjects.find(s => String(s.id) === String(filters.subjectId));
+            const subName = selectedSub ? selectedSub.name : '';
+            const isQual = isQualitativeSubject(subName);
+
+            // Map existing columns to our columns grid (11 for qualitative, 10 for quantitative)
+            const newColumns = Array.from({ length: isQual ? 11 : 10 }, (_, i) => {
                 const existing = fetchedColumns.find((c: any) => c.position === i + 1);
-                return existing ? { ...existing } : { position: i + 1, weighting: 0, title: `Nota ${i + 1}` };
+                return existing ? { ...existing } : { position: i + 1, weighting: 0, title: i === 10 ? 'Promedio' : `Nota ${i + 1}` };
             });
             setColumns(newColumns);
 
@@ -319,6 +332,22 @@ export const GradesSheet: React.FC<GradesSheetProps> = ({ initialLevelId, initia
             return;
         }
 
+        if (isQualitative) {
+            const upperVal = value.toUpperCase().trim();
+            const conceptToNumeric: Record<string, number> = {
+                'MB': 7.0,
+                'B': 5.5,
+                'S': 4.5,
+                'I': 3.0
+            };
+            if (conceptToNumeric[upperVal] !== undefined) {
+                setGrades({ ...grades, [key]: conceptToNumeric[upperVal] });
+            } else if (upperVal === '') {
+                setGrades({ ...grades, [key]: '' });
+            }
+            return;
+        }
+
         const cleanInput = value.replace(/[^0-9.,]/g, '');
         const numericValue = parseFloat(cleanInput.replace(',', '.'));
 
@@ -395,7 +424,16 @@ export const GradesSheet: React.FC<GradesSheetProps> = ({ initialLevelId, initia
     };
 
     const formatGrade = (val: any) => {
-        if (val === null || val === undefined || val === '' || isNaN(Number(val))) return '';
+        if (val === null || val === undefined || val === '') return '';
+        if (isQualitative) {
+            const n = parseFloat(String(val));
+            if (isNaN(n)) return String(val).toUpperCase();
+            if (n >= 6.0) return 'MB';
+            if (n >= 5.0) return 'B';
+            if (n >= 4.0) return 'S';
+            return 'I';
+        }
+        if (isNaN(Number(val))) return '';
         return Number(val).toFixed(1).replace('.', ',');
     };
 
@@ -571,7 +609,7 @@ export const GradesSheet: React.FC<GradesSheetProps> = ({ initialLevelId, initia
                                 </div>
                             </th>
                             <th className="student-name-col">Nombre alumno</th>
-                            {columns.map(c => (
+                            {columns.slice(0, 10).map(c => (
                                 <th 
                                     key={c.position}
                                     onClick={() => !isLocked && handleEditColumnTitle(c)}
@@ -617,7 +655,7 @@ export const GradesSheet: React.FC<GradesSheetProps> = ({ initialLevelId, initia
                                         {s.status === 'RETIRADO' && <span className="retired-badge" style={{ textDecoration: 'none', display: 'inline-block', color: '#ef4444', fontWeight: 'bold', fontSize: '0.7rem' }}>ESTUDIANTE RETIRADO</span>}
                                     </div>
                                 </td>
-                                {columns.map(c => (
+                                {columns.slice(0, 10).map(c => (
                                     <td key={c.position}>
                                         <input 
                                             id={`grade-input-${idx}-${c.position}`}
@@ -629,7 +667,11 @@ export const GradesSheet: React.FC<GradesSheetProps> = ({ initialLevelId, initia
                                                 textDecoration: s.status === 'RETIRADO' ? 'line-through' : 'none',
                                                 cursor: s.status === 'RETIRADO' ? 'not-allowed' : 'text'
                                             }}
-                                            className={`grade-input-cell ${Number(grades[`${s.id}_${c.position}`] || 0) < 4 ? 'grade-fail' : 'grade-pass'}`}
+                                            className={`grade-input-cell ${
+                                                isQualitative 
+                                                    ? (formatGrade(grades[`${s.id}_${c.position}`]) === 'I' ? 'grade-fail' : 'grade-pass')
+                                                    : (Number(grades[`${s.id}_${c.position}`] || 0) < 4 ? 'grade-fail' : 'grade-pass')
+                                            }`}
                                             value={focusedCell === `${s.id}_${c.position}` ? localValue : formatGrade(grades[`${s.id}_${c.position}`])}
                                             onChange={e => handleGradeChange(s.id, c.position, e.target.value)}
                                             onKeyDown={(e) => handleArrowNavigation(e, idx, c.position)}
@@ -649,7 +691,39 @@ export const GradesSheet: React.FC<GradesSheetProps> = ({ initialLevelId, initia
                                         />
                                     </td>
                                 ))}
-                                <td className="calculated-col" style={s.status === 'RETIRADO' ? { color: '#ef4444', textDecoration: 'line-through' } : {}}>{calculatePP(s.id)}</td>
+                                <td className="calculated-col" style={s.status === 'RETIRADO' ? { color: '#ef4444', textDecoration: 'line-through' } : {}}>
+                                    {isQualitative ? (
+                                        <input
+                                            id={`grade-input-${idx}-11`}
+                                            type="text"
+                                            style={{
+                                                textAlign: 'center',
+                                                background: s.status === 'RETIRADO' ? '#f1f5f9' : 'transparent',
+                                                color: s.status === 'RETIRADO' ? '#ef4444' : 'inherit',
+                                                textDecoration: s.status === 'RETIRADO' ? 'line-through' : 'none',
+                                                cursor: s.status === 'RETIRADO' ? 'not-allowed' : 'text',
+                                                width: '50px',
+                                                border: 'none',
+                                                fontWeight: 'bold'
+                                            }}
+                                            className={`grade-input-cell ${formatGrade(grades[`${s.id}_11`]) === 'I' ? 'grade-fail' : 'grade-pass'}`}
+                                            value={focusedCell === `${s.id}_11` ? localValue : formatGrade(grades[`${s.id}_11`])}
+                                            onChange={e => handleGradeChange(s.id, 11, e.target.value)}
+                                            onKeyDown={(e) => handleArrowNavigation(e, idx, 11)}
+                                            onFocus={(e) => {
+                                                const key = `${s.id}_11`;
+                                                setFocusedCell(key);
+                                                setLocalValue(formatGrade(grades[key]));
+                                                e.target.select();
+                                                speak(`Promedio final de ${s.full_name}`);
+                                            }}
+                                            onBlur={() => setFocusedCell(null)}
+                                            disabled={s.status === 'RETIRADO' || isLocked}
+                                        />
+                                    ) : (
+                                        calculatePP(s.id)
+                                    )}
+                                </td>
                                 <td className="no-print">
                                     <button className="icon-btn" onClick={() => handlePrint(s.id)} title="Imprimir Informe">
                                         <Printer size={16} />

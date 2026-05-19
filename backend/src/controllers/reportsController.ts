@@ -35,9 +35,26 @@ async function generateStudentReport(dbInstance: any, studentId: any, year: any,
     const reportData = [];
     const isAnnual = period === 'Finalización de año';
 
+    const isQualitativeSubject = (name: string): boolean => {
+        const lower = name.toLowerCase();
+        return lower.includes('religión') || lower.includes('religion') || lower.includes('orientación') || lower.includes('orientacion');
+    };
+
     for (const sub of subjects) {
+        const isQual = isQualitativeSubject(sub.name);
+
         if (isAnnual) {
-            const format = (v: number | null) => (v === null || isNaN(v)) ? '-' : v.toFixed(1).replace('.', ',');
+            const format = (v: number | null) => {
+                if (v === null || isNaN(v)) return '-';
+                if (isQual) {
+                    if (v >= 6.0) return 'MB';
+                    if (v >= 5.0) return 'B';
+                    if (v >= 4.0) return 'S';
+                    return 'I';
+                }
+                return v.toFixed(1).replace('.', ',');
+            };
+
             const getSemData = async (p: string) => {
                 const cols = await dbInstance.all("SELECT id, weighting, position FROM grade_columns WHERE level_id=? AND subject_id=? AND period=? AND academic_year=?", [student.level_id, sub.id, p, year]);
                 const colIds = cols.map(c => c.id);
@@ -58,8 +75,14 @@ async function generateStudentReport(dbInstance: any, studentId: any, year: any,
                 });
 
                 let avg: number | null = null;
-                if (weight > 0) avg = sum / weight;
-                else if (sCount > 0) avg = sSum / sCount;
+                if (isQual) {
+                    const avgCol = cols.find(c => c.position === 11);
+                    const avgGrade = avgCol ? gData.find(g => g.grade_column_id === avgCol.id) : null;
+                    avg = avgGrade ? avgGrade.grade_value : null;
+                } else {
+                    if (weight > 0) avg = sum / weight;
+                    else if (sCount > 0) avg = sSum / sCount;
+                }
 
                 return { partials, avg };
             };
@@ -105,7 +128,7 @@ async function generateStudentReport(dbInstance: any, studentId: any, year: any,
             let simpleSum = 0;
             let simpleCount = 0;
 
-            columns.forEach(col => {
+            columns.filter(col => col.position <= 10).forEach(col => {
                 const grade = grades.find(g => g.grade_column_id === col.id);
                 if (grade) {
                     sum += grade.grade_value * (col.weighting || 0);
@@ -117,19 +140,31 @@ async function generateStudentReport(dbInstance: any, studentId: any, year: any,
 
             const formatGrade = (val: number | null | undefined) => {
                 if (val === null || val === undefined || isNaN(val)) return '-';
+                if (isQual) {
+                    if (val >= 6.0) return 'MB';
+                    if (val >= 5.0) return 'B';
+                    if (val >= 4.0) return 'S';
+                    return 'I';
+                }
                 return val.toFixed(1).replace('.', ',');
             };
 
             let average = '-';
-            if (totalWeight > 0) {
-                average = formatGrade(sum / totalWeight);
-            } else if (simpleCount > 0) {
-                average = formatGrade(simpleSum / simpleCount);
+            if (isQual) {
+                const avgCol = columns.find(col => col.position === 11);
+                const avgGrade = avgCol ? grades.find(g => g.grade_column_id === avgCol.id) : null;
+                average = avgGrade ? formatGrade(avgGrade.grade_value) : '-';
+            } else {
+                if (totalWeight > 0) {
+                    average = formatGrade(sum / totalWeight);
+                } else if (simpleCount > 0) {
+                    average = formatGrade(simpleSum / simpleCount);
+                }
             }
 
             reportData.push({
                 subjectName: sub.name,
-                grades: columns.map(col => {
+                grades: columns.filter(col => col.position <= 10).map(col => {
                     const g = grades.find(grade => grade.grade_column_id === col.id);
                     return g ? formatGrade(g.grade_value) : null;
                 }),
