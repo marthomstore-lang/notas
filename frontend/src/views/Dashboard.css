@@ -284,7 +284,7 @@
 }
 
 /* Responsive Layout */
-@media (max-width: 1024px) {
+@media (max-width: 768px) {
     .sidebar {
         position: fixed;
         left: -280px;
@@ -367,7 +367,7 @@
     color: #475569;
 }
 
-@media (max-width: 1024px) {
+@media (max-width: 768px) {
     .mobile-menu-toggle {
         display: flex;
         align-items: center;
