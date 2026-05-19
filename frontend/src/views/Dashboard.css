@@ -374,3 +374,32 @@
         justify-content: center;
     }
 }
+
+/* Split Layout for Fixed Form and Scrollable List inside Cards */
+.card-split-layout {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 190px);
+    overflow: hidden;
+    padding-bottom: 16px !important;
+}
+
+.card-split-header {
+    flex-shrink: 0;
+}
+
+.card-split-content {
+    flex: 1;
+    overflow-y: auto;
+    margin-top: 15px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+}
+
+.card-split-content thead th {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: #f8fafc;
+    box-shadow: inset 0 -1px 0 #e2e8f0;
+}

@@ -1072,44 +1072,49 @@ export const AdminDashboard = () => {
                         )}
 
                         {configSubTab === 'assignments' && (
-                            <div className="card">
-                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px', borderBottom: '1px solid #f1f5f9', paddingBottom: '10px' }}>
-                                    <h3 style={{ margin: 0, color: '#1e293b' }}>Crear Asignación de Asignaturas</h3>
-                                </div>
-                                <form onSubmit={handleAssign} className="admin-form">
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px' }}>
-                                        <div>
-                                            <label>Docente:</label>
-                                            <select name="teacherId" required>
-                                                <option value="">Seleccione Docente...</option>
-                                                {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                                            </select>
-                                        </div>
-                                        <div>
-                                            <label>Curso (Nivel):</label>
-                                            <select name="levelId" required>
-                                                <option value="">Seleccione Curso...</option>
-                                                {levels.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
-                                            </select>
-                                        </div>
-                                        <div>
-                                            <label>Asignatura:</label>
-                                            <select name="subjectId" required>
-                                                <option value="">Seleccione Asignatura...</option>
-                                                {subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                                            </select>
-                                        </div>
-                                        <div style={{ display: 'flex', alignItems: 'flex-end', marginBottom: '0' }}>
-                                            <div style={{ width: '100%' }}>
-                                                <label style={{ visibility: 'hidden' }}>Botón</label>
-                                                <button type="submit" className="primary-btn" style={{ width: '100%', height: '42px', justifyContent: 'center' }}>Guardar Asignación</button>
+                            <div className="card card-split-layout">
+                                <div className="card-split-header">
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px', borderBottom: '1px solid #f1f5f9', paddingBottom: '10px' }}>
+                                        <h3 style={{ margin: 0, color: '#1e293b' }}>Crear Asignación de Asignaturas</h3>
+                                    </div>
+                                    <form onSubmit={handleAssign} className="admin-form">
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px' }}>
+                                            <div>
+                                                <label>Docente:</label>
+                                                <select name="teacherId" required>
+                                                    <option value="">Seleccione Docente...</option>
+                                                    {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label>Curso (Nivel):</label>
+                                                <select name="levelId" required>
+                                                    <option value="">Seleccione Curso...</option>
+                                                    {levels.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label>Asignatura:</label>
+                                                <select name="subjectId" required>
+                                                    <option value="">Seleccione Asignatura...</option>
+                                                    {subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                                                </select>
+                                            </div>
+                                            <div style={{ display: 'flex', alignItems: 'flex-end', marginBottom: '0' }}>
+                                                <div style={{ width: '100%' }}>
+                                                    <label style={{ visibility: 'hidden' }}>Botón</label>
+                                                    <button type="submit" className="primary-btn" style={{ width: '100%', height: '42px', justifyContent: 'center' }}>Guardar Asignación</button>
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                </form>
+                                    </form>
 
-                                <div style={{ marginTop: '20px' }}>
-                                    <h4 style={{ color: '#64748b', fontSize: '0.9rem', marginBottom: '10px' }}>Listado de Asignaturas por Curso</h4>
+                                    <div style={{ marginTop: '20px', marginBottom: '10px' }}>
+                                        <h4 style={{ color: '#64748b', fontSize: '0.9rem', margin: 0 }}>Listado de Asignaturas por Curso</h4>
+                                    </div>
+                                </div>
+
+                                <div className="card-split-content">
                                     <table className="data-table" style={{ fontSize: '0.9rem' }}>
                                         <thead><tr><th>Curso</th><th>Asignatura</th><th>Docente</th><th style={{ textAlign: 'center' }}>Acciones</th></tr></thead>
                                         <tbody>
