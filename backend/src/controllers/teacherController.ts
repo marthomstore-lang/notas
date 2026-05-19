@@ -102,13 +102,20 @@ export const saveGrade = async (req: Request, res: Response) => {
         client = await db.connect();
         const id = uuidv4();
 
-        // Simple UPSERT for SQLite
-        await client.query(`
-            INSERT INTO grades (id, student_id, grade_column_id, grade_value)
-            VALUES (?, ?, ?, ?)
-            ON CONFLICT(student_id, grade_column_id) 
-            DO UPDATE SET grade_value = excluded.grade_value, updated_at = CURRENT_TIMESTAMP
-        `, [id, studentId, columnId, gradeValue]);
+        if (gradeValue === null || gradeValue === undefined || gradeValue === '') {
+            await client.query(`
+                DELETE FROM grades 
+                WHERE student_id = ? AND grade_column_id = ?
+            `, [studentId, columnId]);
+        } else {
+            // Simple UPSERT
+            await client.query(`
+                INSERT INTO grades (id, student_id, grade_column_id, grade_value)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(student_id, grade_column_id) 
+                DO UPDATE SET grade_value = excluded.grade_value, updated_at = CURRENT_TIMESTAMP
+            `, [id, studentId, columnId, gradeValue]);
+        }
 
         res.json({ success: true });
     } catch (error) {

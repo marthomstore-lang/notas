@@ -72,7 +72,7 @@ export const GradesGrid: React.FC = () => {
 
     // Auto-save via API
     const saveGrade = useCallback(
-        debounce(async (studentId: string, columnId: string, gradeValue: number) => {
+        debounce(async (studentId: string, columnId: string, gradeValue: number | null) => {
             setSaving(true);
             try {
                 await fetch('/_/backend/api/teacher/grades/save', {
@@ -102,6 +102,7 @@ export const GradesGrid: React.FC = () => {
             const newGrades = { ...grades };
             delete newGrades[key];
             setGrades(newGrades);
+            saveGrade(studentId, columnId, null);
         }
     };
 

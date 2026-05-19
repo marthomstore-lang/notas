@@ -69,23 +69,58 @@ export const getGradesSheet = async (req: Request, res: Response) => {
 };
 
 export const saveGradesSheet = async (req: Request, res: Response) => {
-    const { levelId, subjectId, period, year, grades, columns } = req.body;
+    const { levelId, subjectId, period, year, columns } = req.body;
+    const gradesInput = req.body.grades || req.body.gradesData || [];
+    const columnsInput = columns || [];
     const user = (req as any).user;
 
     try {
         const levelIdNum = levelId ? parseInt(String(levelId), 10) : 0;
         const subjectIdNum = subjectId ? parseInt(String(subjectId), 10) : 0;
         const yearNum = year ? parseInt(String(year), 10) : 0;
+        const periodStr = String(period || '');
 
         const specificLogs = [];
 
-        // 1. Fetch current data to detect changes
+        // 1. Sync Grade Columns settings first
+        const dbColumns = await db.all(`
+            SELECT * FROM grade_columns 
+            WHERE level_id = ? AND subject_id = ? AND period = ? AND academic_year = ?
+        `, [levelIdNum, subjectIdNum, periodStr, yearNum]);
+        
+        const dbColMap = new Map<number, any>(dbColumns.map(c => [c.position, c]));
+        const positionToId = new Map<number, string>();
+
+        for (const col of columnsInput) {
+            const pos = col.position;
+            const existingCol = dbColMap.get(pos);
+            let colId = '';
+            if (existingCol) {
+                colId = existingCol.id;
+                if (existingCol.title !== col.title || parseFloat(String(existingCol.weighting)) !== parseFloat(String(col.weighting || 0))) {
+                    await db.run(`
+                        UPDATE grade_columns 
+                        SET title = ?, weighting = ? 
+                        WHERE id = ?
+                    `, [col.title, col.weighting || 0, colId]);
+                }
+            } else {
+                colId = uuidv4();
+                await db.run(`
+                    INSERT INTO grade_columns (id, level_id, subject_id, academic_year, period, title, position, weighting)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                `, [colId, levelIdNum, subjectIdNum, yearNum, periodStr, col.title, col.position, col.weighting || 0]);
+            }
+            positionToId.set(pos, colId);
+        }
+
+        // 2. Fetch current data to detect changes
         const existingGradesRes = await db.all(`
             SELECT g.* 
             FROM grades g
             JOIN grade_columns gc ON g.grade_column_id = gc.id
             WHERE gc.level_id = ? AND gc.subject_id = ? AND gc.period = ? AND gc.academic_year = ?
-        `, [levelIdNum, subjectIdNum, period, yearNum]);
+        `, [levelIdNum, subjectIdNum, periodStr, yearNum]);
 
         const studentRes = await db.all(`
             SELECT s.id, s.full_name as name 
@@ -96,18 +131,20 @@ export const saveGradesSheet = async (req: Request, res: Response) => {
 
         const studentMap = new Map(studentRes.map(s => [s.id, s]));
 
-        // 2. Update/Insert each grade
-        for (const g of grades) {
-            const columnId = g.grade_column_id;
-            const newValue = g.grade_value;
-            const col = columns.find((c: any) => c.id === columnId);
+        // 3. Update/Insert/Delete each grade
+        for (const g of gradesInput) {
+            const colId = positionToId.get(g.position);
+            if (!colId) continue;
             
-            const existingGrade = existingGradesRes.find(eg => eg.student_id === g.student_id && eg.grade_column_id === columnId);
+            const newValue = (g.grade_value === null || g.grade_value === undefined || g.grade_value === '') ? null : parseFloat(String(g.grade_value).replace(',', '.'));
+            const col = columnsInput.find((c: any) => c.position === g.position);
+            
+            const existingGrade = existingGradesRes.find(eg => eg.student_id === g.student_id && eg.grade_column_id === colId);
 
             if (existingGrade) {
-                const dbValue = existingGrade.grade_value;
+                const dbValue = existingGrade.grade_value === null || existingGrade.grade_value === undefined ? null : parseFloat(String(existingGrade.grade_value));
                 if (dbValue !== newValue) {
-                    if (newValue === null || newValue === '') {
+                    if (newValue === null) {
                         // Delete if empty
                         specificLogs.push({
                             action: 'DELETE_GRADE',
@@ -123,14 +160,14 @@ export const saveGradesSheet = async (req: Request, res: Response) => {
                         await db.run('UPDATE grades SET grade_value = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [newValue, existingGrade.id]);
                     }
                 }
-            } else if (newValue !== null && newValue !== '') {
+            } else if (newValue !== null) {
                 // Insert
                 specificLogs.push({
                     action: 'ADD_GRADE',
                     details: `Ingreso de nota (${newValue}) - Estudiante: ${studentMap.get(g.student_id)?.name || g.student_id} - Columna: ${col?.title || g.position}`
                 });
                 await db.run('INSERT INTO grades (id, student_id, grade_column_id, grade_value) VALUES (?, ?, ?, ?)', 
-                            [uuidv4(), g.student_id, columnId, newValue]);
+                            [uuidv4(), g.student_id, colId, newValue]);
             }
         }
 
