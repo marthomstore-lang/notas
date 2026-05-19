@@ -21,7 +21,15 @@ export const AdminDashboard = () => {
         const saved = localStorage.getItem('adminConfigSubTab');
         return (['teachers', 'courses', 'subjects', 'assignments', 'homeroom'].includes(saved as string)) ? (saved as any) : 'teachers';
     });
-    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth >= 768);
+
+    const handleNavClick = (tab: 'config' | 'students' | 'grades' | 'audit' | 'profile', subTab?: 'teachers' | 'courses' | 'subjects' | 'assignments' | 'homeroom') => {
+        setActiveTab(tab);
+        if (subTab) setConfigSubTab(subTab);
+        if (window.innerWidth < 768) {
+            setIsSidebarOpen(false);
+        }
+    };
 
     useEffect(() => {
         localStorage.setItem('adminActiveTab', activeTab);
@@ -757,7 +765,7 @@ export const AdminDashboard = () => {
     return (
         <div className="dashboard-layout">
             <div className={`sidebar-overlay ${isSidebarOpen ? 'open' : ''}`} onClick={() => setIsSidebarOpen(false)}></div>
-            <aside className={`sidebar ${isSidebarOpen ? 'open' : ''}`}>
+            <aside className={`sidebar ${isSidebarOpen ? 'open' : 'collapsed'}`}>
                 <div className="sidebar-header">
                     <div style={{ textAlign: 'center', marginBottom: '15px' }}>
                         <img src="/assets/logo.png" alt="Logo" style={{ width: '80px', height: '80px', borderRadius: '50%', background: 'white', padding: '5px' }} />
@@ -769,34 +777,34 @@ export const AdminDashboard = () => {
                     <p>{user?.name}</p>
                 </div>
                 <nav className="sidebar-nav">
-                    <button className={activeTab === 'grades' ? 'active' : ''} onClick={() => { setActiveTab('grades'); setIsSidebarOpen(false); }}>
+                    <button className={activeTab === 'grades' ? 'active' : ''} onClick={() => handleNavClick('grades')}>
                         <BookOpen size={18} /> Notas (Libro de Clases)
                     </button>
-                    <button className={activeTab === 'students' ? 'active' : ''} onClick={() => { setActiveTab('students'); setIsSidebarOpen(false); }}>
+                    <button className={activeTab === 'students' ? 'active' : ''} onClick={() => handleNavClick('students')}>
                         <Users size={18} /> Matrícula y Alumnos
                     </button>
-                    <button className={activeTab === 'audit' ? 'active' : ''} onClick={() => { setActiveTab('audit'); setIsSidebarOpen(false); }}>
+                    <button className={activeTab === 'audit' ? 'active' : ''} onClick={() => handleNavClick('audit')}>
                         <BarChart3 size={18} /> Bitácora de Actividad
                     </button>
-                    <button className={activeTab === 'profile' ? 'active' : ''} onClick={() => { setActiveTab('profile'); setIsSidebarOpen(false); }}>
+                    <button className={activeTab === 'profile' ? 'active' : ''} onClick={() => handleNavClick('profile')}>
                         <User size={18} /> Mi Cuenta
                     </button>
                     
                     <div className="sidebar-divider">Configuración de Sistema</div>
                     
-                    <button className={activeTab === 'config' && configSubTab === 'courses' ? 'active' : ''} onClick={() => { setActiveTab('config'); setConfigSubTab('courses'); setIsSidebarOpen(false); }}>
+                    <button className={activeTab === 'config' && configSubTab === 'courses' ? 'active' : ''} onClick={() => handleNavClick('config', 'courses')}>
                         <BookOpen size={16} /> Niveles / Cursos
                     </button>
-                    <button className={activeTab === 'config' && configSubTab === 'subjects' ? 'active' : ''} onClick={() => { setActiveTab('config'); setConfigSubTab('subjects'); setIsSidebarOpen(false); }}>
+                    <button className={activeTab === 'config' && configSubTab === 'subjects' ? 'active' : ''} onClick={() => handleNavClick('config', 'subjects')}>
                         <Settings size={16} /> Asignaturas
                     </button>
-                    <button className={activeTab === 'config' && configSubTab === 'teachers' ? 'active' : ''} onClick={() => { setActiveTab('config'); setConfigSubTab('teachers'); setIsSidebarOpen(false); }}>
+                    <button className={activeTab === 'config' && configSubTab === 'teachers' ? 'active' : ''} onClick={() => handleNavClick('config', 'teachers')}>
                         <Users size={16} /> Usuarios / Docentes
                     </button>
-                    <button className={activeTab === 'config' && configSubTab === 'assignments' ? 'active' : ''} onClick={() => { setActiveTab('config'); setConfigSubTab('assignments'); setIsSidebarOpen(false); }}>
+                    <button className={activeTab === 'config' && configSubTab === 'assignments' ? 'active' : ''} onClick={() => handleNavClick('config', 'assignments')}>
                         <Plus size={16} /> Asignación de Carga
                     </button>
-                    <button className={activeTab === 'config' && configSubTab === 'homeroom' ? 'active' : ''} onClick={() => { setActiveTab('config'); setConfigSubTab('homeroom'); setIsSidebarOpen(false); }}>
+                    <button className={activeTab === 'config' && configSubTab === 'homeroom' ? 'active' : ''} onClick={() => handleNavClick('config', 'homeroom')}>
                         <User size={16} /> Profesores Jefe
                     </button>
                 </nav>
@@ -809,7 +817,7 @@ export const AdminDashboard = () => {
             <main className="dashboard-content">
                 <header className="content-header">
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <button className="mobile-menu-toggle" onClick={() => setIsSidebarOpen(true)}>
+                        <button className="sidebar-toggle-btn" onClick={() => setIsSidebarOpen(!isSidebarOpen)}>
                             <Menu size={24} />
                         </button>
                         <h1>
@@ -861,44 +869,46 @@ export const AdminDashboard = () => {
                 {activeTab === 'grades' && <GradesSheet />}
                 
                 {activeTab === 'audit' && (
-                    <div className="card">
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
-                            <h3>Historial de Acciones</h3>
-                            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                                <button 
-                                    className="secondary-btn" 
-                                    style={{ height: '35px', padding: '0 12px' }}
-                                    onClick={() => fetchData()}
-                                    title="Actualizar Historial"
-                                >
-                                    Actualizar
-                                </button>
-                                <select 
-                                    className="swal2-input" 
-                                    style={{ margin: 0, fontSize: '0.8rem', height: '35px' }}
-                                    value={auditFilters.teacher}
-                                    onChange={(e) => setAuditFilters({...auditFilters, teacher: e.target.value})}
-                                >
-                                    <option value="">Todos los Docentes</option>
-                                    {teachers.map(t => <option key={t.id} value={t.name}>{t.name}</option>)}
-                                </select>
-                                <select 
-                                    className="swal2-input" 
-                                    style={{ margin: 0, fontSize: '0.8rem', height: '35px' }}
-                                    value={auditFilters.action}
-                                    onChange={(e) => setAuditFilters({...auditFilters, action: e.target.value})}
-                                >
-                                    <option value="">Todas las Acciones</option>
-                                    <option value="SAVE_GRADES">Guardado de Planilla</option>
-                                    <option value="ADD_GRADE">Ingreso de Nota</option>
-                                    <option value="UPDATE_GRADE">Actualización de Nota</option>
-                                    <option value="DELETE_GRADE">Eliminación de Nota</option>
-                                    <option value="LOCK_GRADES">Bloqueo de Notas</option>
-                                    <option value="UNLOCK_GRADES">Desbloqueo de Notas</option>
-                                </select>
+                    <div className="card card-split-layout">
+                        <div className="card-split-header">
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
+                                <h3 style={{ margin: 0 }}>Historial de Acciones</h3>
+                                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                                    <button 
+                                        className="secondary-btn" 
+                                        style={{ height: '35px', padding: '0 12px' }}
+                                        onClick={() => fetchData()}
+                                        title="Actualizar Historial"
+                                    >
+                                        Actualizar
+                                    </button>
+                                    <select 
+                                        className="swal2-input" 
+                                        style={{ margin: 0, fontSize: '0.8rem', height: '35px' }}
+                                        value={auditFilters.teacher}
+                                        onChange={(e) => setAuditFilters({...auditFilters, teacher: e.target.value})}
+                                    >
+                                        <option value="">Todos los Docentes</option>
+                                        {teachers.map(t => <option key={t.id} value={t.name}>{t.name}</option>)}
+                                    </select>
+                                    <select 
+                                        className="swal2-input" 
+                                        style={{ margin: 0, fontSize: '0.8rem', height: '35px' }}
+                                        value={auditFilters.action}
+                                        onChange={(e) => setAuditFilters({...auditFilters, action: e.target.value})}
+                                    >
+                                        <option value="">Todas las Acciones</option>
+                                        <option value="SAVE_GRADES">Guardado de Planilla</option>
+                                        <option value="ADD_GRADE">Ingreso de Nota</option>
+                                        <option value="UPDATE_GRADE">Actualización de Nota</option>
+                                        <option value="DELETE_GRADE">Eliminación de Nota</option>
+                                        <option value="LOCK_GRADES">Bloqueo de Notas</option>
+                                        <option value="UNLOCK_GRADES">Desbloqueo de Notas</option>
+                                    </select>
+                                </div>
                             </div>
                         </div>
-                        <div style={{ maxHeight: '600px', overflowY: 'auto' }}>
+                        <div className="card-split-content" style={{ marginTop: 0 }}>
                             <table className="data-table">
                                 <thead>
                                     <tr>
@@ -943,131 +953,143 @@ export const AdminDashboard = () => {
                 {activeTab === 'config' && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                         {configSubTab === 'teachers' && (
-                            <div className="card">
-                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
-                                    <h3>Gestión de Usuarios</h3>
-                                    <button className="primary-btn" onClick={handleCreateTeacher}><Plus size={18} /> Nuevo Usuario</button>
+                            <div className="card card-split-layout">
+                                <div className="card-split-header">
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
+                                        <h3 style={{ margin: 0 }}>Gestión de Usuarios</h3>
+                                        <button className="primary-btn" onClick={handleCreateTeacher}><Plus size={18} /> Nuevo Usuario</button>
+                                    </div>
                                 </div>
-                                <table className="data-table">
-                                    <thead><tr><th>RUT</th><th>NOMBRE</th><th>ROL</th><th>EMAIL</th><th>ACCIONES</th></tr></thead>
-                                    <tbody>
-                                        {teachers.map(t => (
-                                            <tr key={t.id}>
-                                                <td>{t.run}</td>
-                                                <td>{t.name}</td>
-                                                <td>
-                                                    <span className={`badge ${t.role === 'Admin' ? 'admin' : 'docente'}`}>
-                                                        {t.role === 'Admin' ? 'Administrador' : 'Docente'}
-                                                    </span>
-                                                </td>
-                                                <td>{t.email}</td>
-                                                <td>
-                                                    <div style={{ display: 'flex', gap: '15px' }}>
-                                                        <button 
-                                                            type="button"
-                                                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#3b82f6', padding: '5px' }}
-                                                            onClick={(e) => { e.stopPropagation(); handleEditTeacher(t); }}
-                                                            title="Editar"
-                                                        >
-                                                            <Edit2 size={20} />
-                                                        </button>
-                                                        <button 
-                                                            type="button"
-                                                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: '5px' }}
-                                                            onClick={(e) => { e.stopPropagation(); handleDeleteTeacher(t.id); }}
-                                                            title="Eliminar"
-                                                        >
-                                                            <Trash2 size={20} />
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
+                                <div className="card-split-content">
+                                    <table className="data-table">
+                                        <thead><tr><th>RUT</th><th>NOMBRE</th><th>ROL</th><th>EMAIL</th><th>ACCIONES</th></tr></thead>
+                                        <tbody>
+                                            {teachers.map(t => (
+                                                <tr key={t.id}>
+                                                    <td>{t.run}</td>
+                                                    <td>{t.name}</td>
+                                                    <td>
+                                                        <span className={`badge ${t.role === 'Admin' ? 'admin' : 'docente'}`}>
+                                                            {t.role === 'Admin' ? 'Administrador' : 'Docente'}
+                                                        </span>
+                                                    </td>
+                                                    <td>{t.email}</td>
+                                                    <td>
+                                                        <div style={{ display: 'flex', gap: '15px' }}>
+                                                            <button 
+                                                                type="button"
+                                                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#3b82f6', padding: '5px' }}
+                                                                onClick={(e) => { e.stopPropagation(); handleEditTeacher(t); }}
+                                                                title="Editar"
+                                                            >
+                                                                <Edit2 size={20} />
+                                                            </button>
+                                                            <button 
+                                                                type="button"
+                                                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: '5px' }}
+                                                                onClick={(e) => { e.stopPropagation(); handleDeleteTeacher(t.id); }}
+                                                                title="Eliminar"
+                                                            >
+                                                                <Trash2 size={20} />
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
                             </div>
                         )}
 
                         {configSubTab === 'courses' && (
-                            <div className="card">
-                                <h3>Gestión de Cursos (Niveles)</h3>
-                                <p style={{ color: '#64748b' }}>Los cursos se configuran automáticamente según la estructura del liceo.</p>
-                                <table className="data-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Nombre</th>
-                                            <th>Capacidad</th>
-                                            <th>Matriculados</th>
-                                            <th>Cupos Disponibles (SAE)</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {levels.map(l => (
-                                            <tr key={l.id}>
-                                                <td>{l.name}</td>
-                                                <td>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                        {l.total_capacity}
-                                                        <button 
-                                                            onClick={() => handleUpdateCapacity(l)}
-                                                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#3b82f6', padding: '4px' }}
-                                                            title="Editar Capacidad"
-                                                        >
-                                                            <Edit2 size={16} />
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                                <td style={{ fontWeight: '600', color: '#1e293b' }}>{l.current_enrolled}</td>
-                                                <td style={{ 
-                                                    fontWeight: '700', 
-                                                    color: (l.total_capacity - l.current_enrolled) > 5 ? '#059669' : 
-                                                           (l.total_capacity - l.current_enrolled) > 0 ? '#d97706' : '#dc2626'
-                                                }}>
-                                                    {l.total_capacity - l.current_enrolled}
-                                                </td>
+                            <div className="card card-split-layout">
+                                <div className="card-split-header">
+                                    <h3 style={{ margin: 0, marginBottom: '10px' }}>Gestión de Cursos (Niveles)</h3>
+                                    <p style={{ color: '#64748b', margin: 0 }}>Los cursos se configuran automáticamente según la estructura del liceo.</p>
+                                </div>
+                                <div className="card-split-content">
+                                    <table className="data-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Nombre</th>
+                                                <th>Capacidad</th>
+                                                <th>Matriculados</th>
+                                                <th>Cupos Disponibles (SAE)</th>
                                             </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
+                                        </thead>
+                                        <tbody>
+                                            {levels.map(l => (
+                                                <tr key={l.id}>
+                                                    <td>{l.name}</td>
+                                                    <td>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                            {l.total_capacity}
+                                                            <button 
+                                                                onClick={() => handleUpdateCapacity(l)}
+                                                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#3b82f6', padding: '4px' }}
+                                                                title="Editar Capacidad"
+                                                            >
+                                                                <Edit2 size={16} />
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                    <td style={{ fontWeight: '600', color: '#1e293b' }}>{l.current_enrolled}</td>
+                                                    <td style={{ 
+                                                        fontWeight: '700', 
+                                                        color: (l.total_capacity - l.current_enrolled) > 5 ? '#059669' : 
+                                                               (l.total_capacity - l.current_enrolled) > 0 ? '#d97706' : '#dc2626'
+                                                    }}>
+                                                        {l.total_capacity - l.current_enrolled}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
                             </div>
                         )}
 
                         {configSubTab === 'subjects' && (
-                            <div className="card">
-                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
-                                    <h3>Asignaturas Globales</h3>
-                                    <button className="primary-btn" onClick={handleCreateSubject}><Plus size={18} /> Nueva Asignatura</button>
+                            <div className="card card-split-layout">
+                                <div className="card-split-header">
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
+                                        <h3 style={{ margin: 0 }}>Asignaturas Globales</h3>
+                                        <button className="primary-btn" onClick={handleCreateSubject}><Plus size={18} /> Nueva Asignatura</button>
+                                    </div>
                                 </div>
-                                <table className="data-table">
-                                    <thead><tr><th>Nombre</th><th>Acciones</th></tr></thead>
-                                    <tbody>
-                                        {subjects.map(s => (
-                                            <tr key={s.id}>
-                                                <td>{s.name}</td>
-                                                <td>
-                                                    <div style={{ display: 'flex', gap: '15px' }}>
-                                                        <button 
-                                                            type="button"
-                                                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#3b82f6', padding: '5px' }}
-                                                            onClick={(e) => { e.stopPropagation(); handleEditSubject(s); }}
-                                                            title="Editar Asignatura"
-                                                        >
-                                                            <Edit2 size={20} />
-                                                        </button>
-                                                        <button 
-                                                            type="button"
-                                                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: '5px' }}
-                                                            onClick={(e) => { e.stopPropagation(); handleDeleteSubject(s); }}
-                                                            title="Eliminar Asignatura"
-                                                        >
-                                                            <Trash2 size={20} />
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
+                                <div className="card-split-content">
+                                    <table className="data-table">
+                                        <thead><tr><th>Nombre</th><th>Acciones</th></tr></thead>
+                                        <tbody>
+                                            {subjects.map(s => (
+                                                <tr key={s.id}>
+                                                    <td>{s.name}</td>
+                                                    <td>
+                                                        <div style={{ display: 'flex', gap: '15px' }}>
+                                                            <button 
+                                                                type="button"
+                                                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#3b82f6', padding: '5px' }}
+                                                                onClick={(e) => { e.stopPropagation(); handleEditSubject(s); }}
+                                                                title="Editar Asignatura"
+                                                            >
+                                                                <Edit2 size={20} />
+                                                            </button>
+                                                            <button 
+                                                                type="button"
+                                                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: '5px' }}
+                                                                onClick={(e) => { e.stopPropagation(); handleDeleteSubject(s); }}
+                                                                title="Eliminar Asignatura"
+                                                            >
+                                                                <Trash2 size={20} />
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
                             </div>
                         )}
 
@@ -1150,49 +1172,54 @@ export const AdminDashboard = () => {
                         )}
 
                         {configSubTab === 'homeroom' && (
-                            <div className="card">
-                                <h3 style={{ marginBottom: '20px' }}>Asignación de Profesor Jefe</h3>
-                                <form onSubmit={async (e) => {
-                                    e.preventDefault();
-                                    const form = e.target as HTMLFormElement;
-                                    const levelId = form.levelId.value;
-                                    const teacherId = form.teacherId.value;
-                                    const res = await fetch('/_/backend/api/admin/set-homeroom', {
-                                        method: 'POST',
-                                        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-                                        body: JSON.stringify({ levelId, teacherId })
-                                    });
-                                    if (res.ok) {
-                                        fetchData();
-                                        MySwal.fire('Éxito', "Profesor Jefe asignado.", 'success');
-                                    }
-                                }} className="admin-form">
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px' }}>
-                                        <div>
-                                            <label>Curso (Nivel):</label>
-                                            <select name="levelId" required>
-                                                <option value="">Seleccione Curso...</option>
-                                                {levels.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
-                                            </select>
-                                        </div>
-                                        <div>
-                                            <label>Profesor Jefe:</label>
-                                            <select name="teacherId" required>
-                                                <option value="">Seleccione Docente...</option>
-                                                {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                                            </select>
-                                        </div>
-                                        <div style={{ display: 'flex', alignItems: 'flex-end', marginBottom: '0' }}>
-                                            <div style={{ width: '100%' }}>
-                                                <label style={{ visibility: 'hidden' }}>Botón</label>
-                                                <button type="submit" className="primary-btn" style={{ width: '100%', height: '42px', justifyContent: 'center' }}>Asignar P. Jefe</button>
+                            <div className="card card-split-layout">
+                                <div className="card-split-header">
+                                    <h3 style={{ margin: 0, marginBottom: '20px' }}>Asignación de Profesor Jefe</h3>
+                                    <form onSubmit={async (e) => {
+                                        e.preventDefault();
+                                        const form = e.target as HTMLFormElement;
+                                        const levelId = form.levelId.value;
+                                        const teacherId = form.teacherId.value;
+                                        const res = await fetch('/_/backend/api/admin/set-homeroom', {
+                                            method: 'POST',
+                                            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({ levelId, teacherId })
+                                        });
+                                        if (res.ok) {
+                                            fetchData();
+                                            MySwal.fire('Éxito', "Profesor Jefe asignado.", 'success');
+                                        }
+                                    }} className="admin-form">
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px' }}>
+                                            <div>
+                                                <label>Curso (Nivel):</label>
+                                                <select name="levelId" required>
+                                                    <option value="">Seleccione Curso...</option>
+                                                    {levels.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label>Profesor Jefe:</label>
+                                                <select name="teacherId" required>
+                                                    <option value="">Seleccione Docente...</option>
+                                                    {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                                                </select>
+                                            </div>
+                                            <div style={{ display: 'flex', alignItems: 'flex-end', marginBottom: '0' }}>
+                                                <div style={{ width: '100%' }}>
+                                                    <label style={{ visibility: 'hidden' }}>Botón</label>
+                                                    <button type="submit" className="primary-btn" style={{ width: '100%', height: '42px', justifyContent: 'center' }}>Asignar P. Jefe</button>
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                </form>
+                                    </form>
 
-                                <div style={{ marginTop: '20px' }}>
-                                    <h4 style={{ color: '#64748b', fontSize: '0.9rem', marginBottom: '10px' }}>Listado Actual de Profesores Jefe</h4>
+                                    <div style={{ marginTop: '20px', marginBottom: '10px' }}>
+                                        <h4 style={{ color: '#64748b', fontSize: '0.9rem', margin: 0 }}>Listado Actual de Profesores Jefe</h4>
+                                    </div>
+                                </div>
+
+                                <div className="card-split-content">
                                     <table className="data-table" style={{ fontSize: '0.9rem' }}>
                                         <thead><tr><th>Curso</th><th>Profesor Jefe</th></tr></thead>
                                         <tbody>
@@ -1276,40 +1303,40 @@ export const AdminDashboard = () => {
                 )}
 
                 {activeTab === 'students' && (
-                    <div className="card">
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
-                            <h3>Base de Datos de Estudiantes</h3>
-                            {!showEnrollmentForm && (
-                                <div style={{ display: 'flex', gap: '10px' }}>
-                                    <button className="primary-btn" style={{ background: '#10b981' }} onClick={handleExport} disabled={isUploading}>
-                                        Descargar Planilla
-                                    </button>
-                                    <input 
-                                        type="file" 
-                                        ref={fileInputRef} 
-                                        style={{ display: 'none' }} 
-                                        accept=".xlsx" 
-                                        onChange={handleFileChange} 
-                                    />
-                                    <button 
-                                        className="primary-btn" 
-                                        style={{ background: '#6366f1' }} 
-                                        onClick={() => fileInputRef.current?.click()}
-                                        disabled={isUploading}
-                                    >
-                                        {isUploading ? 'Subiendo...' : <><Upload size={18} /> Subir Planilla</>}
-                                    </button>
-                                    <button className="primary-btn" onClick={() => setShowEnrollmentForm(true)} disabled={isUploading}>
-                                        <Plus size={18} /> Nueva Matrícula Oficial
-                                    </button>
-                                </div>
-                            )}
-                        </div>
+                    <div className={!showEnrollmentForm && selectedLevelFilter !== '' ? "card card-split-layout" : "card"}>
+                        <div className={!showEnrollmentForm && selectedLevelFilter !== '' ? "card-split-header" : ""}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
+                                <h3>Base de Datos de Estudiantes</h3>
+                                {!showEnrollmentForm && (
+                                    <div style={{ display: 'flex', gap: '10px' }}>
+                                        <button className="primary-btn" style={{ background: '#10b981' }} onClick={handleExport} disabled={isUploading}>
+                                            Descargar Planilla
+                                        </button>
+                                        <input 
+                                            type="file" 
+                                            ref={fileInputRef} 
+                                            style={{ display: 'none' }} 
+                                            accept=".xlsx" 
+                                            onChange={handleFileChange} 
+                                        />
+                                        <button 
+                                            className="primary-btn" 
+                                            style={{ background: '#6366f1' }} 
+                                            onClick={() => fileInputRef.current?.click()}
+                                            disabled={isUploading}
+                                        >
+                                            {isUploading ? 'Subiendo...' : <><Upload size={18} /> Subir Planilla</>}
+                                        </button>
+                                        <button className="primary-btn" onClick={() => setShowEnrollmentForm(true)} disabled={isUploading}>
+                                            <Plus size={18} /> Nueva Matrícula Oficial
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
 
-                        {showEnrollmentForm ? (
-                            <EnrollmentForm levels={levels} onSubmit={handleEnrollSubmit} onCancel={() => setShowEnrollmentForm(false)} />
-                        ) : (
-                            <div>
+                            {showEnrollmentForm ? (
+                                <EnrollmentForm levels={levels} onSubmit={handleEnrollSubmit} onCancel={() => setShowEnrollmentForm(false)} />
+                            ) : (
                                 <div style={{ marginBottom: '20px' }}>
                                     <label style={{ fontWeight: 'bold', marginRight: '10px' }}>Filtrar por Curso:</label>
                                     <select 
@@ -1321,60 +1348,66 @@ export const AdminDashboard = () => {
                                         {levels.map(l => <option key={l.id} value={l.name}>{l.name}</option>)}
                                     </select>
                                 </div>
-                                
+                            )}
+                        </div>
+
+                        {!showEnrollmentForm && (
+                            <>
                                 {selectedLevelFilter === '' ? (
                                     <div style={{ padding: '40px', textAlign: 'center', background: '#f8fafc', borderRadius: '8px', border: '1px dashed #cbd5e1' }}>
                                         <GraduationCap size={48} style={{ color: '#94a3b8', margin: '0 auto 10px' }} />
                                         <p style={{ color: '#64748b' }}>Seleccione un curso en el menú desplegable para ver el listado de estudiantes.</p>
                                     </div>
                                 ) : (
-                                    <table className="data-table">
-                                        <thead><tr><th>N°</th><th>RUT</th><th>Nombre</th><th>Curso</th><th>Registrado</th><th>Acciones</th></tr></thead>
-                                        <tbody>
-                                            {students
-                                                .filter(s => s.level_name === selectedLevelFilter)
-                                                .sort((a, b) => (a.list_number || 999) - (b.list_number || 999))
-                                                .map((s) => (
-                                                <tr key={s.id} style={s.status === 'RETIRADO' ? { color: '#ef4444', textDecoration: 'line-through', fontWeight: '500' } : {}}>
-                                                    <td>
-                                                        <input 
-                                                            type="number"
-                                                            defaultValue={s.list_number || ''}
-                                                            onBlur={(e) => handleListNumberChange(s.id, e.target.value)}
-                                                            style={{ width: '50px', padding: '4px', textAlign: 'center', borderRadius: '4px', border: '1px solid #cbd5e1' }}
-                                                        />
-                                                    </td>
-                                                    <td>{s.run}</td>
-                                                    <td>{s.full_name}</td>
-                                                    <td>{s.level_name}</td>
-                                                    <td>{new Date(s.created_at).toLocaleDateString()}</td>
-                                                    <td style={{ display: 'flex', gap: '5px' }}>
-                                                        <button onClick={() => setViewingStudentId(s.id)} title="Editar Datos Base de Datos" style={{ padding: '6px', background: '#059669', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
-                                                            <Edit2 size={14} />
-                                                        </button>
-                                                        <button onClick={() => handlePrintOfficial(s.id)} title="Ver/Imprimir Ficha Oficial" style={{ padding: '6px', background: '#38bdf8', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
-                                                            <Printer size={14} />
-                                                        </button>
-                                                        <button onClick={() => handleViewObservations(s)} title="Libro de Vida" style={{ padding: '6px', background: '#10b981', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
-                                                            <BookOpen size={14} />
-                                                        </button>
-                                                        <button onClick={() => handleDeleteStudent(s.id)} title="Dar de baja" style={{ padding: '6px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
-                                                            <X size={14} />
-                                                        </button>
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                            {students.filter(s => s.level_name === selectedLevelFilter).length === 0 && (
-                                                <tr>
-                                                    <td colSpan={6} style={{ textAlign: 'center', padding: '20px', color: '#64748b' }}>
-                                                        No hay estudiantes registrados en este curso.
-                                                    </td>
-                                                </tr>
-                                            )}
-                                        </tbody>
-                                    </table>
+                                    <div className="card-split-content">
+                                        <table className="data-table">
+                                            <thead><tr><th>N°</th><th>RUT</th><th>Nombre</th><th>Curso</th><th>Registrado</th><th>Acciones</th></tr></thead>
+                                            <tbody>
+                                                {students
+                                                    .filter(s => s.level_name === selectedLevelFilter)
+                                                    .sort((a, b) => (a.list_number || 999) - (b.list_number || 999))
+                                                    .map((s) => (
+                                                    <tr key={s.id} style={s.status === 'RETIRADO' ? { color: '#ef4444', textDecoration: 'line-through', fontWeight: '500' } : {}}>
+                                                        <td>
+                                                            <input 
+                                                                type="number"
+                                                                defaultValue={s.list_number || ''}
+                                                                onBlur={(e) => handleListNumberChange(s.id, e.target.value)}
+                                                                style={{ width: '50px', padding: '4px', textAlign: 'center', borderRadius: '4px', border: '1px solid #cbd5e1' }}
+                                                            />
+                                                        </td>
+                                                        <td>{s.run}</td>
+                                                        <td>{s.full_name}</td>
+                                                        <td>{s.level_name}</td>
+                                                        <td>{new Date(s.created_at).toLocaleDateString()}</td>
+                                                        <td style={{ display: 'flex', gap: '5px' }}>
+                                                            <button onClick={() => setViewingStudentId(s.id)} title="Editar Datos Base de Datos" style={{ padding: '6px', background: '#059669', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+                                                                <Edit2 size={14} />
+                                                            </button>
+                                                            <button onClick={() => handlePrintOfficial(s.id)} title="Ver/Imprimir Ficha Oficial" style={{ padding: '6px', background: '#38bdf8', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+                                                                <Printer size={14} />
+                                                            </button>
+                                                            <button onClick={() => handleViewObservations(s)} title="Libro de Vida" style={{ padding: '6px', background: '#10b981', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+                                                                <BookOpen size={14} />
+                                                            </button>
+                                                            <button onClick={() => handleDeleteStudent(s.id)} title="Dar de baja" style={{ padding: '6px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+                                                                <X size={14} />
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                                {students.filter(s => s.level_name === selectedLevelFilter).length === 0 && (
+                                                    <tr>
+                                                        <td colSpan={6} style={{ textAlign: 'center', padding: '20px', color: '#64748b' }}>
+                                                            No hay estudiantes registrados en este curso.
+                                                        </td>
+                                                    </tr>
+                                                )}
+                                            </tbody>
+                                        </table>
+                                    </div>
                                 )}
-                            </div>
+                            </>
                         )}
                     </div>
                 )}

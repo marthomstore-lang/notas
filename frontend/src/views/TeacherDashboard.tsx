@@ -17,8 +17,15 @@ export const TeacherDashboard = () => {
     const { user, logout, token } = useAuth();
     const navigate = useNavigate();
     const [assignments, setAssignments] = useState<Assignment[]>([]);
-    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth >= 768);
     const [activeView, setActiveView] = useState<'courses' | 'observations' | 'schedule' | 'profile'>('courses');
+
+    const handleNavClick = (view: 'courses' | 'observations' | 'schedule' | 'profile') => {
+        setActiveView(view);
+        if (window.innerWidth < 768) {
+            setIsSidebarOpen(false);
+        }
+    };
     const [selectedLevelId, setSelectedLevelId] = useState<number | null>(null);
 
     const [students, setStudents] = useState<any[]>([]);
@@ -75,7 +82,7 @@ export const TeacherDashboard = () => {
     return (
         <div className="dashboard-layout">
             <div className={`sidebar-overlay ${isSidebarOpen ? 'open' : ''}`} onClick={() => setIsSidebarOpen(false)}></div>
-            <aside className={`sidebar ${isSidebarOpen ? 'open' : ''}`}>
+            <aside className={`sidebar ${isSidebarOpen ? 'open' : 'collapsed'}`}>
                 <div className="sidebar-header">
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <h2>Docente</h2>
@@ -84,10 +91,10 @@ export const TeacherDashboard = () => {
                     <p>{user?.name}</p>
                 </div>
                 <nav className="sidebar-nav">
-                    <button className={activeView === 'courses' ? 'active' : ''} onClick={() => { setActiveView('courses'); setIsSidebarOpen(false); }}><Book size={18} /> Mis Cursos</button>
-                    <button className={activeView === 'observations' ? 'active' : ''} onClick={() => { setActiveView('observations'); setSelectedLevelId(null); setSelectedStudentId(null); setIsSidebarOpen(false); }}><ClipboardCheck size={18} /> Libro de Vida</button>
-                    <button className={activeView === 'schedule' ? 'active' : ''} onClick={() => { setActiveView('schedule'); setIsSidebarOpen(false); }}><Calendar size={18} /> Horario</button>
-                    <button className={activeView === 'profile' ? 'active' : ''} onClick={() => { setActiveView('profile'); setIsSidebarOpen(false); }}><User size={18} /> Mi Cuenta</button>
+                    <button className={activeView === 'courses' ? 'active' : ''} onClick={() => handleNavClick('courses')}><Book size={18} /> Mis Cursos</button>
+                    <button className={activeView === 'observations' ? 'active' : ''} onClick={() => { handleNavClick('observations'); setSelectedLevelId(null); setSelectedStudentId(null); }}><ClipboardCheck size={18} /> Libro de Vida</button>
+                    <button className={activeView === 'schedule' ? 'active' : ''} onClick={() => handleNavClick('schedule')}><Calendar size={18} /> Horario</button>
+                    <button className={activeView === 'profile' ? 'active' : ''} onClick={() => handleNavClick('profile')}><User size={18} /> Mi Cuenta</button>
                 </nav>
                 <div className="sidebar-footer">
                     <button onClick={logout} className="logout-btn">
@@ -98,7 +105,7 @@ export const TeacherDashboard = () => {
             <main className="dashboard-content">
                 <header className="content-header">
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <button className="mobile-menu-toggle" onClick={() => setIsSidebarOpen(true)}>
+                        <button className="sidebar-toggle-btn" onClick={() => setIsSidebarOpen(!isSidebarOpen)}>
                             <Menu size={24} />
                         </button>
                         <h1>
@@ -148,26 +155,30 @@ export const TeacherDashboard = () => {
                                 ))}
                             </div>
                         ) : !selectedStudentId ? (
-                            <div className="card">
-                                <button onClick={() => setSelectedLevelId(null)} className="logout-btn" style={{ width: 'auto', background: '#64748b', marginBottom: '20px' }}>Volver a Cursos</button>
-                                <h3>Seleccione un estudiante</h3>
-                                <table className="data-table">
-                                    <thead><tr><th>RUN</th><th>Nombre Alumno</th><th>Acción</th></tr></thead>
-                                    <tbody>
-                                        {students.map(s => (
-                                            <tr key={s.id} style={s.status === 'RETIRADO' ? { color: '#ef4444', textDecoration: 'line-through', fontWeight: '500' } : {}}>
-                                                <td>{s.run}</td>
-                                                <td>{s.full_name}</td>
-                                                <td style={{ display: 'flex', gap: '5px' }}>
-                                                    <button className="primary-btn" onClick={() => loadObservations(s.id)}>Libro de Vida</button>
-                                                    <button className="secondary-btn" title="Ver Expediente" onClick={() => setViewingStudentId(s.id)}>
-                                                        <User size={16} /> Ficha
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
+                            <div className="card card-split-layout">
+                                <div className="card-split-header">
+                                    <button onClick={() => setSelectedLevelId(null)} className="logout-btn" style={{ width: 'auto', background: '#64748b', marginBottom: '20px' }}>Volver a Cursos</button>
+                                    <h3 style={{ margin: 0, marginBottom: '10px' }}>Seleccione un estudiante</h3>
+                                </div>
+                                <div className="card-split-content">
+                                    <table className="data-table">
+                                        <thead><tr><th>RUN</th><th>Nombre Alumno</th><th>Acción</th></tr></thead>
+                                        <tbody>
+                                            {students.map(s => (
+                                                <tr key={s.id} style={s.status === 'RETIRADO' ? { color: '#ef4444', textDecoration: 'line-through', fontWeight: '500' } : {}}>
+                                                    <td>{s.run}</td>
+                                                    <td>{s.full_name}</td>
+                                                    <td style={{ display: 'flex', gap: '5px' }}>
+                                                        <button className="primary-btn" onClick={() => loadObservations(s.id)}>Libro de Vida</button>
+                                                        <button className="secondary-btn" title="Ver Expediente" onClick={() => setViewingStudentId(s.id)}>
+                                                            <User size={16} /> Ficha
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
                             </div>
                         ) : (
                             <div className="card">
