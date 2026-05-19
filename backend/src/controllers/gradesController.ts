@@ -7,26 +7,26 @@ export const getGradesSheet = async (req: Request, res: Response) => {
     const user = (req as any).user;
 
     try {
+        const levelIdNum = levelId ? parseInt(String(levelId), 10) : 0;
+        const subjectIdNum = subjectId ? parseInt(String(subjectId), 10) : 0;
+        const yearNum = year ? parseInt(String(year), 10) : 0;
+        const periodStr = String(period || '');
+
         // Security check for teachers: Only assigned subjects OR Homeroom Teacher of the level
         if (user.role === 'Docente') {
-            const isHomeroomTeacher = await db.get('SELECT id FROM levels WHERE id = ? AND homeroom_teacher_id = ?', [levelId, user.id]);
+            const isHomeroomTeacher = await db.get('SELECT id FROM levels WHERE id = ? AND homeroom_teacher_id = ?', [levelIdNum, user.id]);
             
             if (!isHomeroomTeacher) {
                 const assignment = await db.get(`
                     SELECT id FROM teacher_assignments 
                     WHERE teacher_id = ? AND level_id = ? AND subject_id = ? AND academic_year = ?
-                `, [user.id, levelId, subjectId, year]);
+                `, [user.id, levelIdNum, subjectIdNum, yearNum]);
                 
                 if (!assignment) {
                     return res.status(403).json({ error: 'No tienes permiso para ver este curso/asignatura' });
                 }
             }
         }
-
-        const levelIdStr = String(levelId || '');
-        const subjectIdStr = String(subjectId || '');
-        const yearStr = String(year || '');
-        const periodStr = String(period || '');
 
         // 1. Get Students in the level (Include Active and Retired)
         const students = await db.all(`
@@ -35,14 +35,14 @@ export const getGradesSheet = async (req: Request, res: Response) => {
             JOIN enrollments e ON s.id = e.student_id
             WHERE e.level_id = ? AND e.academic_year = ?
             ORDER BY e.list_number ASC
-        `, [levelIdStr, yearStr]);
+        `, [levelIdNum, yearNum]);
 
         // 2. Get Grade Columns settings
         const columns = await db.all(`
             SELECT * FROM grade_columns 
             WHERE level_id = ? AND subject_id = ? AND period = ? AND academic_year = ?
             ORDER BY position ASC
-        `, [levelIdStr, subjectIdStr, periodStr, yearStr]);
+        `, [levelIdNum, subjectIdNum, periodStr, yearNum]);
 
         // 3. Get All Grades for these columns
         const columnIds = columns.map(c => c.id);
@@ -59,7 +59,7 @@ export const getGradesSheet = async (req: Request, res: Response) => {
         const lockInfo = await db.get(`
             SELECT is_locked FROM grades_locks 
             WHERE level_id = ? AND subject_id = ? AND academic_year = ? AND period = ?
-        `, [levelIdStr, subjectIdStr, yearStr, periodStr]);
+        `, [levelIdNum, subjectIdNum, yearNum, periodStr]);
 
         res.json({ students, columns, grades, isLocked: !!(lockInfo?.is_locked) });
     } catch (error: any) {
@@ -73,23 +73,26 @@ export const saveGradesSheet = async (req: Request, res: Response) => {
     const user = (req as any).user;
 
     try {
-        // Log individual changes to compare later
+        const levelIdNum = levelId ? parseInt(String(levelId), 10) : 0;
+        const subjectIdNum = subjectId ? parseInt(String(subjectId), 10) : 0;
+        const yearNum = year ? parseInt(String(year), 10) : 0;
+
         const specificLogs = [];
-        
+
         // 1. Fetch current data to detect changes
         const existingGradesRes = await db.all(`
             SELECT g.* 
             FROM grades g
             JOIN grade_columns gc ON g.grade_column_id = gc.id
             WHERE gc.level_id = ? AND gc.subject_id = ? AND gc.period = ? AND gc.academic_year = ?
-        `, [levelId, subjectId, period, year]);
+        `, [levelIdNum, subjectIdNum, period, yearNum]);
 
         const studentRes = await db.all(`
             SELECT s.id, s.full_name as name 
             FROM students s 
             JOIN enrollments e ON s.id = e.student_id 
             WHERE e.level_id = ? AND e.academic_year = ?
-        `, [levelId, year]);
+        `, [levelIdNum, yearNum]);
 
         const studentMap = new Map(studentRes.map(s => [s.id, s]));
 
@@ -133,8 +136,8 @@ export const saveGradesSheet = async (req: Request, res: Response) => {
 
         // Audit Logs
         try {
-            const levelName = await db.get('SELECT name FROM levels WHERE id = ?', [levelId]);
-            const subjectName = await db.get('SELECT name FROM subjects WHERE id = ?', [subjectId]);
+            const levelName = await db.get('SELECT name FROM levels WHERE id = ?', [levelIdNum]);
+            const subjectName = await db.get('SELECT name FROM subjects WHERE id = ?', [subjectIdNum]);
             
             await db.run(`
                 INSERT INTO audit_logs (id, user_id, user_name, action, details, level_id, subject_id)
@@ -142,8 +145,8 @@ export const saveGradesSheet = async (req: Request, res: Response) => {
             `, [
                 uuidv4(), user?.id, user?.name || user?.run || 'Sistema', 
                 'SAVE_GRADES', 
-                `Guardado de planilla: ${levelName?.name || levelId} - ${subjectName?.name || subjectId} (${period || 'N/A'})`,
-                levelId, subjectId
+                `Guardado de planilla: ${levelName?.name || levelIdNum} - ${subjectName?.name || subjectIdNum} (${period || 'N/A'})`,
+                String(levelIdNum), String(subjectIdNum)
             ]);
 
             for (const log of specificLogs) {
@@ -152,7 +155,7 @@ export const saveGradesSheet = async (req: Request, res: Response) => {
                     VALUES (?, ?, ?, ?, ?, ?, ?)
                 `, [
                     uuidv4(), user?.id, user?.name || user?.run || 'Sistema', 
-                    log.action, log.details, levelId, subjectId
+                    log.action, log.details, String(levelIdNum), String(subjectIdNum)
                 ]);
             }
         } catch (logError) {
@@ -274,17 +277,21 @@ export const toggleLockAssignment = async (req: Request, res: Response) => {
 
     if (user.role !== 'Admin') return res.status(403).json({ error: 'Solo administradores pueden bloquear notas' });
 
+    const levelIdNum = levelId ? parseInt(String(levelId), 10) : 0;
+    const subjectIdNum = subjectId ? parseInt(String(subjectId), 10) : 0;
+    const academicYearNum = academicYear ? parseInt(String(academicYear), 10) : 0;
+
     try {
         await db.run(`
             INSERT INTO grades_locks (level_id, subject_id, academic_year, period, is_locked)
             VALUES (?, ?, ?, ?, ?)
             ON CONFLICT(level_id, subject_id, academic_year, period) 
             DO UPDATE SET is_locked = excluded.is_locked
-        `, [levelId, subjectId, academicYear, period, lock ? 1 : 0]);
+        `, [levelIdNum, subjectIdNum, academicYearNum, period, lock ? 1 : 0]);
 
         try {
-            const levelName = await db.get('SELECT name FROM levels WHERE id = ?', [levelId]);
-            const subjectName = await db.get('SELECT name FROM subjects WHERE id = ?', [subjectId]);
+            const levelName = await db.get('SELECT name FROM levels WHERE id = ?', [levelIdNum]);
+            const subjectName = await db.get('SELECT name FROM subjects WHERE id = ?', [subjectIdNum]);
 
             await db.run(`
                 INSERT INTO audit_logs (id, user_id, user_name, action, details, level_id, subject_id)
@@ -294,9 +301,9 @@ export const toggleLockAssignment = async (req: Request, res: Response) => {
                 user?.id || 'unknown', 
                 user?.name || user?.run || 'Sistema', 
                 lock ? 'LOCK_GRADES' : 'UNLOCK_GRADES',
-                `${lock ? 'Bloqueo' : 'Desbloqueo'} de notas: ${levelName?.name || levelId} - ${subjectName?.name || subjectId}`,
-                levelId, 
-                subjectId
+                `${lock ? 'Bloqueo' : 'Desbloqueo'} de notas: ${levelName?.name || levelIdNum} - ${subjectName?.name || subjectIdNum}`,
+                String(levelIdNum), 
+                String(subjectIdNum)
             ]);
         } catch (logError) {
             console.error("Audit log error (LOCK/UNLOCK):", logError);

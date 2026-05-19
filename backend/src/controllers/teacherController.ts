@@ -3,9 +3,10 @@ import db from '../config/db';
 import { v4 as uuidv4 } from 'uuid';
 
 export const getAssignments = async (req: Request, res: Response) => {
+    let client;
     try {
         const userId = (req as any).user.id;
-        const client = await db.connect();
+        client = await db.connect();
         
         const result = await client.query(`
             SELECT ta.id as assignment_id, ta.level_id, ta.subject_id, l.name as level_name, s.name as subject_name, ta.academic_year
@@ -18,13 +19,16 @@ export const getAssignments = async (req: Request, res: Response) => {
         res.json(result.rows);
     } catch (error) {
         res.status(500).json({ error: 'Error al obtener asignaciones' });
+    } finally {
+        if (client) client.release();
     }
 };
 
 export const getGrades = async (req: Request, res: Response) => {
+    let client;
     try {
         const { assignmentId } = req.params;
-        const client = await db.connect();
+        client = await db.connect();
         
         // 1. Obtener info de la asignación
         const assignmentRes = await client.query('SELECT * FROM teacher_assignments WHERE id = ?', [assignmentId]);
@@ -62,14 +66,17 @@ export const getGrades = async (req: Request, res: Response) => {
     } catch (error) {
         console.error("Error en getGrades", error);
         res.status(500).json({ error: 'Error al obtener notas' });
+    } finally {
+        if (client) client.release();
     }
 };
 
 export const addColumn = async (req: Request, res: Response) => {
+    let client;
     try {
         const { assignmentId } = req.params;
         const { title } = req.body;
-        const client = await db.connect();
+        client = await db.connect();
         
         const assignmentRes = await client.query('SELECT * FROM teacher_assignments WHERE id = ?', [assignmentId]);
         const assignment = assignmentRes.rows[0];
@@ -83,13 +90,16 @@ export const addColumn = async (req: Request, res: Response) => {
         res.json({ id, title });
     } catch (error) {
         res.status(500).json({ error: 'Error al crear columna' });
+    } finally {
+        if (client) client.release();
     }
 };
 
 export const saveGrade = async (req: Request, res: Response) => {
+    let client;
     try {
         const { studentId, columnId, gradeValue } = req.body;
-        const client = await db.connect();
+        client = await db.connect();
         const id = uuidv4();
 
         // Simple UPSERT for SQLite
@@ -103,5 +113,7 @@ export const saveGrade = async (req: Request, res: Response) => {
         res.json({ success: true });
     } catch (error) {
         res.status(500).json({ error: 'Error al guardar nota' });
+    } finally {
+        if (client) client.release();
     }
 };

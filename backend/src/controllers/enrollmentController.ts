@@ -3,10 +3,11 @@ import db from '../config/db';
 import { v4 as uuidv4 } from 'uuid';
 
 export const registerEnrollment = async (req: Request, res: Response) => {
+    let client;
     try {
         const { studentData, guardiansData, healthData, levelId, academicYear } = req.body;
         
-        const client = await db.connect();
+        client = await db.connect();
         
         // 1. Verificar cupos disponibles (Simulado para SQLite)
         const levelRes = await client.query('SELECT * FROM levels WHERE id = ?', [levelId]);
@@ -73,5 +74,7 @@ export const registerEnrollment = async (req: Request, res: Response) => {
     } catch (error) {
         console.error(error);
         res.status(500).json({ error: 'Fallo al registrar la matrícula oficial. Verifique si el RUT ya existe.' });
+    } finally {
+        if (client) client.release();
     }
 };

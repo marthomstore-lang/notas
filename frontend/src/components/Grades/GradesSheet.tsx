@@ -406,10 +406,14 @@ export const GradesSheet: React.FC<GradesSheetProps> = ({ initialLevelId, initia
         let sum = 0;
         let totalWeight = 0;
         columns.forEach(col => {
-            const grade = grades[`${studentId}_${col.position}`];
-            if (grade && typeof grade === 'number') {
-                sum += grade * (col.weighting || 0);
-                totalWeight += (col.weighting || 0);
+            const gradeRaw = grades[`${studentId}_${col.position}`];
+            const weight = col.weighting ? parseFloat(String(col.weighting)) : 0;
+            if (gradeRaw !== undefined && gradeRaw !== null && gradeRaw !== '') {
+                const grade = typeof gradeRaw === 'number' ? gradeRaw : parseFloat(String(gradeRaw).replace(',', '.'));
+                if (!isNaN(grade) && grade > 0) {
+                    sum += grade * weight;
+                    totalWeight += weight;
+                }
             }
         });
 
@@ -418,10 +422,13 @@ export const GradesSheet: React.FC<GradesSheetProps> = ({ initialLevelId, initia
             let count = 0;
             let total = 0;
             columns.forEach(col => {
-                const grade = grades[`${studentId}_${col.position}`];
-                if (grade && typeof grade === 'number') {
-                    total += grade;
-                    count++;
+                const gradeRaw = grades[`${studentId}_${col.position}`];
+                if (gradeRaw !== undefined && gradeRaw !== null && gradeRaw !== '') {
+                    const grade = typeof gradeRaw === 'number' ? gradeRaw : parseFloat(String(gradeRaw).replace(',', '.'));
+                    if (!isNaN(grade) && grade > 0) {
+                        total += grade;
+                        count++;
+                    }
                 }
             });
             finalAvg = count > 0 ? (total / count) : 0;

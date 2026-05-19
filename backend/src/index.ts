@@ -121,9 +121,10 @@ router.post('/debug/migrate-data', async (req, res) => {
         return res.status(403).json({ error: 'Forbidden' });
     }
 
+    let client;
     try {
         console.log('[Migration] Iniciando DDL e inicialización estructural en Supabase...');
-        const client = await db.connect();
+        client = await db.connect();
 
         // 0. Eliminar tablas vacías existentes en Supabase para evitar conflictos de columnas obsoletas
         const tablesToDrop = [
@@ -428,11 +429,12 @@ router.post('/debug/migrate-data', async (req, res) => {
             }
         }
 
-        client.release();
         res.json({ status: 'ok', message: '¡Migración estructural y de datos completada exitosamente!' });
     } catch (err: any) {
         console.error('[Migration] Error:', err);
         res.status(500).json({ status: 'error', message: err.message, stack: err.stack });
+    } finally {
+        if (client) client.release();
     }
 });
 

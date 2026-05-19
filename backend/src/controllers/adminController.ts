@@ -5,8 +5,9 @@ import db from '../config/db';
 import * as xlsx from 'xlsx';
 
 export const getStudents = async (req: Request, res: Response) => {
+    let client;
     try {
-        const client = await db.connect();
+        client = await db.connect();
         const result = await client.query(`
             SELECT s.*, l.name as level_name, e.list_number 
             FROM students s 
@@ -17,13 +18,16 @@ export const getStudents = async (req: Request, res: Response) => {
         res.json(result.rows);
     } catch (error) {
         res.status(500).json({ error: 'Error al obtener estudiantes' });
+    } finally {
+        if (client) client.release();
     }
 };
 
 export const getStudentById = async (req: Request, res: Response) => {
+    let client;
     try {
         const { id } = req.params;
-        const client = await db.connect();
+        client = await db.connect();
         
         const studentRes = await client.query("SELECT s.*, l.name as level_name FROM students s LEFT JOIN enrollments e ON s.id = e.student_id LEFT JOIN levels l ON e.level_id = l.id WHERE s.id = ?", [id]);
         const guardiansRes = await client.query("SELECT * FROM guardians WHERE student_id = ?", [id]);
@@ -38,6 +42,8 @@ export const getStudentById = async (req: Request, res: Response) => {
         });
     } catch (error) {
         res.status(500).json({ error: 'Error al obtener expediente del estudiante' });
+    } finally {
+        if (client) client.release();
     }
 };
 
@@ -99,10 +105,11 @@ export const reincorporateStudent = async (req: Request, res: Response) => {
 };
 
 export const updateStudent = async (req: Request, res: Response) => {
+    let client;
     try {
         const { id } = req.params;
         const { student, guardians, health } = req.body;
-        const client = await db.connect();
+        client = await db.connect();
 
         // Función para calcular y formatear RUT con DV si falta
         const ensureDV = (rutStr: string) => {
@@ -222,13 +229,16 @@ export const updateStudent = async (req: Request, res: Response) => {
     } catch (error: any) {
         console.error("Error updating student:", error);
         res.status(500).json({ error: 'Error al actualizar expediente del estudiante', details: error.message });
+    } finally {
+        if (client) client.release();
     }
 };
 
 export const getStudentObservations = async (req: Request, res: Response) => {
+    let client;
     try {
         const { id } = req.params;
-        const client = await db.connect();
+        client = await db.connect();
         const result = await client.query(`
             SELECT o.*, u.name as teacher_name 
             FROM observations o
@@ -239,15 +249,18 @@ export const getStudentObservations = async (req: Request, res: Response) => {
         res.json(result.rows);
     } catch (error) {
         res.status(500).json({ error: 'Error al obtener observaciones' });
+    } finally {
+        if (client) client.release();
     }
 };
 
 export const addObservation = async (req: Request, res: Response) => {
+    let client;
     try {
         const { id } = req.params;
         const { content, type } = req.body; // type: 'Positive' | 'Negative'
         const teacherId = (req as any).user.id;
-        const client = await db.connect();
+        client = await db.connect();
         const obsId = uuidv4();
         await client.query(`
             INSERT INTO observations (id, student_id, teacher_id, content, type)
@@ -256,22 +269,28 @@ export const addObservation = async (req: Request, res: Response) => {
         res.status(201).json({ message: 'Observación agregada' });
     } catch (error) {
         res.status(500).json({ error: 'Error al agregar observación' });
+    } finally {
+        if (client) client.release();
     }
 };
 
 export const getTeachers = async (req: Request, res: Response) => {
+    let client;
     try {
-        const client = await db.connect();
+        client = await db.connect();
         const result = await client.query("SELECT id, run, name, email, password_plain, role FROM users WHERE role IN ('Docente', 'Admin') ORDER BY role, name");
         res.json(result.rows);
     } catch (error) {
         res.status(500).json({ error: 'Error al obtener usuarios' });
+    } finally {
+        if (client) client.release();
     }
 };
 export const createTeacher = async (req: Request, res: Response) => {
+    let client;
     try {
         const { run, name, email, password, role } = req.body;
-        const client = await db.connect();
+        client = await db.connect();
         
         // Formatear RUT con guion si viene solo números
         let finalRun = run;
@@ -296,6 +315,8 @@ export const createTeacher = async (req: Request, res: Response) => {
         res.status(201).json({ message: `Docente creado correctamente${!password ? ' con contraseña por defecto 123' : ''}` });
     } catch (error) {
         res.status(500).json({ error: 'Error al crear docente' });
+    } finally {
+        if (client) client.release();
     }
 };
 
@@ -378,30 +399,37 @@ export const deleteTeacher = async (req: Request, res: Response) => {
 };
 
 export const getSubjects = async (req: Request, res: Response) => {
+    let client;
     try {
-        const client = await db.connect();
+        client = await db.connect();
         const result = await client.query("SELECT * FROM subjects");
         res.json(result.rows);
     } catch (error) {
         res.status(500).json({ error: 'Error al obtener asignaturas' });
+    } finally {
+        if (client) client.release();
     }
 };
 
 export const createSubject = async (req: Request, res: Response) => {
+    let client;
     try {
         const { name } = req.body;
-        const client = await db.connect();
+        client = await db.connect();
         
         await client.query("INSERT INTO subjects (name) VALUES (?)", [name]);
         res.status(201).json({ message: 'Asignatura creada' });
     } catch (error) {
         res.status(500).json({ error: 'Error al crear asignatura' });
+    } finally {
+        if (client) client.release();
     }
 };
 
 export const getLevels = async (req: Request, res: Response) => {
+    let client;
     try {
-        const client = await db.connect();
+        client = await db.connect();
         const result = await client.query(`
             SELECT 
                 l.id, 
@@ -416,35 +444,44 @@ export const getLevels = async (req: Request, res: Response) => {
         res.json(result.rows);
     } catch (error) {
         res.status(500).json({ error: 'Error al obtener niveles' });
+    } finally {
+        if (client) client.release();
     }
 };
 
 export const updateLevelCapacity = async (req: Request, res: Response) => {
+    let client;
     try {
         const { id } = req.params;
         const { capacity } = req.body;
-        const client = await db.connect();
+        client = await db.connect();
         await client.query("UPDATE levels SET total_capacity = ? WHERE id = ?", [capacity, id]);
         res.json({ message: 'Capacidad del curso actualizada' });
     } catch (error) {
         res.status(500).json({ error: 'Error al actualizar capacidad' });
+    } finally {
+        if (client) client.release();
     }
 };
 
 export const setHomeroomTeacher = async (req: Request, res: Response) => {
+    let client;
     try {
         const { levelId, teacherId } = req.body;
-        const client = await db.connect();
+        client = await db.connect();
         await client.query("UPDATE levels SET homeroom_teacher_id = ? WHERE id = ?", [teacherId, levelId]);
         res.json({ message: 'Profesor Jefe asignado correctamente' });
     } catch (error) {
         res.status(500).json({ error: 'Error al asignar Profesor Jefe' });
+    } finally {
+        if (client) client.release();
     }
 };
 
 export const getAssignmentsAdmin = async (req: Request, res: Response) => {
+    let client;
     try {
-        const client = await db.connect();
+        client = await db.connect();
         const result = await client.query(`
             SELECT ta.id, u.name as teacher_name, l.name as level_name, s.name as subject_name, ta.academic_year
             FROM teacher_assignments ta
@@ -456,6 +493,8 @@ export const getAssignmentsAdmin = async (req: Request, res: Response) => {
         res.json(result.rows);
     } catch (error) {
         res.status(500).json({ error: 'Error al obtener asignaciones' });
+    } finally {
+        if (client) client.release();
     }
 };
 
@@ -492,9 +531,10 @@ export const deleteAssignment = async (req: Request, res: Response) => {
 };
 
 export const createAssignment = async (req: Request, res: Response) => {
+    let client;
     try {
         const { teacherId, levelId, subjectId, academicYear } = req.body;
-        const client = await db.connect();
+        client = await db.connect();
         
         const id = uuidv4();
         await client.query(`
@@ -505,13 +545,16 @@ export const createAssignment = async (req: Request, res: Response) => {
         res.status(201).json({ message: 'Asignación creada correctamente' });
     } catch (error) {
         res.status(500).json({ error: 'Error al crear asignación (es posible que ya exista)' });
+    } finally {
+        if (client) client.release();
     }
 };
 
 
 export const exportData = async (req: Request, res: Response) => {
+    let client;
     try {
-        const client = await db.connect();
+        client = await db.connect();
         // Fetch all students, their guardians, and health records
         const result = await client.query(`
             SELECT 
@@ -588,6 +631,8 @@ export const exportData = async (req: Request, res: Response) => {
     } catch (error) {
         console.error('Error exportando:', error);
         res.status(500).json({ error: 'Error al exportar base de datos' });
+    } finally {
+        if (client) client.release();
     }
 };
 

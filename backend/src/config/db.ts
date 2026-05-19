@@ -13,29 +13,6 @@ const connectionString = process.env.DATABASE_URL || process.env.POSTGRES_URL;
 const pgHost = process.env.PGHOST;
 const isPostgres = !!(connectionString || pgHost);
 
-if (isPostgres) {
-    // If explicit PG* vars are set, use them to avoid URL parsing issues with dotted usernames
-    if (pgHost) {
-        pgPool = new Pool({
-            host: process.env.PGHOST,
-            port: parseInt(process.env.PGPORT || '6543'),
-            database: process.env.PGDATABASE || 'postgres',
-            user: process.env.PGUSER,
-            password: process.env.PGPASSWORD,
-            ssl: { rejectUnauthorized: false }
-        });
-        console.log(`[DB] Inicializado con PostgreSQL (Supabase) via params → ${process.env.PGHOST}`);
-    } else {
-        pgPool = new Pool({
-            connectionString: connectionString,
-            ssl: { rejectUnauthorized: false }
-        });
-        console.log('[DB] Inicializado con PostgreSQL (Supabase) via URL');
-    }
-} else {
-    console.log('[DB] Inicializado con SQLite Local');
-}
-
 export const getDb = async () => {
     if (isPostgres) return null;
 
@@ -48,10 +25,55 @@ export const getDb = async () => {
         driver: sqlite3.Database
     });
 
+    // Optimizaciones de rendimiento y robustez para SQLite
     await dbInstance.run("PRAGMA foreign_keys = ON;");
+    await dbInstance.run("PRAGMA journal_mode = WAL;");        // Modo Write-Ahead Logging para lectura/escritura concurrentes
+    await dbInstance.run("PRAGMA synchronous = NORMAL;");      // Sincronización normal, mucho más rápida en escrituras
+    await dbInstance.run("PRAGMA busy_timeout = 5000;");       // Tiempo de espera para evitar bloqueos por concurrencia
 
     return dbInstance;
 };
+
+if (isPostgres) {
+    const poolConfig = {
+        ssl: { rejectUnauthorized: false },
+        max: 20,                          // Capacidad máxima de conexiones concurrentes
+        connectionTimeoutMillis: 5000,    // Evita esperas infinitas si hay fallos en la red
+        idleTimeoutMillis: 30000,         // Tiempo de espera para cerrar conexiones inactivas
+        keepAlive: true,                  // Mantiene viva la conexión TCP
+        keepAliveInitialDelayMillis: 10000 // Inicia Keep-Alive tras 10s de inactividad
+    };
+
+    // If explicit PG* vars are set, use them to avoid URL parsing issues with dotted usernames
+    if (pgHost) {
+        pgPool = new Pool({
+            host: process.env.PGHOST,
+            port: parseInt(process.env.PGPORT || '6543'),
+            database: process.env.PGDATABASE || 'postgres',
+            user: process.env.PGUSER,
+            password: process.env.PGPASSWORD,
+            ...poolConfig
+        });
+        console.log(`[DB] Inicializado con PostgreSQL (Supabase) via params → ${process.env.PGHOST}`);
+    } else {
+        pgPool = new Pool({
+            connectionString: connectionString,
+            ...poolConfig
+        });
+        console.log('[DB] Inicializado con PostgreSQL (Supabase) via URL');
+    }
+
+    // Pre-calentar la conexión: valida la conectividad con Supabase inmediatamente al iniciar
+    pgPool.query('SELECT 1')
+        .then(() => console.log('[DB] Conexión estable establecida con PostgreSQL (Supabase) exitosamente.'))
+        .catch(err => console.error('[DB] Error de verificación de conexión inicial con PostgreSQL:', err.message));
+} else {
+    console.log('[DB] Inicializado con SQLite Local');
+    // Pre-inicializar SQLite
+    getDb()
+        .then(() => console.log('[DB] Base de datos SQLite cargada y pre-optimizada.'))
+        .catch(err => console.error('[DB] Fallo al pre-inicializar SQLite:', err));
+}
 
 // Export a wrapper that mimics pg connection and provides sqlite-like helpers
 const dbWrapper = {

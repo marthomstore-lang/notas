@@ -20,7 +20,7 @@ export const Login = () => {
         if (showA11yModal && !a11yEnabled) {
             const announce = () => {
                 const msg = new SpeechSynthesisUtterance();
-                msg.text = "Bienvenido a Liceo Pro. ¿Desea activar las funciones de asistencia por voz para personas no videntes? Presione la tecla Enter para activar, o Escape para continuar sin asistencia.";
+                msg.text = "Bienvenido a Liceo Pro. ¿Desea activar las funciones de asistencia por voz para personas con discapacidad visual? Presione la tecla Enter para activar, o Escape para continuar sin asistencia.";
                 msg.lang = 'es-ES';
                 window.speechSynthesis.speak(msg);
             };
@@ -100,17 +100,24 @@ export const Login = () => {
         <div className="login-container">
             {/* Modal de Accesibilidad */}
             {showA11yModal && (
-                <div style={{
-                    position: 'fixed',
-                    top: 0, left: 0, right: 0, bottom: 0,
-                    background: 'rgba(15, 23, 42, 0.9)',
-                    zIndex: 10000,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    padding: '20px',
-                    backdropFilter: 'blur(8px)'
-                }}>
+                <div 
+                    role="alertdialog"
+                    aria-live="assertive"
+                    aria-modal="true"
+                    aria-labelledby="a11y-title"
+                    aria-describedby="a11y-desc"
+                    style={{
+                        position: 'fixed',
+                        top: 0, left: 0, right: 0, bottom: 0,
+                        background: 'rgba(15, 23, 42, 0.9)',
+                        zIndex: 10000,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '20px',
+                        backdropFilter: 'blur(8px)'
+                    }}
+                >
                     <div style={{
                         background: 'white',
                         padding: '40px',
@@ -133,12 +140,13 @@ export const Login = () => {
                         }}>
                             <UserIcon size={32} />
                         </div>
-                        <h2 style={{ color: '#1e293b', marginBottom: '15px', fontSize: '1.5rem' }}>Asistente de Accesibilidad</h2>
-                        <p style={{ color: '#64748b', marginBottom: '30px', lineHeight: '1.6' }}>
-                            ¿Desea activar las funciones de asistencia por voz y navegación simplificada para personas no videntes?
+                        <h2 id="a11y-title" style={{ color: '#1e293b', marginBottom: '15px', fontSize: '1.5rem' }}>Asistente de Accesibilidad</h2>
+                        <p id="a11y-desc" style={{ color: '#64748b', marginBottom: '30px', lineHeight: '1.6' }}>
+                            ¿Desea activar las funciones de asistencia por voz y navegación simplificada para personas con discapacidad visual?
                         </p>
                         <div style={{ display: 'flex', gap: '15px', justifyContent: 'center' }}>
                             <button 
+                                autoFocus
                                 onClick={handleActivateA11y}
                                 className="primary-btn"
                                 style={{ background: '#3b82f6', padding: '12px 25px' }}
@@ -179,7 +187,7 @@ export const Login = () => {
                 onFocus={(e) => e.target.style.top = '0'}
                 onBlur={(e) => e.target.style.top = '-100px'}
             >
-                Asistente de Accesibilidad para Personas No Videntes
+                Asistente de Accesibilidad para Personas con Discapacidad Visual
             </button>
             <div className="login-box">
                 <div className="login-logo">
@@ -206,7 +214,7 @@ export const Login = () => {
                         <UserIcon size={20} className="input-icon" />
                         <input 
                             type="text" 
-                            placeholder="RUT de usuario (ej: 18803735)" 
+                            placeholder="RUT de usuario (ej: 123456789)" 
                             value={rut} 
                             onChange={handleRutChange}
                             required 

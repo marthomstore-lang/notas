@@ -6,10 +6,11 @@ import db from '../config/db';
 const JWT_SECRET = 'super-secret-key-liceo-pro';
 
 export const login = async (req: Request, res: Response) => {
+    let client;
     try {
         const { rut, password } = req.body;
         
-        const client = await db.connect();
+        client = await db.connect();
         // Limpiamos el RUT recibido para asegurar que solo tenemos números y letras K/k
         const cleanRut = rut.replace(/[^0-9kK]/g, '');
         
@@ -53,14 +54,17 @@ export const login = async (req: Request, res: Response) => {
     } catch (error) {
         console.error("Login error", error);
         res.status(500).json({ error: 'Error del servidor' });
+    } finally {
+        if (client) client.release();
     }
 };
 
 export const updateProfile = async (req: Request, res: Response) => {
+    let client;
     try {
         const userId = (req as any).user.id;
         const { email, password } = req.body;
-        const client = await db.connect();
+        client = await db.connect();
 
         if (password && password.trim() !== "") {
             const hashedPass = await bcrypt.hash(password, 10);
@@ -73,5 +77,7 @@ export const updateProfile = async (req: Request, res: Response) => {
     } catch (error) {
         console.error("Update profile error", error);
         res.status(500).json({ error: 'Error al actualizar perfil' });
+    } finally {
+        if (client) client.release();
     }
 };
