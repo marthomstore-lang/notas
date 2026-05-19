@@ -426,6 +426,80 @@ export const createSubject = async (req: Request, res: Response) => {
     }
 };
 
+export const updateSubject = async (req: Request, res: Response) => {
+    let client;
+    try {
+        const { id } = req.params;
+        const { name } = req.body;
+        client = await db.connect();
+        
+        await client.query("UPDATE subjects SET name = ? WHERE id = ?", [name, id]);
+        res.json({ message: 'Asignatura actualizada correctamente' });
+    } catch (error: any) {
+        res.status(500).json({ error: 'Error al actualizar asignatura', details: error.message });
+    } finally {
+        if (client) client.release();
+    }
+};
+
+export const checkSubjectGrades = async (req: Request, res: Response) => {
+    let client;
+    try {
+        const { id } = req.params;
+        client = await db.connect();
+        
+        const result = await client.query(`
+            SELECT DISTINCT l.name as level_name
+            FROM grades g
+            JOIN grade_columns gc ON g.grade_column_id = gc.id
+            JOIN levels l ON gc.level_id = l.id
+            WHERE gc.subject_id = ?
+        `, [id]);
+        
+        const levels = result.rows.map((r: any) => r.level_name);
+        
+        res.json({
+            hasGrades: levels.length > 0,
+            levels
+        });
+    } catch (error: any) {
+        res.status(500).json({ error: 'Error al verificar notas de la asignatura', details: error.message });
+    } finally {
+        if (client) client.release();
+    }
+};
+
+export const deleteSubject = async (req: Request, res: Response) => {
+    let client;
+    try {
+        const { id } = req.params;
+        client = await db.connect();
+        
+        // 1. Delete grades
+        await client.query(`
+            DELETE FROM grades 
+            WHERE grade_column_id IN (
+                SELECT id FROM grade_columns WHERE subject_id = ?
+            )
+        `, [id]);
+        
+        // 2. Delete grade columns
+        await client.query("DELETE FROM grade_columns WHERE subject_id = ?", [id]);
+        
+        // 3. Delete assignments
+        await client.query("DELETE FROM teacher_assignments WHERE subject_id = ?", [id]);
+        
+        // 4. Delete the subject itself
+        await client.query("DELETE FROM subjects WHERE id = ?", [id]);
+        
+        res.json({ message: 'Asignatura eliminada correctamente' });
+    } catch (error: any) {
+        res.status(500).json({ error: 'Error al eliminar asignatura', details: error.message });
+    } finally {
+        if (client) client.release();
+    }
+};
+
 export const getLevels = async (req: Request, res: Response) => {
     let client;
     try {

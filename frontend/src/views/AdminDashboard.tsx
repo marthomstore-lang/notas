@@ -324,6 +324,86 @@ export const AdminDashboard = () => {
         }
     };
 
+    const handleEditSubject = async (subject: any) => {
+        const { value: name } = await MySwal.fire({
+            title: 'Editar Asignatura Global',
+            input: 'text',
+            inputValue: subject.name,
+            inputPlaceholder: 'Nombre de la asignatura',
+            showCancelButton: true,
+            confirmButtonText: 'Guardar',
+            cancelButtonText: 'Cancelar'
+        });
+        if (name && name !== subject.name) {
+            const res = await fetch(`/_/backend/api/admin/subjects/${subject.id}`, {
+                method: 'PUT',
+                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name })
+            });
+            if (res.ok) {
+                fetchData();
+                MySwal.fire('Actualizado', 'La asignatura ha sido renombrada.', 'success');
+            } else {
+                const err = await res.json();
+                MySwal.fire('Error', err.error || 'Error al actualizar', 'error');
+            }
+        }
+    };
+
+    const handleDeleteSubject = async (subject: any) => {
+        try {
+            const checkRes = await fetch(`/_/backend/api/admin/subjects/${subject.id}/check-delete`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (!checkRes.ok) throw new Error("Error checking grades");
+            const checkData = await checkRes.json();
+
+            let warningHtml = '¿Está seguro de que desea eliminar esta asignatura?';
+            if (checkData.hasGrades) {
+                warningHtml = `
+                    <div style="text-align: left;">
+                        <p style="color: #d97706; font-weight: bold; margin-bottom: 10px;">
+                            ⚠️ ATENCIÓN: Esta asignatura tiene calificaciones registradas.
+                        </p>
+                        <p>Si la elimina, se borrarán de forma permanente todas las notas asociadas.</p>
+                        <p style="font-weight: 600; margin-top: 10px;">Cursos afectados:</p>
+                        <ul style="padding-left: 20px; margin-top: 5px;">
+                            ${checkData.levels.map((lvl: string) => `<li>${lvl}</li>`).join('')}
+                        </ul>
+                    </div>
+                `;
+            }
+
+            const result = await MySwal.fire({
+                title: checkData.hasGrades ? '¡Advertencia de Calificaciones!' : 'Eliminar Asignatura',
+                html: warningHtml,
+                icon: checkData.hasGrades ? 'warning' : 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#ef4444',
+                cancelButtonColor: '#64748b',
+                confirmButtonText: 'Sí, eliminar',
+                cancelButtonText: 'Cancelar'
+            });
+
+            if (result.isConfirmed) {
+                const deleteRes = await fetch(`/_/backend/api/admin/subjects/${subject.id}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (deleteRes.ok) {
+                    MySwal.fire('Eliminado', 'La asignatura y todos sus datos relacionados han sido eliminados.', 'success');
+                    fetchData();
+                } else {
+                    const err = await deleteRes.json();
+                    MySwal.fire('Error', err.error || 'Error al eliminar', 'error');
+                }
+            }
+        } catch (error) {
+            console.error("Error deleting subject:", error);
+            MySwal.fire('Error', 'No se pudo completar la operación.', 'error');
+        }
+    };
+
     const handleAssign = async (e: React.FormEvent) => {
         e.preventDefault();
         const form = e.target as HTMLFormElement;
@@ -898,9 +978,24 @@ export const AdminDashboard = () => {
                                             <tr key={s.id}>
                                                 <td>{s.name}</td>
                                                 <td>
-                                                    <button style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'not-allowed' }} title="Eliminar (Deshabilitado)">
-                                                        <Trash2 size={18} />
-                                                    </button>
+                                                    <div style={{ display: 'flex', gap: '15px' }}>
+                                                        <button 
+                                                            type="button"
+                                                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#3b82f6', padding: '5px' }}
+                                                            onClick={(e) => { e.stopPropagation(); handleEditSubject(s); }}
+                                                            title="Editar Asignatura"
+                                                        >
+                                                            <Edit2 size={20} />
+                                                        </button>
+                                                        <button 
+                                                            type="button"
+                                                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: '5px' }}
+                                                            onClick={(e) => { e.stopPropagation(); handleDeleteSubject(s); }}
+                                                            title="Eliminar Asignatura"
+                                                        >
+                                                            <Trash2 size={20} />
+                                                        </button>
+                                                    </div>
                                                 </td>
                                             </tr>
                                         ))}

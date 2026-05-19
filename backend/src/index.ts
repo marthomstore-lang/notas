@@ -6,7 +6,7 @@ import jwt from 'jsonwebtoken';
 import { login, updateProfile } from './controllers/authController';
 import { getAssignments, getGrades, addColumn, saveGrade } from './controllers/teacherController';
 import { registerEnrollment } from './controllers/enrollmentController';
-import { getTeachers, createTeacher, updateTeacher, deleteTeacher, getSubjects, createSubject, getLevels, updateLevelCapacity, getAssignmentsAdmin, createAssignment, deleteAssignment, getStudents, getStudentById, updateStudent, deleteStudent, reincorporateStudent, getStudentObservations, addObservation, exportData, importDataWeb } from './controllers/adminController';
+import { getTeachers, createTeacher, updateTeacher, deleteTeacher, getSubjects, createSubject, updateSubject, deleteSubject, checkSubjectGrades, getLevels, updateLevelCapacity, getAssignmentsAdmin, createAssignment, deleteAssignment, getStudents, getStudentById, updateStudent, deleteStudent, reincorporateStudent, getStudentObservations, addObservation, exportData, importDataWeb } from './controllers/adminController';
 import { getFiltersData, getGradesSheet, saveGradesSheet, updateStudentPosition, bulkUpdateStudentPositions, toggleLockAssignment, getAuditLogs } from './controllers/gradesController';
 import { getStudentGradesReport, getLevelGradesReport, updateInstitutionalSettings, setHomeroomTeacher } from './controllers/reportsController';
 import multer from 'multer';
@@ -24,23 +24,15 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // Auth Middleware
 const authMiddleware = (req: Request, res: Response, next: NextFunction) => {
-    let token = '';
     const authHeader = req.headers.authorization;
-    
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-        token = authHeader.split(' ')[1];
-    } else if (req.query.token) {
-        token = req.query.token as string;
-    }
-
-    if (!token) return res.status(401).json({ error: 'No token provided' });
-    
+    if (!authHeader) return res.status(401).json({ error: 'Token no provisto' });
+    const token = authHeader.split(' ')[1];
     try {
         const decoded = jwt.verify(token, JWT_SECRET);
         (req as any).user = decoded;
         next();
-    } catch (error) {
-        return res.status(401).json({ error: 'Invalid token' });
+    } catch (err) {
+        return res.status(401).json({ error: 'Token inválido' });
     }
 };
 
@@ -60,6 +52,9 @@ router.put('/admin/teachers/:id', authMiddleware, updateTeacher);
 router.delete('/admin/teachers/:id', authMiddleware, deleteTeacher);
 router.get('/admin/subjects', authMiddleware, getSubjects);
 router.post('/admin/subjects', authMiddleware, createSubject);
+router.put('/admin/subjects/:id', authMiddleware, updateSubject);
+router.delete('/admin/subjects/:id', authMiddleware, deleteSubject);
+router.get('/admin/subjects/:id/check-delete', authMiddleware, checkSubjectGrades);
 router.get('/admin/levels', authMiddleware, getLevels);
 router.put('/admin/levels/:id/capacity', authMiddleware, updateLevelCapacity);
 router.get('/admin/assignments', authMiddleware, getAssignmentsAdmin);
