@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { 
-    FileText, Save, Printer, Lock, Unlock
+    FileText, Save, Printer, Lock, Unlock, Edit2
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import Swal from 'sweetalert2';
@@ -219,6 +219,21 @@ export const GradesSheet: React.FC<GradesSheetProps> = ({ initialLevelId, initia
             setIsLocked(!!data.isLocked);
         } catch (error) {
             console.error("Error fetching sheet:", error);
+        }
+    };
+
+    const handleEditColumnTitle = async (col: any) => {
+        const { value: newTitle } = await MySwal.fire({
+            title: 'Renombrar Evaluación',
+            input: 'text',
+            inputValue: col.title,
+            inputPlaceholder: 'Ej: Prueba 1, Control 1, etc.',
+            showCancelButton: true,
+            confirmButtonText: 'Guardar',
+            cancelButtonText: 'Cancelar'
+        });
+        if (newTitle !== undefined && newTitle.trim() !== '') {
+            setColumns(prev => prev.map(c => c.position === col.position ? { ...c, title: newTitle.trim() } : c));
         }
     };
 
@@ -556,7 +571,19 @@ export const GradesSheet: React.FC<GradesSheetProps> = ({ initialLevelId, initia
                                 </div>
                             </th>
                             <th className="student-name-col">Nombre alumno</th>
-                            {columns.map(c => <th key={c.position}>{c.title}</th>)}
+                            {columns.map(c => (
+                                <th 
+                                    key={c.position}
+                                    onClick={() => !isLocked && handleEditColumnTitle(c)}
+                                    style={{ cursor: isLocked ? 'default' : 'pointer' }}
+                                    title={isLocked ? undefined : "Haga clic para renombrar evaluación"}
+                                >
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                                        {c.title}
+                                        {!isLocked && <Edit2 size={10} style={{ opacity: 0.4 }} />}
+                                    </div>
+                                </th>
+                            ))}
                             <th>Promedio</th>
                             <th className="no-print">Acciones</th>
                         </tr>
