@@ -61,6 +61,8 @@ export const AdminDashboard = () => {
     const [isUploading, setIsUploading] = useState(false);
     const [auditLogs, setAuditLogs] = useState<any[]>([]);
     const [auditFilters, setAuditFilters] = useState({ teacher: '', action: '' });
+    const [assignmentTeacherFilter, setAssignmentTeacherFilter] = useState('');
+    const [assignmentLevelFilter, setAssignmentLevelFilter] = useState('');
     const fileInputRef = useRef<HTMLInputElement>(null);
     const fetchData = async () => {
         if (!token) return;
@@ -1135,8 +1137,32 @@ export const AdminDashboard = () => {
                                         </div>
                                     </form>
 
-                                    <div style={{ marginTop: '20px', marginBottom: '10px' }}>
+                                    <div style={{ marginTop: '20px', marginBottom: '15px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                         <h4 style={{ color: '#64748b', fontSize: '0.9rem', margin: 0 }}>Listado de Asignaturas por Curso</h4>
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px', background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                                            <div>
+                                                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#64748b', marginBottom: '4px' }}>Filtrar por Curso:</label>
+                                                <select 
+                                                    value={assignmentLevelFilter} 
+                                                    onChange={(e) => setAssignmentLevelFilter(e.target.value)}
+                                                    style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.85rem', background: 'white' }}
+                                                >
+                                                    <option value="">Todos los Cursos...</option>
+                                                    {levels.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#64748b', marginBottom: '4px' }}>Filtrar por Docente:</label>
+                                                <select 
+                                                    value={assignmentTeacherFilter} 
+                                                    onChange={(e) => setAssignmentTeacherFilter(e.target.value)}
+                                                    style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.85rem', background: 'white' }}
+                                                >
+                                                    <option value="">Todos los Docentes...</option>
+                                                    {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                                                </select>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
 
@@ -1144,31 +1170,34 @@ export const AdminDashboard = () => {
                                     <table className="data-table" style={{ fontSize: '0.9rem' }}>
                                         <thead><tr><th>Curso</th><th>Asignatura</th><th>Docente</th><th style={{ textAlign: 'center' }}>Acciones</th></tr></thead>
                                         <tbody>
-                                            {assignments.map(a => (
-                                                <tr key={a.id}>
-                                                    <td>{a.level_name}</td>
-                                                    <td>{a.subject_name}</td>
-                                                    <td>{a.teacher_name}</td>
-                                                    <td style={{ textAlign: 'center' }}>
-                                                        <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
-                                                            <button 
-                                                                onClick={() => handleEditAssignment(a)}
-                                                                style={{ background: 'none', border: 'none', color: '#3b82f6', cursor: 'pointer' }}
-                                                                title="Editar Asignación"
-                                                            >
-                                                                <Edit2 size={16} />
-                                                            </button>
-                                                            <button 
-                                                                onClick={() => handleDeleteAssignment(a.id)}
-                                                                style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}
-                                                                title="Eliminar Asignación"
-                                                            >
-                                                                <Trash2 size={16} />
-                                                            </button>
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            ))}
+                                            {assignments
+                                                .filter(a => !assignmentLevelFilter || String(a.level_id) === assignmentLevelFilter)
+                                                .filter(a => !assignmentTeacherFilter || String(a.teacher_id) === assignmentTeacherFilter)
+                                                .map(a => (
+                                                    <tr key={a.id}>
+                                                        <td>{a.level_name}</td>
+                                                        <td>{a.subject_name}</td>
+                                                        <td>{a.teacher_name}</td>
+                                                        <td style={{ textAlign: 'center' }}>
+                                                            <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+                                                                <button 
+                                                                    onClick={() => handleEditAssignment(a)}
+                                                                    style={{ background: 'none', border: 'none', color: '#3b82f6', cursor: 'pointer' }}
+                                                                    title="Editar Asignación"
+                                                                >
+                                                                    <Edit2 size={16} />
+                                                                </button>
+                                                                <button 
+                                                                    onClick={() => handleDeleteAssignment(a.id)}
+                                                                    style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}
+                                                                    title="Eliminar Asignación"
+                                                                >
+                                                                    <Trash2 size={16} />
+                                                                </button>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                ))}
                                         </tbody>
                                     </table>
                                 </div>
