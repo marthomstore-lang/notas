@@ -772,7 +772,11 @@ export const AdminDashboard = () => {
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <h2>Administración</h2>
-                        {isSidebarOpen && <button className="mobile-menu-toggle" style={{ color: 'white' }} onClick={() => setIsSidebarOpen(false)}><X size={24} /></button>}
+                        {isSidebarOpen && (
+                            <button className="sidebar-close-btn" title="Ocultar Menú" onClick={() => setIsSidebarOpen(false)}>
+                                <X size={20} />
+                            </button>
+                        )}
                     </div>
                     <p>{user?.name}</p>
                 </div>
