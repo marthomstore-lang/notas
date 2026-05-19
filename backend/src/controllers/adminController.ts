@@ -557,7 +557,7 @@ export const getAssignmentsAdmin = async (req: Request, res: Response) => {
     try {
         client = await db.connect();
         const result = await client.query(`
-            SELECT ta.id, u.name as teacher_name, l.name as level_name, s.name as subject_name, ta.academic_year
+            SELECT ta.id, ta.teacher_id, ta.level_id, ta.subject_id, u.name as teacher_name, l.name as level_name, s.name as subject_name, ta.academic_year
             FROM teacher_assignments ta
             JOIN users u ON ta.teacher_id = u.id
             JOIN levels l ON ta.level_id = l.id
@@ -619,6 +619,61 @@ export const createAssignment = async (req: Request, res: Response) => {
         res.status(201).json({ message: 'Asignación creada correctamente' });
     } catch (error) {
         res.status(500).json({ error: 'Error al crear asignación (es posible que ya exista)' });
+    } finally {
+        if (client) client.release();
+    }
+};
+
+export const updateAssignment = async (req: Request, res: Response) => {
+    let client;
+    try {
+        const { id } = req.params;
+        const { teacherId, levelId, subjectId } = req.body;
+        const user = (req as any).user;
+        
+        client = await db.connect();
+        
+        // Fetch old details for audit log
+        const oldInfo = await client.query(`
+            SELECT u.name as teacher_name, l.name as level_name, s.name as subject_name
+            FROM teacher_assignments ta
+            JOIN users u ON ta.teacher_id = u.id
+            JOIN levels l ON ta.level_id = l.id
+            JOIN subjects s ON ta.subject_id = s.id
+            WHERE ta.id = ?
+        `, [id]);
+        
+        await client.query(`
+            UPDATE teacher_assignments 
+            SET teacher_id = ?, level_id = ?, subject_id = ?
+            WHERE id = ?
+        `, [teacherId, levelId, subjectId, id]);
+        
+        // Fetch new details for audit log
+        const newInfo = await client.query(`
+            SELECT u.name as teacher_name, l.name as level_name, s.name as subject_name
+            FROM teacher_assignments ta
+            JOIN users u ON ta.teacher_id = u.id
+            JOIN levels l ON ta.level_id = l.id
+            JOIN subjects s ON ta.subject_id = s.id
+            WHERE ta.id = ?
+        `, [id]);
+        
+        if (oldInfo.rows[0] && newInfo.rows[0]) {
+            try {
+                const oldText = `${oldInfo.rows[0].teacher_name} - ${oldInfo.rows[0].level_name} - ${oldInfo.rows[0].subject_name}`;
+                const newText = `${newInfo.rows[0].teacher_name} - ${newInfo.rows[0].level_name} - ${newInfo.rows[0].subject_name}`;
+                await db.run(`
+                    INSERT INTO audit_logs (id, user_id, user_name, action, details)
+                    VALUES (?, ?, ?, ?, ?)
+                `, [uuidv4(), user?.id, user?.name || user?.run || 'Sistema', 'UPDATE_ASSIGNMENT', `Edición de carga: de [${oldText}] a [${newText}]`]);
+            } catch (logErr) { console.error("Audit log error:", logErr); }
+        }
+        
+        res.json({ message: 'Asignación actualizada correctamente' });
+    } catch (error) {
+        console.error("Error updating assignment:", error);
+        res.status(500).json({ error: 'Error al actualizar asignación' });
     } finally {
         if (client) client.release();
     }

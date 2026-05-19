@@ -448,6 +448,73 @@ export const AdminDashboard = () => {
         }
     };
 
+    const handleEditAssignment = async (assignment: any) => {
+        const teacherOptionsHtml = teachers.map((t: any) => 
+            `<option value="${t.id}" ${t.id === assignment.teacher_id ? 'selected' : ''}>${t.name}</option>`
+        ).join('');
+        
+        const levelOptionsHtml = levels.map((l: any) => 
+            `<option value="${l.id}" ${l.id === assignment.level_id ? 'selected' : ''}>${l.name}</option>`
+        ).join('');
+        
+        const subjectOptionsHtml = subjects.map((s: any) => 
+            `<option value="${s.id}" ${s.id === assignment.subject_id ? 'selected' : ''}>${s.name}</option>`
+        ).join('');
+        
+        const { value: formValues } = await MySwal.fire({
+            title: 'Editar Asignación de Asignatura',
+            html: `
+                <div style="text-align: left; display: flex; flex-direction: column; gap: 15px;">
+                    <div>
+                        <label style="font-weight: 500; font-size: 0.9rem; color: #475569; display: block; margin-bottom: 5px;">Docente:</label>
+                        <select id="swal-teacher-select" class="swal2-select" style="width: 100%; margin: 0; box-sizing: border-box;">
+                            ${teacherOptionsHtml}
+                        </select>
+                    </div>
+                    <div>
+                        <label style="font-weight: 500; font-size: 0.9rem; color: #475569; display: block; margin-bottom: 5px;">Curso (Nivel):</label>
+                        <select id="swal-level-select" class="swal2-select" style="width: 100%; margin: 0; box-sizing: border-box;">
+                            ${levelOptionsHtml}
+                        </select>
+                    </div>
+                    <div>
+                        <label style="font-weight: 500; font-size: 0.9rem; color: #475569; display: block; margin-bottom: 5px;">Asignatura:</label>
+                        <select id="swal-subject-select" class="swal2-select" style="width: 100%; margin: 0; box-sizing: border-box;">
+                            ${subjectOptionsHtml}
+                        </select>
+                    </div>
+                </div>
+            `,
+            showCancelButton: true,
+            confirmButtonText: 'Guardar',
+            cancelButtonText: 'Cancelar',
+            preConfirm: () => {
+                const teacherId = (document.getElementById('swal-teacher-select') as HTMLSelectElement).value;
+                const levelId = (document.getElementById('swal-level-select') as HTMLSelectElement).value;
+                const subjectId = (document.getElementById('swal-subject-select') as HTMLSelectElement).value;
+                return { teacherId, levelId, subjectId };
+            }
+        });
+        
+        if (formValues) {
+            const res = await fetch(`/_/backend/api/admin/assignments/${assignment.id}`, {
+                method: 'PUT',
+                headers: { 
+                    'Authorization': `Bearer ${token}`, 
+                    'Content-Type': 'application/json' 
+                },
+                body: JSON.stringify(formValues)
+            });
+            if (res.ok) {
+                fetchData();
+                MySwal.fire('Éxito', "Asignación actualizada con éxito.", 'success');
+            } else {
+                const err = await res.json();
+                MySwal.fire('Error', err.error || "No se pudo actualizar la asignación.", 'error');
+            }
+        }
+    };
+
     const handleUpdateCapacity = async (level: any) => {
         const { value: capacity } = await MySwal.fire({
             title: `Capacidad para ${level.name}`,
@@ -1052,13 +1119,22 @@ export const AdminDashboard = () => {
                                                     <td>{a.subject_name}</td>
                                                     <td>{a.teacher_name}</td>
                                                     <td style={{ textAlign: 'center' }}>
-                                                        <button 
-                                                            onClick={() => handleDeleteAssignment(a.id)}
-                                                            style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}
-                                                            title="Eliminar Asignación"
-                                                        >
-                                                            <Trash2 size={16} />
-                                                        </button>
+                                                        <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+                                                            <button 
+                                                                onClick={() => handleEditAssignment(a)}
+                                                                style={{ background: 'none', border: 'none', color: '#3b82f6', cursor: 'pointer' }}
+                                                                title="Editar Asignación"
+                                                            >
+                                                                <Edit2 size={16} />
+                                                            </button>
+                                                            <button 
+                                                                onClick={() => handleDeleteAssignment(a.id)}
+                                                                style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}
+                                                                title="Eliminar Asignación"
+                                                            >
+                                                                <Trash2 size={16} />
+                                                            </button>
+                                                        </div>
                                                     </td>
                                                 </tr>
                                             ))}
