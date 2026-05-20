@@ -8,7 +8,7 @@ import { getAssignments, getGrades, addColumn, saveGrade } from './controllers/t
 import { registerEnrollment } from './controllers/enrollmentController';
 import { getTeachers, createTeacher, updateTeacher, deleteTeacher, getSubjects, createSubject, updateSubject, deleteSubject, checkSubjectGrades, getLevels, updateLevelCapacity, getAssignmentsAdmin, createAssignment, updateAssignment, deleteAssignment, getStudents, getStudentById, updateStudent, deleteStudent, reincorporateStudent, getStudentObservations, addObservation, exportData, importDataWeb } from './controllers/adminController';
 import { getFiltersData, getGradesSheet, saveGradesSheet, updateStudentPosition, bulkUpdateStudentPositions, toggleLockAssignment, getAuditLogs } from './controllers/gradesController';
-import { getStudentGradesReport, getLevelGradesReport, updateInstitutionalSettings, setHomeroomTeacher } from './controllers/reportsController';
+import { getStudentGradesReport, getLevelGradesReport, updateInstitutionalSettings, setHomeroomTeacher, getSubjectOrder, updateSubjectOrder } from './controllers/reportsController';
 import multer from 'multer';
 import db from './config/db';
 
@@ -86,6 +86,8 @@ router.get('/reports/grades/:studentId', authMiddleware, getStudentGradesReport)
 router.get('/reports/grades/level/:levelId', authMiddleware, getLevelGradesReport);
 router.post('/admin/settings', authMiddleware, updateInstitutionalSettings);
 router.post('/admin/homeroom-teacher', authMiddleware, setHomeroomTeacher);
+router.get('/admin/settings/subject-order/:levelId', authMiddleware, getSubjectOrder);
+router.post('/admin/settings/subject-order', authMiddleware, updateSubjectOrder);
 
 // Rutas Docente (Fase 3)
 router.get('/teacher/assignments', authMiddleware, getAssignments);

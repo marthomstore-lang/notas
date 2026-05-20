@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { LogOut, Plus, Users, BookOpen, GraduationCap, Menu, X, Printer, User, Upload, Edit2, Trash2, BarChart3, Settings } from 'lucide-react';
+import { LogOut, Plus, Users, BookOpen, GraduationCap, Menu, X, Printer, User, Upload, Edit2, Trash2, BarChart3, Settings, ListOrdered } from 'lucide-react';
 import { EnrollmentForm } from '../components/OfficialForm/EnrollmentForm';
 import { OfficialEnrollmentForm } from '../components/OfficialForm/OfficialEnrollmentForm';
 import { StudentWindow } from '../components/StudentWindow';
@@ -17,13 +17,13 @@ export const AdminDashboard = () => {
         const saved = localStorage.getItem('adminActiveTab');
         return (['config', 'students', 'grades', 'audit', 'profile'].includes(saved as string)) ? (saved as any) : 'grades';
     });
-    const [configSubTab, setConfigSubTab] = useState<'teachers' | 'courses' | 'subjects' | 'assignments' | 'homeroom'>(() => {
+    const [configSubTab, setConfigSubTab] = useState<'teachers' | 'courses' | 'subjects' | 'assignments' | 'homeroom' | 'subject_order'>(() => {
         const saved = localStorage.getItem('adminConfigSubTab');
-        return (['teachers', 'courses', 'subjects', 'assignments', 'homeroom'].includes(saved as string)) ? (saved as any) : 'teachers';
+        return (['teachers', 'courses', 'subjects', 'assignments', 'homeroom', 'subject_order'].includes(saved as string)) ? (saved as any) : 'teachers';
     });
     const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth >= 768);
 
-    const handleNavClick = (tab: 'config' | 'students' | 'grades' | 'audit' | 'profile', subTab?: 'teachers' | 'courses' | 'subjects' | 'assignments' | 'homeroom') => {
+    const handleNavClick = (tab: 'config' | 'students' | 'grades' | 'audit' | 'profile', subTab?: 'teachers' | 'courses' | 'subjects' | 'assignments' | 'homeroom' | 'subject_order') => {
         setActiveTab(tab);
         if (subTab) setConfigSubTab(subTab);
         if (window.innerWidth < 768) {
@@ -63,6 +63,102 @@ export const AdminDashboard = () => {
     const [auditFilters, setAuditFilters] = useState({ teacher: '', action: '' });
     const [assignmentTeacherFilter, setAssignmentTeacherFilter] = useState('');
     const [assignmentLevelFilter, setAssignmentLevelFilter] = useState('');
+
+    // Subject ordering states
+    const [selectedLevelIdOrder, setSelectedLevelIdOrder] = useState<string>('');
+    const [orderedSubjects, setOrderedSubjects] = useState<any[]>([]);
+    const [isLoadingOrder, setIsLoadingOrder] = useState<boolean>(false);
+
+    useEffect(() => {
+        const fetchSubjectOrder = async () => {
+            if (!selectedLevelIdOrder || !token) {
+                setOrderedSubjects([]);
+                return;
+            }
+            setIsLoadingOrder(true);
+            try {
+                // Get all subjects assigned to this level from assignments
+                const levelAssignments = assignments.filter(a => String(a.level_id) === String(selectedLevelIdOrder));
+                // Get unique subjects
+                const uniqueSubjectsInLevel = Array.from(
+                    new Map(levelAssignments.map(a => [a.subject_id, { id: a.subject_id, name: a.subject_name }])).values()
+                );
+
+                // Fetch custom order from backend
+                const res = await fetch(`/_/backend/api/admin/settings/subject-order/${selectedLevelIdOrder}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    const savedOrder = data.subjectOrder || [];
+                    
+                    // Sort unique subjects by custom order position
+                    uniqueSubjectsInLevel.sort((a, b) => {
+                        const idxA = savedOrder.indexOf(Number(a.id));
+                        const idxB = savedOrder.indexOf(Number(b.id));
+                        if (idxA === -1 && idxB === -1) return 0;
+                        if (idxA === -1) return 1;
+                        if (idxB === -1) return -1;
+                        return idxA - idxB;
+                    });
+                }
+                setOrderedSubjects(uniqueSubjectsInLevel);
+            } catch (err) {
+                console.error("Error fetching subject order:", err);
+            } finally {
+                setIsLoadingOrder(false);
+            }
+        };
+
+        fetchSubjectOrder();
+    }, [selectedLevelIdOrder, assignments, token]);
+
+    const handleMoveSubject = (index: number, direction: 'up' | 'down') => {
+        const newSubjects = [...orderedSubjects];
+        const targetIndex = direction === 'up' ? index - 1 : index + 1;
+        
+        if (targetIndex >= 0 && targetIndex < newSubjects.length) {
+            // Swap
+            const temp = newSubjects[index];
+            newSubjects[index] = newSubjects[targetIndex];
+            newSubjects[targetIndex] = temp;
+            setOrderedSubjects(newSubjects);
+        }
+    };
+
+    const handleSaveSubjectOrder = async () => {
+        if (!selectedLevelIdOrder || orderedSubjects.length === 0) return;
+        
+        try {
+            const subjectIds = orderedSubjects.map(s => Number(s.id));
+            const res = await fetch('/_/backend/api/admin/settings/subject-order', {
+                method: 'POST',
+                headers: { 
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    levelId: Number(selectedLevelIdOrder),
+                    subjectOrder: subjectIds
+                })
+            });
+            
+            if (res.ok) {
+                MySwal.fire({
+                    icon: 'success',
+                    title: 'Guardado',
+                    text: 'El orden de las asignaturas ha sido guardado exitosamente.',
+                    timer: 2000,
+                    showConfirmButton: false
+                });
+            } else {
+                const err = await res.json();
+                MySwal.fire('Error', err.error || 'No se pudo guardar el orden', 'error');
+            }
+        } catch (error) {
+            MySwal.fire('Error', 'Error de conexión al servidor', 'error');
+        }
+    };
     const fileInputRef = useRef<HTMLInputElement>(null);
     const fetchData = async () => {
         if (!token) return;
@@ -813,6 +909,9 @@ export const AdminDashboard = () => {
                     <button className={activeTab === 'config' && configSubTab === 'homeroom' ? 'active' : ''} onClick={() => handleNavClick('config', 'homeroom')}>
                         <User size={16} /> Profesores Jefe
                     </button>
+                    <button className={activeTab === 'config' && configSubTab === 'subject_order' ? 'active' : ''} onClick={() => handleNavClick('config', 'subject_order')}>
+                        <ListOrdered size={16} /> Orden Asignaturas
+                    </button>
                 </nav>
                 <div className="sidebar-footer">
                     <button onClick={logout} className="logout-btn">
@@ -834,7 +933,8 @@ export const AdminDashboard = () => {
                                         configSubTab === 'courses' ? 'Cursos' :
                                         configSubTab === 'subjects' ? 'Asignaturas' :
                                         configSubTab === 'assignments' ? 'Asignaciones' :
-                                        configSubTab === 'homeroom' ? 'Profesores Jefe' : ''
+                                        configSubTab === 'homeroom' ? 'Profesores Jefe' :
+                                        configSubTab === 'subject_order' ? 'Orden de Asignaturas en Informes' : ''
                                     }
                                 </>
                             )}
@@ -1266,6 +1366,108 @@ export const AdminDashboard = () => {
                                             ))}
                                         </tbody>
                                     </table>
+                                </div>
+                            </div>
+                        )}
+
+                        {configSubTab === 'subject_order' && (
+                            <div className="card card-split-layout">
+                                <div className="card-split-header">
+                                    <h3 style={{ margin: 0, marginBottom: '20px' }}>Ordenación de Asignaturas</h3>
+                                    <div className="admin-form" style={{ marginBottom: '20px' }}>
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '10px' }}>
+                                            <div>
+                                                <label>Seleccione Curso (Nivel) para Configurar:</label>
+                                                <select 
+                                                    value={selectedLevelIdOrder} 
+                                                    onChange={e => setSelectedLevelIdOrder(e.target.value)}
+                                                    style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
+                                                >
+                                                    <option value="">Seleccione un Curso...</option>
+                                                    {levels.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    {selectedLevelIdOrder && orderedSubjects.length > 0 && (
+                                        <button 
+                                            onClick={handleSaveSubjectOrder} 
+                                            className="primary-btn"
+                                            style={{ width: '100%', padding: '12px', background: '#2563eb', fontWeight: 'bold', justifyContent: 'center' }}
+                                        >
+                                            Guardar Orden de Asignaturas
+                                        </button>
+                                    )}
+                                </div>
+
+                                <div className="card-split-content">
+                                    {!selectedLevelIdOrder ? (
+                                        <div style={{ padding: '30px', textAlign: 'center', color: '#94a3b8', fontStyle: 'italic' }}>
+                                            Por favor seleccione un curso para visualizar y ordenar sus asignaturas.
+                                        </div>
+                                    ) : isLoadingOrder ? (
+                                        <div style={{ padding: '30px', textAlign: 'center', color: '#64748b' }}>
+                                            Cargando configuración...
+                                        </div>
+                                    ) : orderedSubjects.length === 0 ? (
+                                        <div style={{ padding: '30px', textAlign: 'center', color: '#94a3b8', fontStyle: 'italic' }}>
+                                            No se encontraron asignaturas asignadas a este curso.
+                                            <br />
+                                            <small style={{ display: 'block', marginTop: '10px', color: '#64748b' }}>
+                                                Asigne asignaturas a docentes en la pestaña "Asignación de Carga" primero.
+                                            </small>
+                                        </div>
+                                    ) : (
+                                        <div>
+                                            <p style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '15px' }}>
+                                                Utilice los botones <span style={{ fontWeight: 'bold' }}>Subir</span> y <span style={{ fontWeight: 'bold' }}>Bajar</span> para definir la posición que tendrán las asignaturas en el reporte final, luego guarde los cambios.
+                                            </p>
+                                            <table className="data-table">
+                                                <thead>
+                                                    <tr>
+                                                        <th style={{ width: '80px', textAlign: 'center' }}>Posición</th>
+                                                        <th>Asignatura</th>
+                                                        <th style={{ width: '180px', textAlign: 'center' }}>Acciones</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {orderedSubjects.map((sub, index) => (
+                                                        <tr key={sub.id}>
+                                                            <td style={{ textAlign: 'center', fontWeight: 'bold', color: '#475569' }}>
+                                                                {index + 1}
+                                                            </td>
+                                                            <td style={{ fontWeight: '500' }}>
+                                                                {sub.name}
+                                                            </td>
+                                                            <td style={{ textAlign: 'center' }}>
+                                                                <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                                                                    <button
+                                                                        type="button"
+                                                                        className="secondary-btn"
+                                                                        style={{ padding: '5px 10px', fontSize: '0.8rem', opacity: index === 0 ? 0.3 : 1, cursor: index === 0 ? 'not-allowed' : 'pointer' }}
+                                                                        onClick={() => handleMoveSubject(index, 'up')}
+                                                                        disabled={index === 0}
+                                                                    >
+                                                                        ▲ Subir
+                                                                    </button>
+                                                                    <button
+                                                                        type="button"
+                                                                        className="secondary-btn"
+                                                                        style={{ padding: '5px 10px', fontSize: '0.8rem', opacity: index === orderedSubjects.length - 1 ? 0.3 : 1, cursor: index === orderedSubjects.length - 1 ? 'not-allowed' : 'pointer' }}
+                                                                        onClick={() => handleMoveSubject(index, 'down')}
+                                                                        disabled={index === orderedSubjects.length - 1}
+                                                                    >
+                                                                        ▼ Bajar
+                                                                    </button>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         )}

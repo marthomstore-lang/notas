@@ -32,6 +32,26 @@ async function generateStudentReport(dbInstance: any, studentId: any, year: any,
         WHERE ta.level_id = ? AND ta.academic_year = ?
     `, [student.level_id, year]);
 
+    // Apply custom subject order if configured
+    try {
+        const orderSetting = await dbInstance.get("SELECT value FROM institutional_settings WHERE key = ?", [`subject_order_${student.level_id}`]);
+        if (orderSetting && orderSetting.value) {
+            const orderedIds = JSON.parse(orderSetting.value);
+            if (Array.isArray(orderedIds)) {
+                subjects.sort((a: any, b: any) => {
+                    const idxA = orderedIds.indexOf(Number(a.id));
+                    const idxB = orderedIds.indexOf(Number(b.id));
+                    if (idxA === -1 && idxB === -1) return 0;
+                    if (idxA === -1) return 1;
+                    if (idxB === -1) return -1;
+                    return idxA - idxB;
+                });
+            }
+        }
+    } catch (err) {
+        console.error("Error sorting subjects in generateStudentReport:", err);
+    }
+
     const reportData = [];
     const isAnnual = period === 'Finalización de año';
 
@@ -259,6 +279,36 @@ export const setHomeroomTeacher = async (req: Request, res: Response) => {
         res.json({ success: true });
     } catch (error: any) {
         console.error("Error in setHomeroomTeacher", error);
+        res.status(500).json({ error: error.message });
+    }
+};
+
+export const getSubjectOrder = async (req: Request, res: Response) => {
+    const { levelId } = req.params;
+    try {
+        const row = await db.get("SELECT value FROM institutional_settings WHERE key = ?", [`subject_order_${levelId}`]);
+        const subjectOrder = row ? JSON.parse(row.value) : [];
+        res.json({ levelId: Number(levelId), subjectOrder });
+    } catch (error: any) {
+        console.error("Error in getSubjectOrder", error);
+        res.status(500).json({ error: error.message });
+    }
+};
+
+export const updateSubjectOrder = async (req: Request, res: Response) => {
+    const { levelId, subjectOrder } = req.body;
+    try {
+        if (!levelId || !Array.isArray(subjectOrder)) {
+            return res.status(400).json({ error: "Datos inválidos. Se requiere levelId y subjectOrder (arreglo de IDs)." });
+        }
+        await db.run(`
+            INSERT INTO institutional_settings (key, value) 
+            VALUES (?, ?) 
+            ON CONFLICT(key) DO UPDATE SET value = EXCLUDED.value
+        `, [`subject_order_${levelId}`, JSON.stringify(subjectOrder)]);
+        res.json({ success: true });
+    } catch (error: any) {
+        console.error("Error in updateSubjectOrder", error);
         res.status(500).json({ error: error.message });
     }
 };
