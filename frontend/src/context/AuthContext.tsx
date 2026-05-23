@@ -47,10 +47,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 sessionStorage.setItem('token', data.token);
                 sessionStorage.setItem('user', JSON.stringify(data.user));
                 return true;
+            } else {
+                // Mostrar alerta con el estado del error para diagnosticar problemas en Vercel
+                alert(`Error en el servidor: HTTP ${res.status} ${res.statusText}\nRespuesta: ${JSON.stringify(data)}`);
+                return false;
             }
-            return false;
-        } catch (error) {
+        } catch (error: any) {
             console.error("Login failed", error);
+            alert(`Error de red o conexión fallida: ${error.message}`);
             return false;
         }
     };
