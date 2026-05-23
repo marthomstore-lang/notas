@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import db from '../config/db';
-import { v4 as uuidv4 } from 'uuid';
+import crypto from 'crypto';
 
 export const registerEnrollment = async (req: Request, res: Response) => {
     let client;
@@ -27,7 +27,7 @@ export const registerEnrollment = async (req: Request, res: Response) => {
 
         if (studentData.run) studentData.run = formatRut(studentData.run);
         
-        const studentId = uuidv4();
+        const studentId = crypto.randomUUID();
         
         await client.query(`
             INSERT INTO students (
@@ -50,7 +50,7 @@ export const registerEnrollment = async (req: Request, res: Response) => {
                 await client.query(`
                     INSERT INTO guardians (id, student_id, guardian_type, run, full_name, relationship, phone, email, address)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                `, [uuidv4(), studentId, g.guardian_type, gRun, g.full_name, g.relationship, g.phone, g.email, g.address]);
+                `, [crypto.randomUUID(), studentId, g.guardian_type, gRun, g.full_name, g.relationship, g.phone, g.email, g.address]);
             }
         }
 
@@ -58,14 +58,14 @@ export const registerEnrollment = async (req: Request, res: Response) => {
             await client.query(`
                 INSERT INTO health_records (id, student_id, blood_type, allergies, chronic_diseases, general_observations)
                 VALUES (?, ?, ?, ?, ?, ?)
-            `, [uuidv4(), studentId, healthData.blood_type, healthData.allergies, healthData.chronic_diseases, healthData.general_observations]);
+            `, [crypto.randomUUID(), studentId, healthData.blood_type, healthData.allergies, healthData.chronic_diseases, healthData.general_observations]);
         }
 
         // Matrícula
         await client.query(`
             INSERT INTO enrollments (id, student_id, level_id, academic_year)
             VALUES (?, ?, ?, ?)
-        `, [uuidv4(), studentId, levelId, academicYear || 2026]);
+        `, [crypto.randomUUID(), studentId, levelId, academicYear || 2026]);
 
         // Actualizar cupo
         await client.query('UPDATE levels SET current_enrolled = current_enrolled + 1 WHERE id = ?', [levelId]);

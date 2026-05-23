@@ -3,7 +3,7 @@ import * as xlsx from 'xlsx';
 import sqlite3 from 'sqlite3';
 import { open } from 'sqlite';
 import path from 'path';
-import { v4 as uuidv4 } from 'uuid';
+import crypto from 'crypto';
 
 const SHEET_URL = 'https://docs.google.com/spreadsheets/d/1KYJREA44_c_v1VABCwWAOlEIVfLwiK9zrsNLnJ5VPwA/export?format=xlsx';
 
@@ -84,7 +84,7 @@ async function importData() {
         }
 
         try {
-            const studentId = uuidv4();
+            const studentId = crypto.randomUUID();
             await db.run(`
                 INSERT INTO students (
                     id, run, full_name, birth_date, gender, nationality, religion, 
@@ -101,13 +101,13 @@ async function importData() {
                 INSERT INTO health_records (id, student_id, blood_type, allergies, chronic_diseases)
                 VALUES (?, ?, ?, ?, ?)
             `, [
-                uuidv4(), studentId, cleanRow['Grupo Sanguíneo'] || '', cleanRow['Alergias'] || '', cleanRow['Enfermedades'] || ''
+                crypto.randomUUID(), studentId, cleanRow['Grupo Sanguíneo'] || '', cleanRow['Alergias'] || '', cleanRow['Enfermedades'] || ''
             ]);
 
             await db.run(`
                 INSERT INTO enrollments (id, student_id, level_id, academic_year)
                 VALUES (?, ?, ?, 2026)
-            `, [uuidv4(), studentId, levelId]);
+            `, [crypto.randomUUID(), studentId, levelId]);
 
             studentsCount++;
         } catch (e) {
@@ -130,7 +130,7 @@ async function importData() {
                     INSERT INTO guardians (id, student_id, guardian_type, run, full_name, relationship, phone, email, address)
                     VALUES (?, ?, 'Titular', ?, ?, ?, ?, ?, ?)
                 `, [
-                    uuidv4(), existingStudent.id, row['RUN/IPA'] || 'S/R', row['Nombre Apoderado Titular'] || 'Sin Nombre',
+                    crypto.randomUUID(), existingStudent.id, row['RUN/IPA'] || 'S/R', row['Nombre Apoderado Titular'] || 'Sin Nombre',
                     row['Parentesco'] || '', row['Teléfono Titular'] || '', row['Email'] || '', row['Dirección'] || ''
                 ]);
                 titularesCount++;
@@ -153,7 +153,7 @@ async function importData() {
                     INSERT INTO guardians (id, student_id, guardian_type, run, full_name, relationship, phone, email, address)
                     VALUES (?, ?, 'Suplente', ?, ?, ?, ?, ?, ?)
                 `, [
-                    uuidv4(), existingStudent.id, row['RUN/IPA'] || 'S/R', row['Nombre Apoderado Suplente'] || 'Sin Nombre',
+                    crypto.randomUUID(), existingStudent.id, row['RUN/IPA'] || 'S/R', row['Nombre Apoderado Suplente'] || 'Sin Nombre',
                     row['Parentesco'] || '', row['Teléfono Suplente'] || '', row['Email'] || '', row['Dirección'] || ''
                 ]);
                 suplentesCount++;

@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import sqlite3 from 'sqlite3';
 import { open } from 'sqlite';
-import { v4 as uuidv4 } from 'uuid';
+import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 
 async function init() {
@@ -29,7 +29,7 @@ async function init() {
 
     console.log("Insertando datos de prueba...");
     
-    const adminId = uuidv4();
+    const adminId = crypto.randomUUID();
     const teacherId = 't1'; 
     const hashedAdminPass = await bcrypt.hash('182011', 10);
     const hashedTeacherPass = await bcrypt.hash('123', 10);

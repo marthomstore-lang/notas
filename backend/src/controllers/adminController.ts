@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
-import { v4 as uuidv4 } from 'uuid';
+import crypto from 'crypto';
 import db from '../config/db';
 import * as xlsx from 'xlsx';
 
@@ -64,7 +64,7 @@ export const deleteStudent = async (req: Request, res: Response) => {
             await db.run(`
                 INSERT INTO audit_logs (id, user_id, user_name, action, details)
                 VALUES (?, ?, ?, ?, ?)
-            `, [uuidv4(), user?.id, user?.name || user?.run || 'Sistema', 'WITHDRAW_STUDENT', `Retiro de estudiante: ${student.full_name} - Fecha: ${withdrawalDate}`]);
+            `, [crypto.randomUUID(), user?.id, user?.name || user?.run || 'Sistema', 'WITHDRAW_STUDENT', `Retiro de estudiante: ${student.full_name} - Fecha: ${withdrawalDate}`]);
         } catch (logErr) { console.error("Audit log error:", logErr); }
 
         res.json({ message: 'Estudiante retirado correctamente' });
@@ -94,7 +94,7 @@ export const reincorporateStudent = async (req: Request, res: Response) => {
             await db.run(`
                 INSERT INTO audit_logs (id, user_id, user_name, action, details)
                 VALUES (?, ?, ?, ?, ?)
-            `, [uuidv4(), user?.id, user?.name || user?.run || 'Sistema', 'REINCORPORATE_STUDENT', `Reincorporación de estudiante: ${student.full_name}`]);
+            `, [crypto.randomUUID(), user?.id, user?.name || user?.run || 'Sistema', 'REINCORPORATE_STUDENT', `Reincorporación de estudiante: ${student.full_name}`]);
         } catch (logErr) { console.error("Audit log error:", logErr); }
 
         res.json({ message: 'Estudiante reincorporado correctamente' });
@@ -198,7 +198,7 @@ export const updateStudent = async (req: Request, res: Response) => {
                         )
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     `, [
-                        uuidv4(), id, g.guardian_type, g.run, gFullName, g.relationship, g.phone, g.email, g.address,
+                        crypto.randomUUID(), id, g.guardian_type, g.run, gFullName, g.relationship, g.phone, g.email, g.address,
                         g.first_name, g.paternal_surname, g.maternal_surname, g.birth_date,
                         g.gender, g.marital_status, g.region, g.commune, g.postal_code,
                         g.education_level, g.occupation, g.health_system, 
@@ -221,7 +221,7 @@ export const updateStudent = async (req: Request, res: Response) => {
                 await client.query(`
                     INSERT INTO health_records (id, student_id, blood_type, allergies, chronic_diseases, general_observations)
                     VALUES (?, ?, ?, ?, ?, ?)
-                `, [uuidv4(), id, health.blood_type, health.allergies, health.chronic_diseases, health.general_observations]);
+                `, [crypto.randomUUID(), id, health.blood_type, health.allergies, health.chronic_diseases, health.general_observations]);
             }
         }
 
@@ -261,7 +261,7 @@ export const addObservation = async (req: Request, res: Response) => {
         const { content, type } = req.body; // type: 'Positive' | 'Negative'
         const teacherId = (req as any).user.id;
         client = await db.connect();
-        const obsId = uuidv4();
+        const obsId = crypto.randomUUID();
         await client.query(`
             INSERT INTO observations (id, student_id, teacher_id, content, type)
             VALUES (?, ?, ?, ?, ?)
@@ -303,7 +303,7 @@ export const createTeacher = async (req: Request, res: Response) => {
             }
         }
 
-        const id = uuidv4();
+        const id = crypto.randomUUID();
         const plainPass = password || '123';
         const hashedPass = await bcrypt.hash(plainPass, 10);
 
@@ -390,7 +390,7 @@ export const deleteTeacher = async (req: Request, res: Response) => {
         await db.run(`
             INSERT INTO audit_logs (id, user_id, user_name, action, details)
             VALUES (?, ?, ?, ?, ?)
-        `, [uuidv4(), user?.id, user?.name || user?.run || 'Sistema', 'DELETE_USER', `Eliminación de usuario/docente: ${teacher.name}`]);
+        `, [crypto.randomUUID(), user?.id, user?.name || user?.run || 'Sistema', 'DELETE_USER', `Eliminación de usuario/docente: ${teacher.name}`]);
 
         res.json({ message: 'Docente eliminado correctamente' });
     } catch (error: any) {
@@ -594,7 +594,7 @@ export const deleteAssignment = async (req: Request, res: Response) => {
                 await db.run(`
                     INSERT INTO audit_logs (id, user_id, user_name, action, details)
                     VALUES (?, ?, ?, ?, ?)
-                `, [uuidv4(), user?.id, user?.name || user?.run || 'Sistema', 'DELETE_ASSIGNMENT', `Eliminación de carga: ${info.teacher_name} - ${info.level_name} - ${info.subject_name}`]);
+                `, [crypto.randomUUID(), user?.id, user?.name || user?.run || 'Sistema', 'DELETE_ASSIGNMENT', `Eliminación de carga: ${info.teacher_name} - ${info.level_name} - ${info.subject_name}`]);
             } catch (logErr) { console.error("Audit log error:", logErr); }
         }
 
@@ -610,7 +610,7 @@ export const createAssignment = async (req: Request, res: Response) => {
         const { teacherId, levelId, subjectId, academicYear } = req.body;
         client = await db.connect();
         
-        const id = uuidv4();
+        const id = crypto.randomUUID();
         await client.query(`
             INSERT INTO teacher_assignments (id, teacher_id, level_id, subject_id, academic_year) 
             VALUES (?, ?, ?, ?, ?)
@@ -666,7 +666,7 @@ export const updateAssignment = async (req: Request, res: Response) => {
                 await db.run(`
                     INSERT INTO audit_logs (id, user_id, user_name, action, details)
                     VALUES (?, ?, ?, ?, ?)
-                `, [uuidv4(), user?.id, user?.name || user?.run || 'Sistema', 'UPDATE_ASSIGNMENT', `Edición de carga: de [${oldText}] a [${newText}]`]);
+                `, [crypto.randomUUID(), user?.id, user?.name || user?.run || 'Sistema', 'UPDATE_ASSIGNMENT', `Edición de carga: de [${oldText}] a [${newText}]`]);
             } catch (logErr) { console.error("Audit log error:", logErr); }
         }
         
@@ -907,7 +907,7 @@ export const importDataWeb = async (req: Request, res: Response) => {
                 }
             }
 
-            const studentId = uuidv4();
+            const studentId = crypto.randomUUID();
             await db.run(`
                 INSERT INTO students (
                     id, run, full_name, first_name, paternal_surname, maternal_surname,
@@ -926,13 +926,13 @@ export const importDataWeb = async (req: Request, res: Response) => {
                 INSERT INTO health_records (id, student_id, blood_type, allergies, chronic_diseases)
                 VALUES (?, ?, ?, ?, ?)
             `, [
-                uuidv4(), studentId, findCol(rowArr, ['GRUPO SANGUÍNEO', 'GRUPO_SANGUINEO']) || '', findCol(rowArr, ['ALERGIAS']) || '', findCol(rowArr, ['ENFERMEDADES', 'ENFERMEDADES_CRONICAS']) || ''
+                crypto.randomUUID(), studentId, findCol(rowArr, ['GRUPO SANGUÍNEO', 'GRUPO_SANGUINEO']) || '', findCol(rowArr, ['ALERGIAS']) || '', findCol(rowArr, ['ENFERMEDADES', 'ENFERMEDADES_CRONICAS']) || ''
             ]);
 
             await db.run(`
                 INSERT INTO enrollments (id, student_id, level_id, academic_year)
                 VALUES (?, ?, ?, 2026)
-            `, [uuidv4(), studentId, levelId]);
+            `, [crypto.randomUUID(), studentId, levelId]);
             studentsCount++;
         }
 
@@ -946,7 +946,7 @@ export const importDataWeb = async (req: Request, res: Response) => {
                     await db.run(`
                         INSERT INTO guardians (id, student_id, guardian_type, run, full_name, relationship, phone, email, address)
                         VALUES (?, ?, 'Titular', ?, ?, ?, ?, ?, ?)
-                    `, [uuidv4(), existingStudent.id, row['RUN/IPA'] || 'S/R', row['Nombre Apoderado Titular'] || 'Sin Nombre', row['Parentesco'] || '', row['Teléfono Titular'] || '', row['Email'] || '', row['Dirección'] || '']);
+                    `, [crypto.randomUUID(), existingStudent.id, row['RUN/IPA'] || 'S/R', row['Nombre Apoderado Titular'] || 'Sin Nombre', row['Parentesco'] || '', row['Teléfono Titular'] || '', row['Email'] || '', row['Dirección'] || '']);
                     titularesCount++;
                 }
             }
@@ -961,7 +961,7 @@ export const importDataWeb = async (req: Request, res: Response) => {
                     await db.run(`
                         INSERT INTO guardians (id, student_id, guardian_type, run, full_name, relationship, phone, email, address)
                         VALUES (?, ?, 'Suplente', ?, ?, ?, ?, ?, ?)
-                    `, [uuidv4(), existingStudent.id, row['RUN/IPA'] || 'S/R', row['Nombre Apoderado Suplente'] || 'Sin Nombre', row['Parentesco'] || '', row['Teléfono Suplente'] || '', row['Email'] || '', row['Dirección'] || '']);
+                    `, [crypto.randomUUID(), existingStudent.id, row['RUN/IPA'] || 'S/R', row['Nombre Apoderado Suplente'] || 'Sin Nombre', row['Parentesco'] || '', row['Teléfono Suplente'] || '', row['Email'] || '', row['Dirección'] || '']);
                     suplentesCount++;
                 }
             }

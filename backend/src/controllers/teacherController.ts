@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import db from '../config/db';
-import { v4 as uuidv4 } from 'uuid';
+import crypto from 'crypto';
 
 export const getAssignments = async (req: Request, res: Response) => {
     let client;
@@ -81,7 +81,7 @@ export const addColumn = async (req: Request, res: Response) => {
         const assignmentRes = await client.query('SELECT * FROM teacher_assignments WHERE id = ?', [assignmentId]);
         const assignment = assignmentRes.rows[0];
 
-        const id = uuidv4();
+        const id = crypto.randomUUID();
         await client.query(`
             INSERT INTO grade_columns (id, level_id, subject_id, academic_year, title)
             VALUES (?, ?, ?, ?, ?)
@@ -100,7 +100,7 @@ export const saveGrade = async (req: Request, res: Response) => {
     try {
         const { studentId, columnId, gradeValue } = req.body;
         client = await db.connect();
-        const id = uuidv4();
+        const id = crypto.randomUUID();
 
         if (gradeValue === null || gradeValue === undefined || gradeValue === '') {
             await client.query(`

@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import db from '../config/db';
-import { v4 as uuidv4 } from 'uuid';
+import crypto from 'crypto';
 
 export const getGradesSheet = async (req: Request, res: Response) => {
     const { levelId, subjectId, period, year } = req.query;
@@ -105,7 +105,7 @@ export const saveGradesSheet = async (req: Request, res: Response) => {
                     `, [col.title, col.weighting || 0, colId]);
                 }
             } else {
-                colId = uuidv4();
+                colId = crypto.randomUUID();
                 await db.run(`
                     INSERT INTO grade_columns (id, level_id, subject_id, academic_year, period, title, position, weighting)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -167,7 +167,7 @@ export const saveGradesSheet = async (req: Request, res: Response) => {
                     details: `Ingreso de nota (${newValue}) - Estudiante: ${studentMap.get(g.student_id)?.name || g.student_id} - Columna: ${col?.title || g.position}`
                 });
                 await db.run('INSERT INTO grades (id, student_id, grade_column_id, grade_value) VALUES (?, ?, ?, ?)', 
-                            [uuidv4(), g.student_id, colId, newValue]);
+                            [crypto.randomUUID(), g.student_id, colId, newValue]);
             }
         }
 
@@ -180,7 +180,7 @@ export const saveGradesSheet = async (req: Request, res: Response) => {
                 INSERT INTO audit_logs (id, user_id, user_name, action, details, level_id, subject_id)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
             `, [
-                uuidv4(), user?.id, user?.name || user?.run || 'Sistema', 
+                crypto.randomUUID(), user?.id, user?.name || user?.run || 'Sistema', 
                 'SAVE_GRADES', 
                 `Guardado de planilla: ${levelName?.name || levelIdNum} - ${subjectName?.name || subjectIdNum} (${period || 'N/A'})`,
                 String(levelIdNum), String(subjectIdNum)
@@ -191,7 +191,7 @@ export const saveGradesSheet = async (req: Request, res: Response) => {
                     INSERT INTO audit_logs (id, user_id, user_name, action, details, level_id, subject_id)
                     VALUES (?, ?, ?, ?, ?, ?, ?)
                 `, [
-                    uuidv4(), user?.id, user?.name || user?.run || 'Sistema', 
+                    crypto.randomUUID(), user?.id, user?.name || user?.run || 'Sistema', 
                     log.action, log.details, String(levelIdNum), String(subjectIdNum)
                 ]);
             }
@@ -226,7 +226,7 @@ export const updateGradeColumns = async (req: Request, res: Response) => {
         }
 
         for (const col of columns) {
-            const id = col.id || uuidv4();
+            const id = col.id || crypto.randomUUID();
             await db.run(`
                 INSERT INTO grade_columns (id, level_id, subject_id, academic_year, period, title, position, weighting)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -334,7 +334,7 @@ export const toggleLockAssignment = async (req: Request, res: Response) => {
                 INSERT INTO audit_logs (id, user_id, user_name, action, details, level_id, subject_id)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
             `, [
-                uuidv4(), 
+                crypto.randomUUID(), 
                 user?.id || 'unknown', 
                 user?.name || user?.run || 'Sistema', 
                 lock ? 'LOCK_GRADES' : 'UNLOCK_GRADES',

@@ -1,5 +1,5 @@
 import db from '../config/db';
-import { v4 as uuidv4 } from 'uuid'; // Generar UUIDs ya que SQLite no tiene gen_random_uuid automático por defecto si no habilitamos extensión
+import crypto from 'crypto'; // Generar UUIDs ya que SQLite no tiene gen_random_uuid automático por defecto si no habilitamos extensión
 
 export const silentWatchAudit = async (
     userId: string, 
@@ -13,7 +13,7 @@ export const silentWatchAudit = async (
             `INSERT INTO audit_logs (id, user_id, user_name, action, details) 
              VALUES (?, ?, ?, ?, ?)`,
             [
-                uuidv4(), 
+                crypto.randomUUID(), 
                 userId, 
                 'Sistema (SilentWatch)', 
                 `${actionType}_${tableName.toUpperCase()}`, 
