@@ -440,12 +440,14 @@ router.post('/debug/migrate-data', async (req, res) => {
 app.use('/api', router);
 app.use('/_/backend/api', router);
 
-app.listen(PORT, () => {
-    console.log('=========================================');
-    console.log(`Liceo Pro Backend v2.1 (RESTARTED)`);
-    console.log(`Running on http://localhost:${PORT}`);
-    console.log('=========================================');
-});
+if (!process.env.VERCEL) {
+    app.listen(PORT, () => {
+        console.log('=========================================');
+        console.log(`Liceo Pro Backend v2.1 (RESTARTED)`);
+        console.log(`Running on http://localhost:${PORT}`);
+        console.log('=========================================');
+    });
+}
 
 export default app;
 module.exports = app;
