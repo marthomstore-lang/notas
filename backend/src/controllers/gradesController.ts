@@ -129,7 +129,7 @@ export const saveGradesSheet = async (req: Request, res: Response) => {
             WHERE e.level_id = ? AND e.academic_year = ?
         `, [levelIdNum, yearNum]);
 
-        const studentMap = new Map(studentRes.map(s => [s.id, s]));
+        const studentMap = new Map<string, any>(studentRes.map(s => [String(s.id), s]));
 
         // 3. Update/Insert/Delete each grade
         for (const g of gradesInput) {
