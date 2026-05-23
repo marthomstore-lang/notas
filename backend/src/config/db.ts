@@ -1,12 +1,10 @@
-import sqlite3 from 'sqlite3';
-import { open, Database } from 'sqlite';
 import path from 'path';
 import { Pool } from 'pg';
 import dotenv from 'dotenv';
 
 dotenv.config({ path: path.join(__dirname, '../../.env') });
 
-let dbInstance: Database | null = null;
+let dbInstance: any = null;
 let pgPool: Pool | null = null;
 
 const connectionString = process.env.DATABASE_URL || process.env.POSTGRES_URL;
@@ -20,6 +18,9 @@ export const getDb = async () => {
         return dbInstance;
     }
     
+    const sqlite3 = require('sqlite3');
+    const { open } = require('sqlite');
+
     dbInstance = await open({
         filename: path.join(__dirname, '../../liceopro.db'),
         driver: sqlite3.Database
