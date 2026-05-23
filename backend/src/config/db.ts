@@ -4,7 +4,7 @@ import path from 'path';
 import { Pool } from 'pg';
 import dotenv from 'dotenv';
 
-dotenv.config();
+dotenv.config({ path: path.join(__dirname, '../../.env') });
 
 let dbInstance: Database | null = null;
 let pgPool: Pool | null = null;
@@ -38,7 +38,7 @@ if (isPostgres) {
     const poolConfig = {
         ssl: { rejectUnauthorized: false },
         max: 20,                          // Capacidad máxima de conexiones concurrentes
-        connectionTimeoutMillis: 5000,    // Evita esperas infinitas si hay fallos en la red
+        connectionTimeoutMillis: 15000,   // Evita esperas infinitas si hay fallos en la red (aumentado a 15s)
         idleTimeoutMillis: 30000,         // Tiempo de espera para cerrar conexiones inactivas
         keepAlive: true,                  // Mantiene viva la conexión TCP
         keepAliveInitialDelayMillis: 10000 // Inicia Keep-Alive tras 10s de inactividad
@@ -62,6 +62,11 @@ if (isPostgres) {
         });
         console.log('[DB] Inicializado con PostgreSQL (Supabase) via URL');
     }
+
+    // Evitar que la aplicación serverless se caiga por errores en el pool de fondo
+    pgPool.on('error', (err, client) => {
+        console.error('[DB] Unexpected error on idle client', err);
+    });
 
     // Pre-calentar la conexión: valida la conectividad con Supabase inmediatamente al iniciar
     pgPool.query('SELECT 1')
