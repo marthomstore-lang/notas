@@ -72,7 +72,7 @@ async function generateStudentReport(dbInstance: any, studentId: any, year: any,
                     if (v >= 4.0) return 'S';
                     return 'I';
                 }
-                return v.toFixed(1).replace('.', ',');
+                return Number(v).toFixed(1).replace('.', ',');
             };
 
             const getSemData = async (p: string) => {
@@ -166,7 +166,7 @@ async function generateStudentReport(dbInstance: any, studentId: any, year: any,
                     if (val >= 4.0) return 'S';
                     return 'I';
                 }
-                return val.toFixed(1).replace('.', ',');
+                return Number(val).toFixed(1).replace('.', ',');
             };
 
             let average = '-';
