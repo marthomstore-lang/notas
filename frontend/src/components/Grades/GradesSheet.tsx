@@ -93,7 +93,7 @@ export const GradesSheet: React.FC<GradesSheetProps> = ({ initialLevelId, initia
     }, [grades, columns]);
 
     const autosave = async () => {
-        if (isSaving) return;
+        if (isSaving || isVisita) return;
         
         const gradesData = Object.entries(grades).map(([key, val]) => {
             const [studentId, position] = key.split('_');
