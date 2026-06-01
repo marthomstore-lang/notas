@@ -28,8 +28,14 @@ const authMiddleware = (req: Request, res: Response, next: NextFunction) => {
     if (!authHeader) return res.status(401).json({ error: 'Token no provisto' });
     const token = authHeader.split(' ')[1];
     try {
-        const decoded = jwt.verify(token, JWT_SECRET);
+        const decoded = jwt.verify(token, JWT_SECRET) as any;
         (req as any).user = decoded;
+        
+        // Evitar modificaciones por parte de usuarios con rol "Visita"
+        if (decoded.role === 'Visita' && ['POST', 'PUT', 'DELETE', 'PATCH'].includes(req.method)) {
+            return res.status(403).json({ error: 'El perfil de visita no tiene permisos para realizar modificaciones.' });
+        }
+        
         next();
     } catch (err) {
         return res.status(401).json({ error: 'Token inválido' });
@@ -146,7 +152,7 @@ router.post('/debug/migrate-data', async (req, res) => {
                 email TEXT UNIQUE,
                 password_hash TEXT NOT NULL,
                 password_plain TEXT,
-                role TEXT CHECK (role IN ('Admin', 'Docente', 'Administrativo', 'Apoderado')) NOT NULL,
+                role TEXT CHECK (role IN ('Admin', 'Docente', 'Administrativo', 'Apoderado', 'Visita')) NOT NULL,
                 temp_password BOOLEAN DEFAULT TRUE,
                 created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
             )`,

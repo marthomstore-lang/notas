@@ -278,7 +278,7 @@ export const getTeachers = async (req: Request, res: Response) => {
     let client;
     try {
         client = await db.connect();
-        const result = await client.query("SELECT id, run, name, email, password_plain, role FROM users WHERE role IN ('Docente', 'Admin') ORDER BY role, name");
+        const result = await client.query("SELECT id, run, name, email, password_plain, role FROM users WHERE role IN ('Docente', 'Admin', 'Visita') ORDER BY role, name");
         res.json(result.rows);
     } catch (error) {
         res.status(500).json({ error: 'Error al obtener usuarios' });

@@ -36,6 +36,7 @@ interface GradesSheetProps {
 export const GradesSheet: React.FC<GradesSheetProps> = ({ initialLevelId, initialSubjectId }) => {
     const { token, user } = useAuth();
     const { speak } = useA11y();
+    const isVisita = user?.role === 'Visita';
     
     // Filters
     const [filters, setFilters] = useState(() => {
@@ -539,7 +540,7 @@ export const GradesSheet: React.FC<GradesSheetProps> = ({ initialLevelId, initia
                     >
                         Recargar
                     </button>
-                    <button className="save-btn" onClick={saveAll} title="Guardar Manualmente" disabled={isLocked && (user as any).role !== 'Admin'}><Save size={20} /></button>
+                    <button className="save-btn" onClick={saveAll} title="Guardar Manualmente" disabled={isVisita || (isLocked && (user as any).role !== 'Admin')}><Save size={20} /></button>
                     <button className="secondary-btn" onClick={handlePrintCourse} title="Generar informes de todo el curso">
                         <FileText size={18} /> Informes/Certificados
                     </button>
@@ -591,34 +592,36 @@ export const GradesSheet: React.FC<GradesSheetProps> = ({ initialLevelId, initia
                             <th style={{ width: '85px' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
                                     N° Lista
-                                    <button 
-                                        className="bulk-reorder-btn no-print" 
-                                        onClick={handleBulkReorder} 
-                                        title="Auto-numerar por orden alfabético"
-                                        style={{ 
-                                            background: '#f1f5f9', 
-                                            border: '1px solid #e2e8f0', 
-                                            borderRadius: '4px',
-                                            padding: '2px 4px',
-                                            fontSize: '10px',
-                                            cursor: 'pointer'
-                                        }}
-                                    >
-                                        A-Z
-                                    </button>
+                                    {!isVisita && (
+                                        <button 
+                                            className="bulk-reorder-btn no-print" 
+                                            onClick={handleBulkReorder} 
+                                            title="Auto-numerar por orden alfabético"
+                                            style={{ 
+                                                background: '#f1f5f9', 
+                                                border: '1px solid #e2e8f0', 
+                                                borderRadius: '4px',
+                                                padding: '2px 4px',
+                                                fontSize: '10px',
+                                                cursor: 'pointer'
+                                            }}
+                                        >
+                                            A-Z
+                                        </button>
+                                    )}
                                 </div>
                             </th>
                             <th className="student-name-col">Nombre alumno</th>
                             {columns.slice(0, 10).map(c => (
                                 <th 
                                     key={c.position}
-                                    onClick={() => !isLocked && handleEditColumnTitle(c)}
-                                    style={{ cursor: isLocked ? 'default' : 'pointer' }}
-                                    title={isLocked ? undefined : "Haga clic para renombrar evaluación"}
+                                    onClick={() => !isLocked && !isVisita && handleEditColumnTitle(c)}
+                                    style={{ cursor: (isLocked || isVisita) ? 'default' : 'pointer' }}
+                                    title={(isLocked || isVisita) ? undefined : "Haga clic para renombrar evaluación"}
                                 >
                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
                                         {c.title}
-                                        {!isLocked && <Edit2 size={10} style={{ opacity: 0.4 }} />}
+                                        {!isLocked && !isVisita && <Edit2 size={10} style={{ opacity: 0.4 }} />}
                                     </div>
                                 </th>
                             ))}
@@ -635,7 +638,7 @@ export const GradesSheet: React.FC<GradesSheetProps> = ({ initialLevelId, initia
                                         className="list-number-input"
                                         value={s.list_number}
                                         onChange={e => handleListNumberChange(s.id, e.target.value)}
-                                        disabled={s.status === 'RETIRADO'}
+                                        disabled={s.status === 'RETIRADO' || isVisita}
                                     />
                                 </td>
                                 <td className="student-name-col">
@@ -687,7 +690,7 @@ export const GradesSheet: React.FC<GradesSheetProps> = ({ initialLevelId, initia
                                             onBlur={() => {
                                                 setFocusedCell(null);
                                             }}
-                                            disabled={s.status === 'RETIRADO' || isLocked}
+                                            disabled={s.status === 'RETIRADO' || isLocked || isVisita}
                                         />
                                     </td>
                                 ))}
@@ -718,7 +721,7 @@ export const GradesSheet: React.FC<GradesSheetProps> = ({ initialLevelId, initia
                                                 speak(`Promedio final de ${s.full_name}`);
                                             }}
                                             onBlur={() => setFocusedCell(null)}
-                                            disabled={s.status === 'RETIRADO' || isLocked}
+                                            disabled={s.status === 'RETIRADO' || isLocked || isVisita}
                                         />
                                     ) : (
                                         calculatePP(s.id)

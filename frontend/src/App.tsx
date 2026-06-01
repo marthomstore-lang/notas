@@ -14,8 +14,11 @@ const ProtectedRoute = ({ children, allowedRole }: { children: React.ReactNode, 
         return <Navigate to="/login" replace />;
     }
     
-    if (user.role !== allowedRole) {
-        return <Navigate to={user.role === 'Admin' ? '/admin' : '/teacher'} replace />;
+    const hasAccess = user.role === allowedRole || (allowedRole === 'Admin' && user.role === 'Visita');
+    
+    if (!hasAccess) {
+        const target = (user.role === 'Admin' || user.role === 'Visita') ? '/admin' : '/teacher';
+        return <Navigate to={target} replace />;
     }
 
     return <>{children}</>;
@@ -26,7 +29,7 @@ const AppRoutes = () => {
 
     return (
         <Routes>
-            <Route path="/login" element={user ? <Navigate to={user.role === 'Admin' ? '/admin' : '/teacher'} /> : <Login />} />
+            <Route path="/login" element={user ? <Navigate to={(user.role === 'Admin' || user.role === 'Visita') ? '/admin' : '/teacher'} /> : <Login />} />
             <Route path="/admin/*" element={
                 <ProtectedRoute allowedRole="Admin">
                     <AdminDashboard />

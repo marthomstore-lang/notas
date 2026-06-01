@@ -245,6 +245,12 @@
     border: 1px solid #bbf7d0;
 }
 
+.badge.visita {
+    background: #dbeafe;
+    color: #1e40af;
+    border: 1px solid #bfdbfe;
+}
+
 .data-table td {
     padding: 16px;
     font-size: 0.95rem;

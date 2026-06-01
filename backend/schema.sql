@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS users (
     email TEXT UNIQUE,
     password_hash TEXT NOT NULL,
     password_plain TEXT,
-    role TEXT CHECK (role IN ('Admin', 'Docente', 'Administrativo', 'Apoderado')) NOT NULL,
+    role TEXT CHECK (role IN ('Admin', 'Docente', 'Administrativo', 'Apoderado', 'Visita')) NOT NULL,
     temp_password BOOLEAN DEFAULT 1,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );

@@ -13,6 +13,7 @@ const MySwal = withReactContent(Swal);
 
 export const AdminDashboard = () => {
     const { user, logout, token } = useAuth();
+    const isVisita = user?.role === 'Visita';
     const [activeTab, setActiveTab] = useState<'config' | 'students' | 'grades' | 'audit' | 'profile'>(() => {
         const saved = localStorage.getItem('adminActiveTab');
         return (['config', 'students', 'grades', 'audit', 'profile'].includes(saved as string)) ? (saved as any) : 'grades';
@@ -269,6 +270,7 @@ export const AdminDashboard = () => {
                 '<select id="swal-input5" class="swal2-input">' +
                 '<option value="Docente">Docente / Profesor</option>' +
                 '<option value="Admin">Administrador</option>' +
+                '<option value="Visita">Visita (Solo Lectura)</option>' +
                 '</select>' +
                 '</div>',
             focusConfirm: false,
@@ -344,6 +346,7 @@ export const AdminDashboard = () => {
                 `<select id="swal-input4" class="swal2-input">` +
                 `<option value="Docente" ${teacher.role === 'Docente' ? 'selected' : ''}>Docente / Profesor</option>` +
                 `<option value="Admin" ${teacher.role === 'Admin' ? 'selected' : ''}>Administrador</option>` +
+                `<option value="Visita" ${teacher.role === 'Visita' ? 'selected' : ''}>Visita (Solo Lectura)</option>` +
                 `</select>` +
                 '</div>',
             focusConfirm: false,
@@ -876,7 +879,7 @@ export const AdminDashboard = () => {
                             </button>
                         )}
                     </div>
-                    <p>{user?.name}</p>
+                    <p>{user?.name} {isVisita && <span className="badge warning" style={{ display: 'inline-block', marginLeft: '5px', fontSize: '0.7rem', padding: '2px 6px', background: '#d97706', color: 'white', borderRadius: '4px' }}>Visita</span>}</p>
                 </div>
                 <nav className="sidebar-nav">
                     <button className={activeTab === 'grades' ? 'active' : ''} onClick={() => handleNavClick('grades')}>
@@ -945,30 +948,32 @@ export const AdminDashboard = () => {
                         </h1>
                     </div>
                     <div style={{ display: 'flex', gap: '10px' }}>
-                        <button className="secondary-btn" onClick={async () => {
-                            const { value: formValues } = await MySwal.fire({
-                                title: 'Configuración Institucional',
-                                html:
-                                    '<label>Nombre del Director</label><input id="swal-director" class="swal2-input" placeholder="Nombre Director">' +
-                                    '<label>Nombre del Colegio</label><input id="swal-school" class="swal2-input" placeholder="Nombre Colegio">',
-                                focusConfirm: false,
-                                showCancelButton: true,
-                                preConfirm: () => {
-                                    return {
-                                        directorName: (document.getElementById('swal-director') as HTMLInputElement).value,
-                                        schoolName: (document.getElementById('swal-school') as HTMLInputElement).value
+                        {!isVisita && (
+                            <button className="secondary-btn" onClick={async () => {
+                                const { value: formValues } = await MySwal.fire({
+                                    title: 'Configuración Institucional',
+                                    html:
+                                        '<label>Nombre del Director</label><input id="swal-director" class="swal2-input" placeholder="Nombre Director">' +
+                                        '<label>Nombre del Colegio</label><input id="swal-school" class="swal2-input" placeholder="Nombre Colegio">',
+                                    focusConfirm: false,
+                                    showCancelButton: true,
+                                    preConfirm: () => {
+                                        return {
+                                            directorName: (document.getElementById('swal-director') as HTMLInputElement).value,
+                                            schoolName: (document.getElementById('swal-school') as HTMLInputElement).value
+                                        }
                                     }
-                                }
-                            });
-                            if (formValues) {
-                                await fetch('/_/backend/api/admin/settings', {
-                                    method: 'POST',
-                                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-                                    body: JSON.stringify(formValues)
                                 });
-                                MySwal.fire('Éxito', 'Configuración actualizada', 'success');
-                            }
-                        }}><Settings size={18} /> Institución</button>
+                                if (formValues) {
+                                    await fetch('/_/backend/api/admin/settings', {
+                                        method: 'POST',
+                                        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                                        body: JSON.stringify(formValues)
+                                    });
+                                    MySwal.fire('Éxito', 'Configuración actualizada', 'success');
+                                }
+                            }}><Settings size={18} /> Institución</button>
+                        )}
                     </div>
                 </header>
                 
@@ -1063,43 +1068,45 @@ export const AdminDashboard = () => {
                                 <div className="card-split-header">
                                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
                                         <h3 style={{ margin: 0 }}>Gestión de Usuarios</h3>
-                                        <button className="primary-btn" onClick={handleCreateTeacher}><Plus size={18} /> Nuevo Usuario</button>
+                                        {!isVisita && <button className="primary-btn" onClick={handleCreateTeacher}><Plus size={18} /> Nuevo Usuario</button>}
                                     </div>
                                 </div>
                                 <div className="card-split-content">
                                     <table className="data-table">
-                                        <thead><tr><th>RUT</th><th>NOMBRE</th><th>ROL</th><th>EMAIL</th><th>ACCIONES</th></tr></thead>
+                                        <thead><tr><th>RUT</th><th>NOMBRE</th><th>ROL</th><th>EMAIL</th>{!isVisita && <th>ACCIONES</th>}</tr></thead>
                                         <tbody>
                                             {teachers.map(t => (
                                                 <tr key={t.id}>
                                                     <td>{t.run}</td>
                                                     <td>{t.name}</td>
                                                     <td>
-                                                        <span className={`badge ${t.role === 'Admin' ? 'admin' : 'docente'}`}>
-                                                            {t.role === 'Admin' ? 'Administrador' : 'Docente'}
+                                                        <span className={`badge ${t.role === 'Admin' ? 'admin' : t.role === 'Visita' ? 'visita' : 'docente'}`}>
+                                                            {t.role === 'Admin' ? 'Administrador' : t.role === 'Visita' ? 'Visita (Solo Lectura)' : 'Docente'}
                                                         </span>
                                                     </td>
                                                     <td>{t.email}</td>
-                                                    <td>
-                                                        <div style={{ display: 'flex', gap: '15px' }}>
-                                                            <button 
-                                                                type="button"
-                                                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#3b82f6', padding: '5px' }}
-                                                                onClick={(e) => { e.stopPropagation(); handleEditTeacher(t); }}
-                                                                title="Editar"
-                                                            >
-                                                                <Edit2 size={20} />
-                                                            </button>
-                                                            <button 
-                                                                type="button"
-                                                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: '5px' }}
-                                                                onClick={(e) => { e.stopPropagation(); handleDeleteTeacher(t.id); }}
-                                                                title="Eliminar"
-                                                            >
-                                                                <Trash2 size={20} />
-                                                            </button>
-                                                        </div>
-                                                    </td>
+                                                    {!isVisita && (
+                                                        <td>
+                                                            <div style={{ display: 'flex', gap: '15px' }}>
+                                                                <button 
+                                                                    type="button"
+                                                                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#3b82f6', padding: '5px' }}
+                                                                    onClick={(e) => { e.stopPropagation(); handleEditTeacher(t); }}
+                                                                    title="Editar"
+                                                                >
+                                                                    <Edit2 size={20} />
+                                                                </button>
+                                                                <button 
+                                                                    type="button"
+                                                                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: '5px' }}
+                                                                    onClick={(e) => { e.stopPropagation(); handleDeleteTeacher(t.id); }}
+                                                                    title="Eliminar"
+                                                                >
+                                                                    <Trash2 size={20} />
+                                                                </button>
+                                                            </div>
+                                                        </td>
+                                                    )}
                                                 </tr>
                                             ))}
                                         </tbody>
@@ -1131,13 +1138,15 @@ export const AdminDashboard = () => {
                                                     <td>
                                                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                                             {l.total_capacity}
-                                                            <button 
-                                                                onClick={() => handleUpdateCapacity(l)}
-                                                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#3b82f6', padding: '4px' }}
-                                                                title="Editar Capacidad"
-                                                            >
-                                                                <Edit2 size={16} />
-                                                            </button>
+                                                            {!isVisita && (
+                                                                <button 
+                                                                    onClick={() => handleUpdateCapacity(l)}
+                                                                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#3b82f6', padding: '4px' }}
+                                                                    title="Editar Capacidad"
+                                                                >
+                                                                    <Edit2 size={16} />
+                                                                </button>
+                                                            )}
                                                         </div>
                                                     </td>
                                                     <td style={{ fontWeight: '600', color: '#1e293b' }}>{l.current_enrolled}</td>
@@ -1161,36 +1170,38 @@ export const AdminDashboard = () => {
                                 <div className="card-split-header">
                                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
                                         <h3 style={{ margin: 0 }}>Asignaturas Globales</h3>
-                                        <button className="primary-btn" onClick={handleCreateSubject}><Plus size={18} /> Nueva Asignatura</button>
+                                        {!isVisita && <button className="primary-btn" onClick={handleCreateSubject}><Plus size={18} /> Nueva Asignatura</button>}
                                     </div>
                                 </div>
                                 <div className="card-split-content">
                                     <table className="data-table">
-                                        <thead><tr><th>Nombre</th><th>Acciones</th></tr></thead>
+                                        <thead><tr><th>Nombre</th>{!isVisita && <th>Acciones</th>}</tr></thead>
                                         <tbody>
                                             {subjects.map(s => (
                                                 <tr key={s.id}>
                                                     <td>{s.name}</td>
-                                                    <td>
-                                                        <div style={{ display: 'flex', gap: '15px' }}>
-                                                            <button 
-                                                                type="button"
-                                                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#3b82f6', padding: '5px' }}
-                                                                onClick={(e) => { e.stopPropagation(); handleEditSubject(s); }}
-                                                                title="Editar Asignatura"
-                                                            >
-                                                                <Edit2 size={20} />
-                                                            </button>
-                                                            <button 
-                                                                type="button"
-                                                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: '5px' }}
-                                                                onClick={(e) => { e.stopPropagation(); handleDeleteSubject(s); }}
-                                                                title="Eliminar Asignatura"
-                                                            >
-                                                                <Trash2 size={20} />
-                                                            </button>
-                                                        </div>
-                                                    </td>
+                                                    {!isVisita && (
+                                                        <td>
+                                                            <div style={{ display: 'flex', gap: '15px' }}>
+                                                                <button 
+                                                                    type="button"
+                                                                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#3b82f6', padding: '5px' }}
+                                                                    onClick={(e) => { e.stopPropagation(); handleEditSubject(s); }}
+                                                                    title="Editar Asignatura"
+                                                                >
+                                                                    <Edit2 size={20} />
+                                                                </button>
+                                                                <button 
+                                                                    type="button"
+                                                                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: '5px' }}
+                                                                    onClick={(e) => { e.stopPropagation(); handleDeleteSubject(s); }}
+                                                                    title="Eliminar Asignatura"
+                                                                >
+                                                                    <Trash2 size={20} />
+                                                                </button>
+                                                            </div>
+                                                        </td>
+                                                    )}
                                                 </tr>
                                             ))}
                                         </tbody>
@@ -1205,37 +1216,39 @@ export const AdminDashboard = () => {
                                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px', borderBottom: '1px solid #f1f5f9', paddingBottom: '10px' }}>
                                         <h3 style={{ margin: 0, color: '#1e293b' }}>Crear Asignación de Asignaturas</h3>
                                     </div>
-                                    <form onSubmit={handleAssign} className="admin-form">
-                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px' }}>
-                                            <div>
-                                                <label>Docente:</label>
-                                                <select name="teacherId" required>
-                                                    <option value="">Seleccione Docente...</option>
-                                                    {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                                                </select>
-                                            </div>
-                                            <div>
-                                                <label>Curso (Nivel):</label>
-                                                <select name="levelId" required>
-                                                    <option value="">Seleccione Curso...</option>
-                                                    {levels.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
-                                                </select>
-                                            </div>
-                                            <div>
-                                                <label>Asignatura:</label>
-                                                <select name="subjectId" required>
-                                                    <option value="">Seleccione Asignatura...</option>
-                                                    {subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                                                </select>
-                                            </div>
-                                            <div style={{ display: 'flex', alignItems: 'flex-end', marginBottom: '0' }}>
-                                                <div style={{ width: '100%' }}>
-                                                    <label style={{ visibility: 'hidden' }}>Botón</label>
-                                                    <button type="submit" className="primary-btn" style={{ width: '100%', height: '42px', justifyContent: 'center' }}>Guardar Asignación</button>
+                                    {!isVisita && (
+                                        <form onSubmit={handleAssign} className="admin-form">
+                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px' }}>
+                                                <div>
+                                                    <label>Docente:</label>
+                                                    <select name="teacherId" required>
+                                                        <option value="">Seleccione Docente...</option>
+                                                        {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                                                    </select>
+                                                </div>
+                                                <div>
+                                                    <label>Curso (Nivel):</label>
+                                                    <select name="levelId" required>
+                                                        <option value="">Seleccione Curso...</option>
+                                                        {levels.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                                                    </select>
+                                                </div>
+                                                <div>
+                                                    <label>Asignatura:</label>
+                                                    <select name="subjectId" required>
+                                                        <option value="">Seleccione Asignatura...</option>
+                                                        {subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                                                    </select>
+                                                </div>
+                                                <div style={{ display: 'flex', alignItems: 'flex-end', marginBottom: '0' }}>
+                                                    <div style={{ width: '100%' }}>
+                                                        <label style={{ visibility: 'hidden' }}>Botón</label>
+                                                        <button type="submit" className="primary-btn" style={{ width: '100%', height: '42px', justifyContent: 'center' }}>Guardar Asignación</button>
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                    </form>
+                                        </form>
+                                    )}
 
                                     <div style={{ marginTop: '20px', marginBottom: '15px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                         <h4 style={{ color: '#64748b', fontSize: '0.9rem', margin: 0 }}>Listado de Asignaturas por Curso</h4>
@@ -1268,7 +1281,7 @@ export const AdminDashboard = () => {
 
                                 <div className="card-split-content">
                                     <table className="data-table" style={{ fontSize: '0.9rem' }}>
-                                        <thead><tr><th>Curso</th><th>Asignatura</th><th>Docente</th><th style={{ textAlign: 'center' }}>Acciones</th></tr></thead>
+                                        <thead><tr><th>Curso</th><th>Asignatura</th><th>Docente</th>{!isVisita && <th style={{ textAlign: 'center' }}>Acciones</th>}</tr></thead>
                                         <tbody>
                                             {assignments
                                                 .filter(a => !assignmentLevelFilter || String(a.level_id) === assignmentLevelFilter)
@@ -1278,24 +1291,26 @@ export const AdminDashboard = () => {
                                                         <td>{a.level_name}</td>
                                                         <td>{a.subject_name}</td>
                                                         <td>{a.teacher_name}</td>
-                                                        <td style={{ textAlign: 'center' }}>
-                                                            <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
-                                                                <button 
-                                                                    onClick={() => handleEditAssignment(a)}
-                                                                    style={{ background: 'none', border: 'none', color: '#3b82f6', cursor: 'pointer' }}
-                                                                    title="Editar Asignación"
-                                                                >
-                                                                    <Edit2 size={16} />
-                                                                </button>
-                                                                <button 
-                                                                    onClick={() => handleDeleteAssignment(a.id)}
-                                                                    style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}
-                                                                    title="Eliminar Asignación"
-                                                                >
-                                                                    <Trash2 size={16} />
-                                                                </button>
-                                                            </div>
-                                                        </td>
+                                                        {!isVisita && (
+                                                            <td style={{ textAlign: 'center' }}>
+                                                                <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+                                                                    <button 
+                                                                        onClick={() => handleEditAssignment(a)}
+                                                                        style={{ background: 'none', border: 'none', color: '#3b82f6', cursor: 'pointer' }}
+                                                                        title="Editar Asignación"
+                                                                    >
+                                                                        <Edit2 size={16} />
+                                                                    </button>
+                                                                    <button 
+                                                                        onClick={() => handleDeleteAssignment(a.id)}
+                                                                        style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}
+                                                                        title="Eliminar Asignación"
+                                                                    >
+                                                                        <Trash2 size={16} />
+                                                                    </button>
+                                                                </div>
+                                                            </td>
+                                                        )}
                                                     </tr>
                                                 ))}
                                         </tbody>
@@ -1308,44 +1323,46 @@ export const AdminDashboard = () => {
                             <div className="card card-split-layout">
                                 <div className="card-split-header">
                                     <h3 style={{ margin: 0, marginBottom: '20px' }}>Asignación de Profesor Jefe</h3>
-                                    <form onSubmit={async (e) => {
-                                        e.preventDefault();
-                                        const form = e.target as HTMLFormElement;
-                                        const levelId = form.levelId.value;
-                                        const teacherId = form.teacherId.value;
-                                        const res = await fetch('/_/backend/api/admin/set-homeroom', {
-                                            method: 'POST',
-                                            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-                                            body: JSON.stringify({ levelId, teacherId })
-                                        });
-                                        if (res.ok) {
-                                            fetchData();
-                                            MySwal.fire('Éxito', "Profesor Jefe asignado.", 'success');
-                                        }
-                                    }} className="admin-form">
-                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px' }}>
-                                            <div>
-                                                <label>Curso (Nivel):</label>
-                                                <select name="levelId" required>
-                                                    <option value="">Seleccione Curso...</option>
-                                                    {levels.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
-                                                </select>
-                                            </div>
-                                            <div>
-                                                <label>Profesor Jefe:</label>
-                                                <select name="teacherId" required>
-                                                    <option value="">Seleccione Docente...</option>
-                                                    {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                                                </select>
-                                            </div>
-                                            <div style={{ display: 'flex', alignItems: 'flex-end', marginBottom: '0' }}>
-                                                <div style={{ width: '100%' }}>
-                                                    <label style={{ visibility: 'hidden' }}>Botón</label>
-                                                    <button type="submit" className="primary-btn" style={{ width: '100%', height: '42px', justifyContent: 'center' }}>Asignar P. Jefe</button>
+                                    {!isVisita && (
+                                        <form onSubmit={async (e) => {
+                                            e.preventDefault();
+                                            const form = e.target as HTMLFormElement;
+                                            const levelId = form.levelId.value;
+                                            const teacherId = form.teacherId.value;
+                                            const res = await fetch('/_/backend/api/admin/set-homeroom', {
+                                                method: 'POST',
+                                                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                                                body: JSON.stringify({ levelId, teacherId })
+                                            });
+                                            if (res.ok) {
+                                                fetchData();
+                                                MySwal.fire('Éxito', "Profesor Jefe asignado.", 'success');
+                                            }
+                                        }} className="admin-form">
+                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px' }}>
+                                                <div>
+                                                    <label>Curso (Nivel):</label>
+                                                    <select name="levelId" required>
+                                                        <option value="">Seleccione Curso...</option>
+                                                        {levels.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                                                    </select>
+                                                </div>
+                                                <div>
+                                                    <label>Profesor Jefe:</label>
+                                                    <select name="teacherId" required>
+                                                        <option value="">Seleccione Docente...</option>
+                                                        {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                                                    </select>
+                                                </div>
+                                                <div style={{ display: 'flex', alignItems: 'flex-end', marginBottom: '0' }}>
+                                                    <div style={{ width: '100%' }}>
+                                                        <label style={{ visibility: 'hidden' }}>Botón</label>
+                                                        <button type="submit" className="primary-btn" style={{ width: '100%', height: '42px', justifyContent: 'center' }}>Asignar P. Jefe</button>
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                    </form>
+                                        </form>
+                                    )}
 
                                     <div style={{ marginTop: '20px', marginBottom: '10px' }}>
                                         <h4 style={{ color: '#64748b', fontSize: '0.9rem', margin: 0 }}>Listado Actual de Profesores Jefe</h4>
@@ -1390,7 +1407,7 @@ export const AdminDashboard = () => {
                                         </div>
                                     </div>
                                     
-                                    {selectedLevelIdOrder && orderedSubjects.length > 0 && (
+                                    {selectedLevelIdOrder && orderedSubjects.length > 0 && !isVisita && (
                                         <button 
                                             onClick={handleSaveSubjectOrder} 
                                             className="primary-btn"
@@ -1428,7 +1445,7 @@ export const AdminDashboard = () => {
                                                     <tr>
                                                         <th style={{ width: '80px', textAlign: 'center' }}>Posición</th>
                                                         <th>Asignatura</th>
-                                                        <th style={{ width: '180px', textAlign: 'center' }}>Acciones</th>
+                                                        {!isVisita && <th style={{ width: '180px', textAlign: 'center' }}>Acciones</th>}
                                                     </tr>
                                                 </thead>
                                                 <tbody>
@@ -1440,28 +1457,30 @@ export const AdminDashboard = () => {
                                                             <td style={{ fontWeight: '500' }}>
                                                                 {sub.name}
                                                             </td>
-                                                            <td style={{ textAlign: 'center' }}>
-                                                                <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
-                                                                    <button
-                                                                        type="button"
-                                                                        className="secondary-btn"
-                                                                        style={{ padding: '5px 10px', fontSize: '0.8rem', opacity: index === 0 ? 0.3 : 1, cursor: index === 0 ? 'not-allowed' : 'pointer' }}
-                                                                        onClick={() => handleMoveSubject(index, 'up')}
-                                                                        disabled={index === 0}
-                                                                    >
-                                                                        ▲ Subir
-                                                                    </button>
-                                                                    <button
-                                                                        type="button"
-                                                                        className="secondary-btn"
-                                                                        style={{ padding: '5px 10px', fontSize: '0.8rem', opacity: index === orderedSubjects.length - 1 ? 0.3 : 1, cursor: index === orderedSubjects.length - 1 ? 'not-allowed' : 'pointer' }}
-                                                                        onClick={() => handleMoveSubject(index, 'down')}
-                                                                        disabled={index === orderedSubjects.length - 1}
-                                                                    >
-                                                                        ▼ Bajar
-                                                                    </button>
-                                                                </div>
-                                                            </td>
+                                                            {!isVisita && (
+                                                                <td style={{ textAlign: 'center' }}>
+                                                                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                                                                        <button
+                                                                            type="button"
+                                                                            className="secondary-btn"
+                                                                            style={{ padding: '5px 10px', fontSize: '0.8rem', opacity: index === 0 ? 0.3 : 1, cursor: index === 0 ? 'not-allowed' : 'pointer' }}
+                                                                            onClick={() => handleMoveSubject(index, 'up')}
+                                                                            disabled={index === 0}
+                                                                        >
+                                                                            ▲ Subir
+                                                                        </button>
+                                                                        <button
+                                                                            type="button"
+                                                                            className="secondary-btn"
+                                                                            style={{ padding: '5px 10px', fontSize: '0.8rem', opacity: index === orderedSubjects.length - 1 ? 0.3 : 1, cursor: index === orderedSubjects.length - 1 ? 'not-allowed' : 'pointer' }}
+                                                                            onClick={() => handleMoveSubject(index, 'down')}
+                                                                            disabled={index === orderedSubjects.length - 1}
+                                                                        >
+                                                                            ▼ Bajar
+                                                                        </button>
+                                                                    </div>
+                                                                </td>
+                                                            )}
                                                         </tr>
                                                     ))}
                                                 </tbody>
@@ -1519,20 +1538,22 @@ export const AdminDashboard = () => {
                             </div>
                             <div className="form-group" style={{ marginBottom: '15px' }}>
                                 <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500' }}>Correo Electrónico</label>
-                                <input name="email" type="email" className="swal2-input" style={{ width: '100%', margin: 0 }} defaultValue={(user as any)?.email} required />
+                                <input name="email" type="email" className="swal2-input" style={{ width: '100%', margin: 0 }} defaultValue={(user as any)?.email} required disabled={isVisita} />
                             </div>
                             <hr style={{ margin: '25px 0', border: 'none', borderTop: '1px solid #e2e8f0' }} />
                             <div className="form-group" style={{ marginBottom: '15px' }}>
                                 <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500' }}>Nueva Contraseña Maestro</label>
-                                <input name="password" type="password" className="swal2-input" style={{ width: '100%', margin: 0 }} placeholder="Dejar en blanco para no cambiar" />
+                                <input name="password" type="password" className="swal2-input" style={{ width: '100%', margin: 0 }} placeholder={isVisita ? "No permitido en modo visita" : "Dejar en blanco para no cambiar"} disabled={isVisita} />
                             </div>
                             <div className="form-group" style={{ marginBottom: '25px' }}>
                                 <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500' }}>Confirmar Nueva Contraseña</label>
-                                <input name="confirm" type="password" className="swal2-input" style={{ width: '100%', margin: 0 }} placeholder="Confirmar contraseña" />
+                                <input name="confirm" type="password" className="swal2-input" style={{ width: '100%', margin: 0 }} placeholder={isVisita ? "No permitido en modo visita" : "Confirmar contraseña"} disabled={isVisita} />
                             </div>
-                            <button type="submit" className="primary-btn" style={{ width: '100%', padding: '12px' }}>
-                                Guardar Cambios de Perfil
-                            </button>
+                            {!isVisita && (
+                                <button type="submit" className="primary-btn" style={{ width: '100%', padding: '12px' }}>
+                                    Guardar Cambios de Perfil
+                                </button>
+                            )}
                         </form>
                     </div>
                 )}
@@ -1547,24 +1568,28 @@ export const AdminDashboard = () => {
                                         <button className="primary-btn" style={{ background: '#10b981' }} onClick={handleExport} disabled={isUploading}>
                                             Descargar Planilla
                                         </button>
-                                        <input 
-                                            type="file" 
-                                            ref={fileInputRef} 
-                                            style={{ display: 'none' }} 
-                                            accept=".xlsx" 
-                                            onChange={handleFileChange} 
-                                        />
-                                        <button 
-                                            className="primary-btn" 
-                                            style={{ background: '#6366f1' }} 
-                                            onClick={() => fileInputRef.current?.click()}
-                                            disabled={isUploading}
-                                        >
-                                            {isUploading ? 'Subiendo...' : <><Upload size={18} /> Subir Planilla</>}
-                                        </button>
-                                        <button className="primary-btn" onClick={() => setShowEnrollmentForm(true)} disabled={isUploading}>
-                                            <Plus size={18} /> Nueva Matrícula Oficial
-                                        </button>
+                                        {!isVisita && (
+                                            <>
+                                                <input 
+                                                    type="file" 
+                                                    ref={fileInputRef} 
+                                                    style={{ display: 'none' }} 
+                                                    accept=".xlsx" 
+                                                    onChange={handleFileChange} 
+                                                />
+                                                <button 
+                                                    className="primary-btn" 
+                                                    style={{ background: '#6366f1' }} 
+                                                    onClick={() => fileInputRef.current?.click()}
+                                                    disabled={isUploading}
+                                                >
+                                                    {isUploading ? 'Subiendo...' : <><Upload size={18} /> Subir Planilla</>}
+                                                </button>
+                                                <button className="primary-btn" onClick={() => setShowEnrollmentForm(true)} disabled={isUploading}>
+                                                    <Plus size={18} /> Nueva Matrícula Oficial
+                                                </button>
+                                            </>
+                                        )}
                                     </div>
                                 )}
                             </div>
@@ -1608,7 +1633,8 @@ export const AdminDashboard = () => {
                                                                 type="number"
                                                                 defaultValue={s.list_number || ''}
                                                                 onBlur={(e) => handleListNumberChange(s.id, e.target.value)}
-                                                                style={{ width: '50px', padding: '4px', textAlign: 'center', borderRadius: '4px', border: '1px solid #cbd5e1' }}
+                                                                disabled={isVisita}
+                                                                style={{ width: '50px', padding: '4px', textAlign: 'center', borderRadius: '4px', border: '1px solid #cbd5e1', background: isVisita ? '#f1f5f9' : 'white' }}
                                                             />
                                                         </td>
                                                         <td>{s.run}</td>
@@ -1616,18 +1642,22 @@ export const AdminDashboard = () => {
                                                         <td>{s.level_name}</td>
                                                         <td>{new Date(s.created_at).toLocaleDateString()}</td>
                                                         <td style={{ display: 'flex', gap: '5px' }}>
-                                                            <button onClick={() => setViewingStudentId(s.id)} title="Editar Datos Base de Datos" style={{ padding: '6px', background: '#059669', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
-                                                                <Edit2 size={14} />
-                                                            </button>
+                                                            {!isVisita && (
+                                                                <button onClick={() => setViewingStudentId(s.id)} title="Editar Datos Base de Datos" style={{ padding: '6px', background: '#059669', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+                                                                    <Edit2 size={14} />
+                                                                </button>
+                                                            )}
                                                             <button onClick={() => handlePrintOfficial(s.id)} title="Ver/Imprimir Ficha Oficial" style={{ padding: '6px', background: '#38bdf8', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
                                                                 <Printer size={14} />
                                                             </button>
                                                             <button onClick={() => handleViewObservations(s)} title="Libro de Vida" style={{ padding: '6px', background: '#10b981', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
                                                                 <BookOpen size={14} />
                                                             </button>
-                                                            <button onClick={() => handleDeleteStudent(s.id)} title="Dar de baja" style={{ padding: '6px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
-                                                                <X size={14} />
-                                                            </button>
+                                                            {!isVisita && (
+                                                                <button onClick={() => handleDeleteStudent(s.id)} title="Dar de baja" style={{ padding: '6px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+                                                                    <X size={14} />
+                                                                </button>
+                                                            )}
                                                         </td>
                                                     </tr>
                                                 ))}
@@ -1663,28 +1693,30 @@ export const AdminDashboard = () => {
                             <button onClick={() => setSelectedStudentForObs(null)} className="logout-btn" style={{ width: 'auto', background: '#64748b' }}>Cerrar</button>
                         </div>
                         
-                        <form onSubmit={handleAddObservation} style={{ margin: '20px 0', padding: '15px', background: '#f1f5f9', borderRadius: '8px' }}>
-                            <div style={{ display: 'flex', gap: '10px' }}>
-                                <textarea 
-                                    style={{ flex: 1, padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
-                                    placeholder="Nueva observación..."
-                                    value={newObs.content}
-                                    onChange={e => setNewObs({ ...newObs, content: e.target.value })}
-                                    required
-                                />
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                                    <select 
-                                        value={newObs.type}
-                                        onChange={e => setNewObs({ ...newObs, type: e.target.value as any })}
-                                        style={{ padding: '8px', borderRadius: '6px' }}
-                                    >
-                                        <option value="Positive">Positiva</option>
-                                        <option value="Negative">Negativa</option>
-                                    </select>
-                                    <button type="submit" className="primary-btn">Agregar</button>
+                        {!isVisita && (
+                            <form onSubmit={handleAddObservation} style={{ margin: '20px 0', padding: '15px', background: '#f1f5f9', borderRadius: '8px' }}>
+                                <div style={{ display: 'flex', gap: '10px' }}>
+                                    <textarea 
+                                        style={{ flex: 1, padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                                        placeholder="Nueva observación..."
+                                        value={newObs.content}
+                                        onChange={e => setNewObs({ ...newObs, content: e.target.value })}
+                                        required
+                                    />
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                                        <select 
+                                            value={newObs.type}
+                                            onChange={e => setNewObs({ ...newObs, type: e.target.value as any })}
+                                            style={{ padding: '8px', borderRadius: '6px' }}
+                                        >
+                                            <option value="Positive">Positiva</option>
+                                            <option value="Negative">Negativa</option>
+                                        </select>
+                                        <button type="submit" className="primary-btn">Agregar</button>
+                                    </div>
                                 </div>
-                            </div>
-                        </form>
+                            </form>
+                        )}
 
                         <div className="observations-list">
                             {observations.length === 0 ? <p>No hay observaciones registradas.</p> : observations.map(obs => (
