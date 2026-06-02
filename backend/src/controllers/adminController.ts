@@ -687,35 +687,35 @@ export const exportData = async (req: Request, res: Response) => {
         // Fetch all students, their guardians, and health records
         const result = await client.query(`
             SELECT 
-                s.run as 'Rut', 
-                s.full_name as 'Nombre',
-                l.name as 'CURSO',
-                s.gender as 'Sexo',
-                s.birth_date as 'Fechas Nacimiento',
-                s.nationality as 'Nacionalidad',
-                s.marital_status as 'Estado Civil',
-                s.address as 'Dirección',
-                s.region as 'Región',
-                s.commune as 'Comuna',
-                s.email as 'Email',
-                s.phone as 'Teléfono Estudiante',
-                hr.blood_type as 'Grupo Sanguíneo',
-                hr.allergies as 'Alergias',
-                hr.chronic_diseases as 'Enfermedades',
-                s.religion as 'Religión',
-                s.health_system as 'Sistema Salud',
-                s.observaciones as 'Observaciones',
-                s.entry_date as 'Fecha de Ingreso',
-                s.previous_school as 'Colegio Procedencia',
-                s.ethnicity as 'Pueblo Indígena',
-                s.lives_with as 'Vive Con',
-                s.family_members as 'Grupo Familiar',
-                s.total_siblings as 'Total Hermanos',
-                s.sibling_position as 'Lugar Hermanos',
-                s.school_siblings as 'Hermanos Escolares',
-                s.liceo_siblings as 'Hermanos Colegio',
-                s.enrollment_number as 'N° Matrícula',
-                s.status as 'estado'
+                s.run as "Rut", 
+                s.full_name as "Nombre",
+                l.name as "CURSO",
+                s.gender as "Sexo",
+                s.birth_date as "Fechas Nacimiento",
+                s.nationality as "Nacionalidad",
+                s.marital_status as "Estado Civil",
+                s.address as "Dirección",
+                s.region as "Región",
+                s.commune as "Comuna",
+                s.email as "Email",
+                s.phone as "Teléfono Estudiante",
+                hr.blood_type as "Grupo Sanguíneo",
+                hr.allergies as "Alergias",
+                hr.chronic_diseases as "Enfermedades",
+                s.religion as "Religión",
+                s.health_system as "Sistema Salud",
+                s.observaciones as "Observaciones",
+                s.entry_date as "Fecha de Ingreso",
+                s.previous_school as "Colegio Procedencia",
+                s.ethnicity as "Pueblo Indígena",
+                s.lives_with as "Vive Con",
+                s.family_members as "Grupo Familiar",
+                s.total_siblings as "Total Hermanos",
+                s.sibling_position as "Lugar Hermanos",
+                s.school_siblings as "Hermanos Escolares",
+                s.liceo_siblings as "Hermanos Colegio",
+                s.enrollment_number as "N° Matrícula",
+                s.status as "estado"
             FROM students s 
             LEFT JOIN enrollments e ON s.id = e.student_id 
             LEFT JOIN levels l ON e.level_id = l.id
@@ -729,12 +729,12 @@ export const exportData = async (req: Request, res: Response) => {
         }
 
         const titularesResult = await client.query(`
-            SELECT s.run as 'RUN Estudiante', g.run as 'RUN/IPA', g.full_name as 'Nombre Apoderado Titular', g.relationship as 'Parentesco', g.phone as 'Teléfono Titular', g.email as 'Email', g.address as 'Dirección'
+            SELECT s.run as "RUN Estudiante", g.run as "RUN/IPA", g.full_name as "Nombre Apoderado Titular", g.relationship as "Parentesco", g.phone as "Teléfono Titular", g.email as "Email", g.address as "Dirección"
             FROM guardians g JOIN students s ON g.student_id = s.id WHERE g.guardian_type = 'Titular'
         `);
 
         const suplentesResult = await client.query(`
-            SELECT s.run as 'RUN Estudiante', g.run as 'RUN/IPA', g.full_name as 'Nombre Apoderado Suplente', g.relationship as 'Parentesco', g.phone as 'Teléfono Suplente', g.email as 'Email', g.address as 'Dirección'
+            SELECT s.run as "RUN Estudiante", g.run as "RUN/IPA", g.full_name as "Nombre Apoderado Suplente", g.relationship as "Parentesco", g.phone as "Teléfono Suplente", g.email as "Email", g.address as "Dirección"
             FROM guardians g JOIN students s ON g.student_id = s.id WHERE g.guardian_type = 'Suplente'
         `);
 
