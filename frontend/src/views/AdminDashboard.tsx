@@ -25,7 +25,7 @@ export const AdminDashboard = () => {
     });
     const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth >= 768);
 
-    const handleNavClick = (tab: 'config' | 'students' | 'grades' | 'audit' | 'profile', subTab?: 'teachers' | 'courses' | 'subjects' | 'assignments' | 'homeroom' | 'subject_order') => {
+    const handleNavClick = (tab: 'config' | 'students' | 'grades' | 'overview' | 'audit' | 'profile', subTab?: 'teachers' | 'courses' | 'subjects' | 'assignments' | 'homeroom' | 'subject_order') => {
         setActiveTab(tab);
         if (subTab) setConfigSubTab(subTab);
         if (window.innerWidth < 768) {
