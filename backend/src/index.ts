@@ -7,7 +7,7 @@ import { login, updateProfile } from './controllers/authController';
 import { getAssignments, getGrades, addColumn, saveGrade } from './controllers/teacherController';
 import { registerEnrollment } from './controllers/enrollmentController';
 import { getTeachers, createTeacher, updateTeacher, deleteTeacher, getSubjects, createSubject, updateSubject, deleteSubject, checkSubjectGrades, getLevels, updateLevelCapacity, getAssignmentsAdmin, createAssignment, updateAssignment, deleteAssignment, getStudents, getStudentById, updateStudent, deleteStudent, reincorporateStudent, getStudentObservations, addObservation, exportData, importDataWeb } from './controllers/adminController';
-import { getFiltersData, getGradesSheet, saveGradesSheet, updateStudentPosition, bulkUpdateStudentPositions, toggleLockAssignment, getAuditLogs } from './controllers/gradesController';
+import { getFiltersData, getGradesSheet, saveGradesSheet, updateStudentPosition, bulkUpdateStudentPositions, toggleLockAssignment, getAuditLogs, getGradesOverview } from './controllers/gradesController';
 import { getStudentGradesReport, getLevelGradesReport, updateInstitutionalSettings, setHomeroomTeacher, getSubjectOrder, updateSubjectOrder } from './controllers/reportsController';
 import multer from 'multer';
 import db from './config/db';
@@ -80,6 +80,7 @@ router.post('/admin/students/:id/observations', authMiddleware, addObservation);
 
 // Rutas Calificaciones (Notas)
 router.get('/admin/grades/filters', authMiddleware, getFiltersData);
+router.get('/admin/grades/overview', authMiddleware, getGradesOverview);
 router.get('/admin/grades/sheet', authMiddleware, getGradesSheet);
 router.post('/admin/grades/sheet', authMiddleware, saveGradesSheet);
 router.post('/admin/grades/student-position', authMiddleware, updateStudentPosition);

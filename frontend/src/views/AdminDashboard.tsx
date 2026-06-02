@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { LogOut, Plus, Users, BookOpen, GraduationCap, Menu, X, Printer, User, Upload, Edit2, Trash2, BarChart3, Settings, ListOrdered } from 'lucide-react';
+import { LogOut, Plus, Users, BookOpen, GraduationCap, Menu, X, Printer, User, Upload, Edit2, Trash2, BarChart3, Settings, ListOrdered, PieChart } from 'lucide-react';
 import { EnrollmentForm } from '../components/OfficialForm/EnrollmentForm';
 import { OfficialEnrollmentForm } from '../components/OfficialForm/OfficialEnrollmentForm';
 import { StudentWindow } from '../components/StudentWindow';
 import { GradesSheet } from '../components/Grades/GradesSheet';
+import { GradesOverview } from '../components/Grades/GradesOverview';
 import Swal from 'sweetalert2';
 import withReactContent from 'sweetalert2-react-content';
 import './Dashboard.css';
@@ -14,9 +15,9 @@ const MySwal = withReactContent(Swal);
 export const AdminDashboard = () => {
     const { user, logout, token } = useAuth();
     const isVisita = user?.role === 'Visita';
-    const [activeTab, setActiveTab] = useState<'config' | 'students' | 'grades' | 'audit' | 'profile'>(() => {
+    const [activeTab, setActiveTab] = useState<'config' | 'students' | 'grades' | 'overview' | 'audit' | 'profile'>(() => {
         const saved = localStorage.getItem('adminActiveTab');
-        return (['config', 'students', 'grades', 'audit', 'profile'].includes(saved as string)) ? (saved as any) : 'grades';
+        return (['config', 'students', 'grades', 'overview', 'audit', 'profile'].includes(saved as string)) ? (saved as any) : 'grades';
     });
     const [configSubTab, setConfigSubTab] = useState<'teachers' | 'courses' | 'subjects' | 'assignments' | 'homeroom' | 'subject_order'>(() => {
         const saved = localStorage.getItem('adminConfigSubTab');
@@ -891,6 +892,9 @@ export const AdminDashboard = () => {
                     <button className={activeTab === 'audit' ? 'active' : ''} onClick={() => handleNavClick('audit')}>
                         <BarChart3 size={18} /> Bitácora de Actividad
                     </button>
+                    <button className={activeTab === 'overview' ? 'active' : ''} onClick={() => handleNavClick('overview')}>
+                        <PieChart size={18} /> Panorama de Notas
+                    </button>
                     <button className={activeTab === 'profile' ? 'active' : ''} onClick={() => handleNavClick('profile')}>
                         <User size={18} /> Mi Cuenta
                     </button>
@@ -978,6 +982,8 @@ export const AdminDashboard = () => {
                 </header>
                 
                 {activeTab === 'grades' && <GradesSheet />}
+
+                {activeTab === 'overview' && <GradesOverview />}
                 
                 {activeTab === 'audit' && (
                     <div className="card card-split-layout">

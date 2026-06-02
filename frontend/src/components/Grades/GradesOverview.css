@@ -1,0 +1,242 @@
+/* GradesOverview.css */
+
+.overview-container {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    font-family: 'Inter', sans-serif;
+    color: #1e293b;
+}
+
+.overview-filters-card {
+    padding: 20px 24px !important;
+    margin-bottom: 0 !important;
+}
+
+.filter-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.filter-item label {
+    margin: 0 !important;
+    font-weight: 700;
+    color: #475569;
+}
+
+.filter-item select {
+    padding: 8px 16px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    background-color: white;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.filter-item select:focus {
+    outline: none;
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+/* KPI Cards Layout */
+.stats-kpis-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 20px;
+    width: 100%;
+}
+
+.kpi-card {
+    background: white;
+    border-radius: 16px;
+    padding: 24px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.02);
+    border: 1px solid rgba(226, 232, 240, 0.8);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.kpi-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.04);
+}
+
+.kpi-icon-wrapper {
+    width: 54px;
+    height: 54px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+}
+
+.gpa-kpi .kpi-icon-wrapper {
+    background: linear-gradient(135deg, #6366f1, #4f46e5);
+}
+
+.students-kpi .kpi-icon-wrapper {
+    background: linear-gradient(135deg, #0ea5e9, #0284c7);
+}
+
+.grades-count-kpi .kpi-icon-wrapper {
+    background: linear-gradient(135deg, #10b981, #059669);
+}
+
+.risk-kpi .kpi-icon-wrapper {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+}
+
+.kpi-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.kpi-content h3 {
+    margin: 0;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.kpi-value {
+    margin: 4px 0 0;
+    font-size: 1.8rem;
+    font-weight: 800;
+    color: #0f172a;
+    line-height: 1.1;
+}
+
+.kpi-value.blue {
+    color: #1d4ed8;
+}
+
+.kpi-value.red {
+    color: #b91c1c;
+}
+
+.kpi-subtext {
+    margin-top: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #64748b;
+}
+
+/* Layout Grid */
+.overview-layout-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 24px;
+}
+
+@media (min-width: 1200px) {
+    .overview-layout-grid {
+        grid-template-columns: 1.1fr 1.9fr;
+    }
+}
+
+.subjects-summary-card, .students-summary-card {
+    margin-bottom: 0 !important;
+    padding: 24px !important;
+}
+
+.scroll-y-container {
+    overflow-y: auto;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.01);
+}
+
+/* Data Table Updates */
+.scroll-y-container thead th {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: #f8fafc;
+    box-shadow: inset 0 -1px 0 #e2e8f0;
+}
+
+/* Status Pill */
+.status-pill {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.status-pill.active {
+    background-color: #dcfce7;
+    color: #15803d;
+}
+
+.status-pill.inactive {
+    background-color: #f1f5f9;
+    color: #64748b;
+}
+
+/* Colors and styles */
+.text-blue {
+    color: #1d4ed8;
+}
+
+.text-red {
+    color: #b91c1c;
+}
+
+.danger-row {
+    background-color: #fff1f2;
+}
+
+.danger-row:hover td {
+    background-color: #ffe4e6 !important;
+}
+
+/* Alerts and tags */
+.alert-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.failing-subject-tag {
+    background-color: #fee2e2;
+    color: #991b1b;
+    border: 1px solid #fecaca;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 0.7rem;
+    font-weight: 700;
+}
+
+.no-alert-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background-color: #dcfce7;
+    color: #15803d;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 0.7rem;
+    font-weight: 700;
+}
+
+/* Animation */
+.spin {
+    animation: loading-spin 1s linear infinite;
+}
+
+@keyframes loading-spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}

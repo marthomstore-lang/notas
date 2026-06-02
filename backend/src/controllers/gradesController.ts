@@ -365,3 +365,280 @@ export const getAuditLogs = async (req: Request, res: Response) => {
         res.status(500).json({ error: error.message });
     }
 };
+
+export const getGradesOverview = async (req: Request, res: Response) => {
+    const { levelId, period, year } = req.query;
+    const user = (req as any).user;
+
+    // Security check: Only Admin role can access
+    if (user.role !== 'Admin') {
+        return res.status(403).json({ error: 'Solo los administradores pueden ver el panorama general de calificaciones' });
+    }
+
+    try {
+        const levelIdNum = levelId ? parseInt(String(levelId), 10) : 0;
+        const yearNum = year ? parseInt(String(year), 10) : 0;
+        const periodStr = String(period || '');
+
+        if (!levelIdNum || !yearNum || !periodStr) {
+            return res.status(400).json({ error: 'Faltan parámetros requeridos: levelId, period, year' });
+        }
+
+        // 1. Get all active students in the course (level)
+        const students = await db.all(`
+            SELECT s.id, s.full_name, s.run, e.list_number
+            FROM students s
+            JOIN enrollments e ON s.id = e.student_id
+            WHERE e.level_id = ? AND e.academic_year = ? AND s.status = 'Active'
+            ORDER BY e.list_number ASC, s.full_name ASC
+        `, [levelIdNum, yearNum]);
+
+        // 2. Get all subjects assigned to that level
+        const subjects = await db.all(`
+            SELECT DISTINCT sub.id, sub.name
+            FROM teacher_assignments ta
+            JOIN subjects sub ON ta.subject_id = sub.id
+            WHERE ta.level_id = ? AND ta.academic_year = ?
+        `, [levelIdNum, yearNum]);
+
+        // 3. Get all grade columns for this level, period and year
+        const columns = await db.all(`
+            SELECT id, subject_id, position, weighting
+            FROM grade_columns
+            WHERE level_id = ? AND academic_year = ? AND period = ?
+        `, [levelIdNum, yearNum, periodStr]);
+
+        // 4. Get all grades for these students and columns
+        let grades: any[] = [];
+        const studentIds = students.map(s => s.id);
+        const columnIds = columns.map(c => c.id);
+
+        if (studentIds.length > 0 && columnIds.length > 0) {
+            grades = await db.all(`
+                SELECT student_id, grade_column_id, grade_value
+                FROM grades
+                WHERE student_id IN (
+                    SELECT student_id FROM enrollments 
+                    WHERE level_id = ? AND academic_year = ? AND status = 'Active'
+                )
+                AND grade_column_id IN (
+                    SELECT id FROM grade_columns 
+                    WHERE level_id = ? AND academic_year = ? AND period = ?
+                )
+            `, [levelIdNum, yearNum, levelIdNum, yearNum, periodStr]);
+        }
+
+        const isQualitativeSubject = (name: string): boolean => {
+            const lower = name.toLowerCase();
+            return lower.includes('religión') || lower.includes('religion') || lower.includes('orientación') || lower.includes('orientacion');
+        };
+
+        // 5. Compute stats per subject
+        const subjectsData = [];
+        for (const sub of subjects) {
+            const isQual = isQualitativeSubject(sub.name);
+            const subCols = columns.filter(c => String(c.subject_id) === String(sub.id));
+            const subColIds = subCols.map(c => String(c.id));
+
+            const subGrades = grades.filter(g => subColIds.includes(String(g.grade_column_id)));
+            const hasGrades = subGrades.length > 0;
+            const gradesCount = subGrades.filter(g => {
+                const col = subCols.find(c => String(c.id) === String(g.grade_column_id));
+                return col && col.position <= 10;
+            }).length;
+
+            // Calculate averages for this subject across all students
+            let sumAverages = 0;
+            let countAverages = 0;
+
+            for (const stu of students) {
+                const stuGrades = subGrades.filter(g => String(g.student_id) === String(stu.id));
+                if (stuGrades.length === 0) continue;
+
+                if (isQual) {
+                    const avgCol = subCols.find(c => c.position === 11);
+                    const avgGrade = avgCol ? stuGrades.find(g => String(g.grade_column_id) === String(avgCol.id)) : null;
+                    if (avgGrade) {
+                        const val = parseFloat(avgGrade.grade_value);
+                        if (!isNaN(val)) {
+                            sumAverages += val;
+                            countAverages++;
+                        }
+                    }
+                } else {
+                    let stuSum = 0;
+                    let stuTotalWeight = 0;
+                    let stuSimpleSum = 0;
+                    let stuSimpleCount = 0;
+
+                    subCols.filter(c => c.position <= 10).forEach(col => {
+                        const g = stuGrades.find(g => String(g.grade_column_id) === String(col.id));
+                        if (g) {
+                            const gradeVal = parseFloat(g.grade_value) || 0;
+                            const colWeight = parseFloat(col.weighting) || 0;
+                            stuSum += gradeVal * colWeight;
+                            stuTotalWeight += colWeight;
+                            stuSimpleSum += gradeVal;
+                            stuSimpleCount++;
+                        }
+                    });
+
+                    if (stuTotalWeight > 0) {
+                        sumAverages += (stuSum / stuTotalWeight);
+                        countAverages++;
+                    } else if (stuSimpleCount > 0) {
+                        sumAverages += (stuSimpleSum / stuSimpleCount);
+                        countAverages++;
+                    }
+                }
+            }
+
+            const subjectAverage = countAverages > 0 ? (sumAverages / countAverages) : null;
+
+            subjectsData.push({
+                id: sub.id,
+                name: sub.name,
+                hasGrades,
+                gradesCount,
+                average: subjectAverage !== null ? subjectAverage.toFixed(1).replace('.', ',') : '-',
+                isQualitative: isQual
+            });
+        }
+
+        // 6. Compute stats per student
+        const studentsData = [];
+        let courseGpaSum = 0;
+        let courseGpaCount = 0;
+        let totalRedGrades = 0;
+        let totalBlueGrades = 0;
+        let atRiskCount = 0; // GPA < 4.0
+        let studentsWithRedCount = 0; // Students with at least one red grade
+
+        for (const stu of students) {
+            let studentSumAverages = 0;
+            let studentCountAverages = 0;
+            let redCount = 0;
+            let blueCount = 0;
+            const failingSubjects: string[] = [];
+
+            // Calculate averages for this student across all subjects
+            for (const sub of subjects) {
+                const isQual = isQualitativeSubject(sub.name);
+                const subCols = columns.filter(c => String(c.subject_id) === String(sub.id));
+                const subColIds = subCols.map(c => String(c.id));
+
+                const stuGradesForSub = grades.filter(g => String(g.student_id) === String(stu.id) && subColIds.includes(String(g.grade_column_id)));
+                if (stuGradesForSub.length === 0) continue;
+
+                // Count red/blue grades in columns 1 to 10
+                stuGradesForSub.forEach(g => {
+                    const col = subCols.find(c => String(c.id) === String(g.grade_column_id));
+                    if (col && col.position <= 10 && !isQual) {
+                        const val = parseFloat(g.grade_value);
+                        if (!isNaN(val)) {
+                            if (val < 4.0) {
+                                redCount++;
+                                totalRedGrades++;
+                            } else {
+                                blueCount++;
+                                totalBlueGrades++;
+                            }
+                        }
+                    }
+                });
+
+                // Calculate average of the subject for this student
+                let subAvg: number | null = null;
+
+                if (isQual) {
+                    const avgCol = subCols.find(c => c.position === 11);
+                    const avgGrade = avgCol ? stuGradesForSub.find(g => String(g.grade_column_id) === String(avgCol.id)) : null;
+                    if (avgGrade) {
+                        subAvg = parseFloat(avgGrade.grade_value);
+                    }
+                } else {
+                    let stuSum = 0;
+                    let stuTotalWeight = 0;
+                    let stuSimpleSum = 0;
+                    let stuSimpleCount = 0;
+
+                    subCols.filter(c => c.position <= 10).forEach(col => {
+                        const g = stuGradesForSub.find(g => String(g.grade_column_id) === String(col.id));
+                        if (g) {
+                            const gradeVal = parseFloat(g.grade_value) || 0;
+                            const colWeight = parseFloat(col.weighting) || 0;
+                            stuSum += gradeVal * colWeight;
+                            stuTotalWeight += colWeight;
+                            stuSimpleSum += gradeVal;
+                            stuSimpleCount++;
+                        }
+                    });
+
+                    if (stuTotalWeight > 0) {
+                        subAvg = stuSum / stuTotalWeight;
+                    } else if (stuSimpleCount > 0) {
+                        subAvg = stuSimpleSum / stuSimpleCount;
+                    }
+                }
+
+                if (subAvg !== null && !isQual) {
+                    studentSumAverages += subAvg;
+                    studentCountAverages++;
+
+                    if (subAvg < 4.0) {
+                        failingSubjects.push(`${sub.name} (${subAvg.toFixed(1).replace('.', ',')})`);
+                    }
+                }
+            }
+
+            const studentGpa = studentCountAverages > 0 ? (studentSumAverages / studentCountAverages) : null;
+            if (studentGpa !== null) {
+                courseGpaSum += studentGpa;
+                courseGpaCount++;
+
+                if (studentGpa < 4.0) {
+                    atRiskCount++;
+                }
+            }
+
+            if (redCount > 0) {
+                studentsWithRedCount++;
+            }
+
+            studentsData.push({
+                id: stu.id,
+                run: stu.run,
+                name: stu.full_name,
+                listNumber: stu.list_number,
+                gpa: studentGpa !== null ? studentGpa.toFixed(1).replace('.', ',') : '-',
+                gpaNum: studentGpa,
+                redCount,
+                blueCount,
+                failingSubjects
+            });
+        }
+
+        const courseGpa = courseGpaCount > 0 ? (courseGpaSum / courseGpaCount) : null;
+        const totalGrades = totalBlueGrades + totalRedGrades;
+
+        const stats = {
+            courseGpa: courseGpa !== null ? courseGpa.toFixed(1).replace('.', ',') : '-',
+            totalGrades,
+            blueCount: totalBlueGrades,
+            redCount: totalRedGrades,
+            bluePercentage: totalGrades > 0 ? ((totalBlueGrades / totalGrades) * 100).toFixed(1) : '0',
+            redPercentage: totalGrades > 0 ? ((totalRedGrades / totalGrades) * 100).toFixed(1) : '0',
+            atRiskCount, // GPA < 4.0
+            studentsWithRedCount // At least one red grade
+        };
+
+        res.json({
+            students: studentsData,
+            subjects: subjectsData,
+            stats
+        });
+    } catch (error: any) {
+        console.error("Error in getGradesOverview", error);
+        res.status(500).json({ error: error.message });
+    }
+};
