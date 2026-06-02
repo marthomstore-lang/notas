@@ -262,6 +262,58 @@ export const GradesOverview: React.FC = () => {
                         </div>
 
                     </div>
+
+                    {/* General Grade Matrix (Cuadro de Rendimiento) */}
+                    <div className="card general-grades-matrix-card">
+                        <h3 style={{ borderBottom: '1px solid #f1f5f9', paddingBottom: '12px', marginBottom: '15px' }}>Planilla General de Calificaciones (Matriz de Notas)</h3>
+                        <div className="scroll-x-container">
+                            <table className="data-table matrix-table">
+                                <thead>
+                                    <tr>
+                                        <th style={{ width: '50px', textAlign: 'center' }}>N°</th>
+                                        <th style={{ minWidth: '220px', textAlign: 'left' }}>Estudiante</th>
+                                        {data.subjects.map((sub: any) => (
+                                            <th key={sub.id} style={{ minWidth: '130px', textAlign: 'center' }}>{sub.name}</th>
+                                        ))}
+                                        <th style={{ minWidth: '100px', textAlign: 'center', fontWeight: 'bold' }}>Promedio Gral.</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {data.students.map((stu: any) => (
+                                        <tr key={stu.id} className={stu.gpaNum && stu.gpaNum < 4.0 ? 'danger-row' : ''}>
+                                            <td style={{ textAlign: 'center', color: '#64748b' }}>{stu.listNumber || '-'}</td>
+                                            <td style={{ fontWeight: '600', textAlign: 'left' }}>{stu.name}</td>
+                                            {data.subjects.map((sub: any) => {
+                                                const gradeVal = stu.subjectAverages?.[sub.id] || '-';
+                                                const isRed = gradeVal !== '-' && (
+                                                    gradeVal === 'I' || 
+                                                    (!isNaN(parseFloat(gradeVal.replace(',', '.'))) && parseFloat(gradeVal.replace(',', '.')) < 4.0)
+                                                );
+                                                const isBlue = gradeVal !== '-' && !isRed;
+                                                
+                                                return (
+                                                    <td 
+                                                        key={sub.id} 
+                                                        style={{ textAlign: 'center', fontWeight: '600' }}
+                                                        className={isRed ? 'text-red' : isBlue ? 'text-blue' : ''}
+                                                    >
+                                                        {gradeVal}
+                                                    </td>
+                                                );
+                                            })}
+                                            <td 
+                                                style={{ textAlign: 'center', fontWeight: '800' }} 
+                                                className={stu.gpa !== '-' && isGpaRed(stu.gpa) ? 'text-red' : 'text-blue'}
+                                            >
+                                                {stu.gpa}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
                 </div>
             )}
         </div>

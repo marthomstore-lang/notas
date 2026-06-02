@@ -506,6 +506,17 @@ export const getGradesOverview = async (req: Request, res: Response) => {
         }
 
         // 6. Compute stats per student
+        const formatAverage = (val: number | null | undefined, isQual: boolean): string => {
+            if (val === null || val === undefined || isNaN(val)) return '-';
+            if (isQual) {
+                if (val >= 6.0) return 'MB';
+                if (val >= 5.0) return 'B';
+                if (val >= 4.0) return 'S';
+                return 'I';
+            }
+            return Number(val).toFixed(1).replace('.', ',');
+        };
+
         const studentsData = [];
         let courseGpaSum = 0;
         let courseGpaCount = 0;
@@ -520,9 +531,12 @@ export const getGradesOverview = async (req: Request, res: Response) => {
             let redCount = 0;
             let blueCount = 0;
             const failingSubjects: string[] = [];
+            const subjectAverages: Record<string, string> = {};
 
             // Calculate averages for this student across all subjects
             for (const sub of subjects) {
+                subjectAverages[String(sub.id)] = '-';
+
                 const isQual = isQualitativeSubject(sub.name);
                 const subCols = columns.filter(c => String(c.subject_id) === String(sub.id));
                 const subColIds = subCols.map(c => String(c.id));
@@ -581,12 +595,15 @@ export const getGradesOverview = async (req: Request, res: Response) => {
                     }
                 }
 
-                if (subAvg !== null && !isQual) {
-                    studentSumAverages += subAvg;
-                    studentCountAverages++;
+                if (subAvg !== null) {
+                    subjectAverages[String(sub.id)] = formatAverage(subAvg, isQual);
+                    if (!isQual) {
+                        studentSumAverages += subAvg;
+                        studentCountAverages++;
 
-                    if (subAvg < 4.0) {
-                        failingSubjects.push(`${sub.name} (${subAvg.toFixed(1).replace('.', ',')})`);
+                        if (subAvg < 4.0) {
+                            failingSubjects.push(`${sub.name} (${subAvg.toFixed(1).replace('.', ',')})`);
+                        }
                     }
                 }
             }
@@ -614,7 +631,8 @@ export const getGradesOverview = async (req: Request, res: Response) => {
                 gpaNum: studentGpa,
                 redCount,
                 blueCount,
-                failingSubjects
+                failingSubjects,
+                subjectAverages
             });
         }
 
