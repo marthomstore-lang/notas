@@ -358,3 +358,273 @@
 .matrix-table tr.danger-row:hover td:last-child {
     background-color: #fecdd3 !important;
 }
+
+/* Print Only Header Styling */
+.print-only-header {
+    display: none;
+}
+
+@media print {
+    @page {
+        size: letter portrait;
+        margin: 0.8cm;
+    }
+    
+    /* Universal reset for shadows which cause dark smudges in Chrome print engine */
+    *, *::before, *::after {
+        box-shadow: none !important;
+        text-shadow: none !important;
+    }
+    
+    html, body {
+        height: auto !important;
+        overflow: visible !important;
+        background-color: #ffffff !important;
+        background: #ffffff !important;
+    }
+
+    body {
+        visibility: hidden;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
+    /* Force parent containers to be solid white and ignore block constraints */
+    #root, 
+    .dashboard-layout, 
+    .dashboard-content {
+        background-color: #ffffff !important;
+        background: #ffffff !important;
+        box-shadow: none !important;
+        border: none !important;
+        display: block !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        height: auto !important;
+    }
+
+    /* Explicitly hide the sidebar overlay and sidebar which cause dark overlays in print viewport */
+    .sidebar,
+    .sidebar-overlay,
+    .sidebar-toggle-btn,
+    .sidebar-close-btn,
+    .no-print,
+    .no-print *,
+    .overview-filters-card,
+    .overview-filters-card *,
+    .subjects-summary-card,
+    .subjects-summary-card *,
+    .general-grades-matrix-card,
+    .general-grades-matrix-card * {
+        display: none !important;
+        visibility: hidden !important;
+    }
+
+    /* Print Header Display */
+    .print-only-header {
+        display: block !important;
+        visibility: visible !important;
+        width: 100% !important;
+        margin-bottom: 12px !important;
+        padding-bottom: 8px !important;
+        border-bottom: 2px solid #0f172a !important;
+        background-color: #ffffff !important;
+    }
+
+    .print-only-header * {
+        visibility: visible !important;
+    }
+
+    .print-only-header h2 {
+        margin: 0 0 4px 0 !important;
+        font-size: 1.3rem !important;
+        color: #0f172a !important;
+        font-weight: 800 !important;
+        text-align: center !important;
+    }
+
+    .print-header-meta {
+        display: flex !important;
+        justify-content: space-around !important;
+        font-size: 0.85rem !important;
+        color: #475569 !important;
+        font-weight: 600 !important;
+        flex-wrap: wrap !important;
+        gap: 10px !important;
+    }
+
+    /* Overview Container Print Visibility */
+    .overview-container {
+        visibility: visible !important;
+        position: absolute !important;
+        left: 0 !important;
+        top: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        background-color: #ffffff !important;
+        background: #ffffff !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        display: block !important;
+        box-sizing: border-box !important;
+    }
+
+    .overview-container * {
+        visibility: visible !important;
+    }
+
+    /* Print Card styles */
+    .card {
+        border: none !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+        margin-bottom: 15px !important;
+        background-color: #ffffff !important;
+        background: #ffffff !important;
+    }
+
+    /* KPIs Grid Print styling - 2x2 grid is ideal for portrait sheets */
+    .stats-kpis-grid {
+        display: grid !important;
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 10px !important;
+        margin-bottom: 15px !important;
+        width: 100% !important;
+        background-color: #ffffff !important;
+        background: #ffffff !important;
+    }
+
+    .kpi-card {
+        border: 1px solid #cbd5e1 !important;
+        padding: 8px 12px !important;
+        border-radius: 8px !important;
+        background-color: #f8fafc !important;
+        box-shadow: none !important;
+        display: flex !important;
+        align-items: center !important;
+        gap: 12px !important;
+        page-break-inside: avoid !important;
+    }
+
+    /* Maintain the colored icons in print */
+    .kpi-icon-wrapper {
+        display: flex !important;
+        visibility: visible !important;
+        width: 36px !important;
+        height: 36px !important;
+        border-radius: 8px !important;
+        align-items: center !important;
+        justify-content: center !important;
+        color: white !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+    
+    .kpi-icon-wrapper * {
+        visibility: visible !important;
+    }
+    
+    .gpa-kpi .kpi-icon-wrapper {
+        background: linear-gradient(135deg, #6366f1, #4f46e5) !important;
+        background-color: #6366f1 !important;
+    }
+    
+    .students-kpi .kpi-icon-wrapper {
+        background: linear-gradient(135deg, #0ea5e9, #0284c7) !important;
+        background-color: #0ea5e9 !important;
+    }
+    
+    .grades-count-kpi .kpi-icon-wrapper {
+        background: linear-gradient(135deg, #10b981, #059669) !important;
+        background-color: #10b981 !important;
+    }
+    
+    .risk-kpi .kpi-icon-wrapper {
+        background: linear-gradient(135deg, #f59e0b, #d97706) !important;
+        background-color: #f59e0b !important;
+    }
+
+    .kpi-content h3 {
+        font-size: 0.7rem !important;
+        margin: 0 !important;
+    }
+
+    .kpi-value {
+        font-size: 1.2rem !important;
+        margin: 2px 0 0 0 !important;
+    }
+    
+    .kpi-subtext {
+        font-size: 0.65rem !important;
+        margin-top: 2px !important;
+    }
+
+    /* Layout Stacking */
+    .overview-layout-grid {
+        display: block !important;
+        width: 100% !important;
+    }
+
+    .students-summary-card {
+        width: 100% !important;
+        margin-bottom: 0 !important;
+        background-color: #ffffff !important;
+        background: #ffffff !important;
+        page-break-inside: auto !important;
+    }
+    
+    .data-table tr {
+        page-break-inside: avoid !important;
+    }
+    
+    .students-summary-card h3 {
+        margin: 0 0 8px 0 !important;
+        font-size: 1.05rem !important;
+    }
+
+    /* Make scrolls visible */
+    .scroll-y-container, 
+    .scroll-x-container {
+        max-height: none !important;
+        overflow: visible !important;
+        border: 1px solid #cbd5e1 !important;
+    }
+
+    /* Table borders for printer */
+    .data-table {
+        width: 100% !important;
+        border-collapse: collapse !important;
+    }
+
+    .data-table th, 
+    .data-table td {
+        border: 1px solid #cbd5e1 !important;
+        color: #000000 !important;
+        position: static !important; /* Disable sticky columns during printing */
+        background-color: transparent !important;
+        padding: 5px 8px !important;
+        font-size: 0.78rem !important;
+        line-height: 1.1 !important;
+    }
+
+    .data-table th {
+        background-color: #f1f5f9 !important;
+        font-weight: 700 !important;
+        text-transform: uppercase !important;
+    }
+
+    /* Maintain distinct coloring in print if browser allows */
+    .text-red {
+        color: #b91c1c !important;
+        font-weight: 700 !important;
+    }
+    
+    .text-blue {
+        color: #1d4ed8 !important;
+        font-weight: 700 !important;
+    }
+
+    .danger-row {
+        background-color: #fff1f2 !important;
+    }
+}

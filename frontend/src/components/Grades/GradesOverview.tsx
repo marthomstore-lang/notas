@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { BarChart3, Users, AlertTriangle, Check, RefreshCw, BookOpen } from 'lucide-react';
+import { BarChart3, Users, AlertTriangle, Check, RefreshCw, BookOpen, Printer } from 'lucide-react';
 import Swal from 'sweetalert2';
 import withReactContent from 'sweetalert2-react-content';
 import './GradesOverview.css';
@@ -92,8 +92,19 @@ export const GradesOverview: React.FC = () => {
 
     return (
         <div className="overview-container">
+            {/* Print-Only Header */}
+            <div className="print-only-header">
+                <h2>Liceo Pro - Panorama General de Calificaciones</h2>
+                <div className="print-header-meta">
+                    <span><strong>Curso:</strong> {levels.find(l => String(l.id) === String(filters.levelId))?.name || 'Cargando...'}</span>
+                    <span><strong>Período:</strong> {filters.period}</span>
+                    <span><strong>Año:</strong> {filters.year}</span>
+                    <span><strong>Fecha:</strong> {new Date().toLocaleDateString('es-CL')}</span>
+                </div>
+            </div>
+
             {/* Filters Bar */}
-            <div className="card overview-filters-card">
+            <div className="card overview-filters-card no-print">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
                     <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', alignItems: 'center' }}>
                         <div className="filter-item">
@@ -118,9 +129,14 @@ export const GradesOverview: React.FC = () => {
                             </select>
                         </div>
                     </div>
-                    <button className="secondary-btn" onClick={fetchOverview} disabled={loading} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <RefreshCw size={16} className={loading ? 'spin' : ''} /> Actualizar
-                    </button>
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                        <button className="secondary-btn" onClick={fetchOverview} disabled={loading} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <RefreshCw size={16} className={loading ? 'spin' : ''} /> Actualizar
+                        </button>
+                        <button className="primary-btn" onClick={() => window.print()} disabled={loading} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <Printer size={16} /> Imprimir Panorama
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -186,7 +202,7 @@ export const GradesOverview: React.FC = () => {
                     <div className="overview-layout-grid">
                         
                         {/* Left Column: Subjects Status */}
-                        <div className="card subjects-summary-card">
+                        <div className="card subjects-summary-card no-print">
                             <h3 style={{ borderBottom: '1px solid #f1f5f9', paddingBottom: '12px', marginBottom: '15px' }}>Asignaturas del Curso</h3>
                             <div className="scroll-y-container" style={{ maxHeight: '450px' }}>
                                 <table className="data-table">
@@ -264,7 +280,7 @@ export const GradesOverview: React.FC = () => {
                     </div>
 
                     {/* General Grade Matrix (Cuadro de Rendimiento) */}
-                    <div className="card general-grades-matrix-card">
+                    <div className="card general-grades-matrix-card no-print">
                         <h3 style={{ borderBottom: '1px solid #f1f5f9', paddingBottom: '12px', marginBottom: '15px' }}>Planilla General de Calificaciones (Matriz de Notas)</h3>
                         <div className="scroll-x-container">
                             <table className="data-table matrix-table">
