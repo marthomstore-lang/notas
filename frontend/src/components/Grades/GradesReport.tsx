@@ -38,6 +38,70 @@ export const GradesReport: React.FC<Props> = ({ data, period, year, onClose }) =
             <div className="all-reports-container">
                 {reports.map((report, rIdx) => {
                     const { student, homeroomTeacherName, directorName, periodData, isAnnual } = report;
+
+                    const isQualitativeSubject = (name: string): boolean => {
+                        const lower = name.toLowerCase();
+                        return lower.includes('religión') || lower.includes('religion') || lower.includes('orientación') || lower.includes('orientacion');
+                    };
+
+                    // Calcular promedios generales
+                    let generalAverage = '-';
+                    let generalAvgS1 = '-';
+                    let generalAvgS2 = '-';
+                    let generalAvgFinal = '-';
+
+                    if (periodData && Array.isArray(periodData)) {
+                        if (isAnnual) {
+                            const numericAvgS1 = periodData
+                                .filter((row: any) => !isQualitativeSubject(row.subjectName))
+                                .map((row: any) => {
+                                    if (!row.avgS1 || row.avgS1 === '-') return null;
+                                    const val = parseFloat(String(row.avgS1).replace(',', '.'));
+                                    return isNaN(val) ? null : val;
+                                })
+                                .filter((val: number | null) => val !== null) as number[];
+                            generalAvgS1 = numericAvgS1.length > 0
+                                ? (numericAvgS1.reduce((sum, val) => sum + val, 0) / numericAvgS1.length).toFixed(1).replace('.', ',')
+                                : '-';
+
+                            const numericAvgS2 = periodData
+                                .filter((row: any) => !isQualitativeSubject(row.subjectName))
+                                .map((row: any) => {
+                                    if (!row.avgS2 || row.avgS2 === '-') return null;
+                                    const val = parseFloat(String(row.avgS2).replace(',', '.'));
+                                    return isNaN(val) ? null : val;
+                                })
+                                .filter((val: number | null) => val !== null) as number[];
+                            generalAvgS2 = numericAvgS2.length > 0
+                                ? (numericAvgS2.reduce((sum, val) => sum + val, 0) / numericAvgS2.length).toFixed(1).replace('.', ',')
+                                : '-';
+
+                            const numericFinal = periodData
+                                .filter((row: any) => !isQualitativeSubject(row.subjectName))
+                                .map((row: any) => {
+                                    if (!row.average || row.average === '-') return null;
+                                    const val = parseFloat(String(row.average).replace(',', '.'));
+                                    return isNaN(val) ? null : val;
+                                })
+                                .filter((val: number | null) => val !== null) as number[];
+                            generalAvgFinal = numericFinal.length > 0
+                                ? (numericFinal.reduce((sum, val) => sum + val, 0) / numericFinal.length).toFixed(1).replace('.', ',')
+                                : '-';
+                        } else {
+                            const numericAverages = periodData
+                                .filter((row: any) => !isQualitativeSubject(row.subjectName))
+                                .map((row: any) => {
+                                    if (!row.average || row.average === '-') return null;
+                                    const val = parseFloat(String(row.average).replace(',', '.'));
+                                    return isNaN(val) ? null : val;
+                                })
+                                .filter((val: number | null) => val !== null) as number[];
+                            generalAverage = numericAverages.length > 0
+                                ? (numericAverages.reduce((sum, val) => sum + val, 0) / numericAverages.length).toFixed(1).replace('.', ',')
+                                : '-';
+                        }
+                    }
+
                     return (
                         <div key={student.id || rIdx} className="report-page-wrapper">
                             <div className="report-paper A4">
@@ -131,6 +195,33 @@ export const GradesReport: React.FC<Props> = ({ data, period, year, onClose }) =
                                                 )}
                                             </Fragment>
                                         ))}
+                                        {isAnnual ? (
+                                            <>
+                                                <tr className="general-average-row" style={{ background: '#f8fafc' }}>
+                                                    <td className="subject-name" style={{ borderBottom: 'none', fontWeight: 'bold' }}>PROMEDIO GENERAL</td>
+                                                    {Array.from({ length: 10 }).map((_, i) => (
+                                                        <td key={i} className="grade-cell" style={{ background: '#f8fafc' }}></td>
+                                                    ))}
+                                                    <td className="average-cell" style={{ fontWeight: 'bold' }}>{generalAvgS1}</td>
+                                                    <td className="average-cell" rowSpan={2} style={{ verticalAlign: 'middle', fontSize: '1.1rem', fontWeight: 'bold', background: '#f1f5f9' }}>{generalAvgFinal}</td>
+                                                </tr>
+                                                <tr className="general-average-row" style={{ background: '#f8fafc' }}>
+                                                    <td className="subject-name" style={{ fontSize: '0.7rem', color: '#64748b', paddingTop: 0, fontWeight: 'bold' }}>2DO SEMESTRE</td>
+                                                    {Array.from({ length: 10 }).map((_, i) => (
+                                                        <td key={i} className="grade-cell" style={{ background: '#f8fafc' }}></td>
+                                                    ))}
+                                                    <td className="average-cell" style={{ fontWeight: 'bold' }}>{generalAvgS2}</td>
+                                                </tr>
+                                            </>
+                                        ) : (
+                                            <tr className="general-average-row" style={{ background: '#f8fafc' }}>
+                                                <td className="subject-name" style={{ fontWeight: 'bold' }}>PROMEDIO GENERAL</td>
+                                                {Array.from({ length: 10 }).map((_, i) => (
+                                                    <td key={i} className="grade-cell" style={{ background: '#f8fafc' }}></td>
+                                                ))}
+                                                <td className="average-cell" style={{ fontWeight: 'bold', fontSize: '1.1rem', background: '#f1f5f9' }}>{generalAverage}</td>
+                                            </tr>
+                                        )}
                                     </tbody>
                                 </table>
 
