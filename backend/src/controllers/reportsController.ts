@@ -85,9 +85,11 @@ async function generateStudentReport(dbInstance: any, studentId: any, year: any,
                     const col = cols.find(c => c.position === i + 1);
                     const grade = col ? gData.find(g => g.grade_column_id === col.id) : null;
                     if (grade) {
-                        sum += grade.grade_value * (col!.weighting || 0);
-                        weight += (col!.weighting || 0);
-                        sSum += grade.grade_value;
+                        const gradeVal = parseFloat(grade.grade_value) || 0;
+                        const colWeight = parseFloat(col!.weighting) || 0;
+                        sum += gradeVal * colWeight;
+                        weight += colWeight;
+                        sSum += gradeVal;
                         sCount++;
                         return format(grade.grade_value);
                     }
@@ -98,7 +100,7 @@ async function generateStudentReport(dbInstance: any, studentId: any, year: any,
                 if (isQual) {
                     const avgCol = cols.find(c => c.position === 11);
                     const avgGrade = avgCol ? gData.find(g => g.grade_column_id === avgCol.id) : null;
-                    avg = avgGrade ? avgGrade.grade_value : null;
+                    avg = avgGrade ? parseFloat(avgGrade.grade_value) : null;
                 } else {
                     if (weight > 0) avg = sum / weight;
                     else if (sCount > 0) avg = sSum / sCount;
@@ -151,9 +153,11 @@ async function generateStudentReport(dbInstance: any, studentId: any, year: any,
             columns.filter(col => col.position <= 10).forEach(col => {
                 const grade = grades.find(g => g.grade_column_id === col.id);
                 if (grade) {
-                    sum += grade.grade_value * (col.weighting || 0);
-                    totalWeight += (col.weighting || 0);
-                    simpleSum += grade.grade_value;
+                    const gradeVal = parseFloat(grade.grade_value) || 0;
+                    const colWeight = parseFloat(col.weighting) || 0;
+                    sum += gradeVal * colWeight;
+                    totalWeight += colWeight;
+                    simpleSum += gradeVal;
                     simpleCount++;
                 }
             });
@@ -173,7 +177,7 @@ async function generateStudentReport(dbInstance: any, studentId: any, year: any,
             if (isQual) {
                 const avgCol = columns.find(col => col.position === 11);
                 const avgGrade = avgCol ? grades.find(g => g.grade_column_id === avgCol.id) : null;
-                average = avgGrade ? formatGrade(avgGrade.grade_value) : '-';
+                average = avgGrade ? formatGrade(parseFloat(avgGrade.grade_value)) : '-';
             } else {
                 if (totalWeight > 0) {
                     average = formatGrade(sum / totalWeight);
