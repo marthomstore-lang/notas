@@ -773,16 +773,31 @@ export const importDataWeb = async (req: Request, res: Response) => {
 
         const workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
 
-        await db.run("DELETE FROM observations");
-        await db.run("DELETE FROM enrollments");
-        await db.run("DELETE FROM health_records");
-        await db.run("DELETE FROM guardians");
-        await db.run("DELETE FROM students");
+        const cleanRun = (runVal: any): string => {
+            if (runVal === undefined || runVal === null) return '';
+            const clean = String(runVal).replace(/[^0-9kK]/g, '');
+            if (clean.length > 1) {
+                const body = clean.slice(0, -1);
+                const dv = clean.slice(-1).toUpperCase();
+                return `${body}-${dv}`;
+            }
+            return clean.toUpperCase();
+        };
 
         const levelMap: Record<string, number> = {};
         const existingLevels = await db.all("SELECT id, name FROM levels");
         for (const lvl of existingLevels) {
             levelMap[lvl.name.toUpperCase()] = lvl.id;
+        }
+
+        // Fetch existing students mapped by clean RUN to check for updates
+        const existingStudents = await db.all("SELECT id, run FROM students");
+        const studentMap: Record<string, string> = {}; // run -> id
+        for (const st of existingStudents) {
+            const cleanSrun = cleanRun(st.run);
+            if (cleanSrun) {
+                studentMap[cleanSrun] = st.id;
+            }
         }
 
         let studentsCount = 0;
@@ -846,8 +861,11 @@ export const importDataWeb = async (req: Request, res: Response) => {
         };
 
         for (const rowArr of dataRows) {
-            const run = findCol(rowArr, ['RUT', 'RUN', 'RUT ALUMNO', 'RUT_ALUMNO', 'RUN_ALUMNO']);
+            const rawRun = findCol(rowArr, ['RUT', 'RUN', 'RUT ALUMNO', 'RUT_ALUMNO', 'RUN_ALUMNO']);
+            if (!rawRun) continue;
+            const run = cleanRun(rawRun);
             if (!run) continue;
+
             const fullName = findCol(rowArr, ['NOMBRE', 'NOMBRE COMPLETO', 'NOMBRE_COMPLETO', 'ALUMNO', 'ESTUDIANTE'], 1);
             
             let firstName = '', paternalSurname = '', maternalSurname = '';
@@ -907,46 +925,118 @@ export const importDataWeb = async (req: Request, res: Response) => {
                 }
             }
 
-            const studentId = crypto.randomUUID();
-            await db.run(`
-                INSERT INTO students (
-                    id, run, full_name, first_name, paternal_surname, maternal_surname,
-                    birth_date, gender, nationality, religion, marital_status, ethnicity,
-                    address, region, commune, email, phone, previous_school, health_system, enrollment_number,
-                    lives_with, family_members, total_siblings, school_siblings, liceo_siblings, sibling_position, status, entry_date, observaciones
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            `, [
-                studentId, run, cleanFullName, firstName, paternalSurname, maternalSurname,
-                birthDate, gender, nationality, religion, maritalStatus, ethnicity,
-                address, region, commune, studentEmail, studentPhone, previousSchool, healthSystem, enrollmentNumber,
-                livesWith, familyMembers, totalSiblings, schoolSiblings, liceoSiblings, siblingPosition, status, entryDate, observaciones
-            ]);
+            let studentId = studentMap[run];
 
-            await db.run(`
-                INSERT INTO health_records (id, student_id, blood_type, allergies, chronic_diseases)
-                VALUES (?, ?, ?, ?, ?)
-            `, [
-                crypto.randomUUID(), studentId, findCol(rowArr, ['GRUPO SANGUÍNEO', 'GRUPO_SANGUINEO']) || '', findCol(rowArr, ['ALERGIAS']) || '', findCol(rowArr, ['ENFERMEDADES', 'ENFERMEDADES_CRONICAS']) || ''
-            ]);
+            if (studentId) {
+                // Update student
+                await db.run(`
+                    UPDATE students SET 
+                        full_name = ?, first_name = ?, paternal_surname = ?, maternal_surname = ?,
+                        birth_date = ?, gender = ?, nationality = ?, religion = ?, marital_status = ?, ethnicity = ?,
+                        address = ?, region = ?, commune = ?, email = ?, phone = ?, previous_school = ?, health_system = ?, enrollment_number = ?,
+                        lives_with = ?, family_members = ?, total_siblings = ?, school_siblings = ?, liceo_siblings = ?, sibling_position = ?, status = ?, entry_date = ?, observaciones = ?
+                    WHERE id = ?
+                `, [
+                    cleanFullName, firstName, paternalSurname, maternalSurname,
+                    birthDate, gender, nationality, religion, maritalStatus, ethnicity,
+                    address, region, commune, studentEmail, studentPhone, previousSchool, healthSystem, enrollmentNumber,
+                    livesWith, familyMembers, totalSiblings, schoolSiblings, liceoSiblings, siblingPosition, status, entryDate, observaciones,
+                    studentId
+                ]);
 
-            await db.run(`
-                INSERT INTO enrollments (id, student_id, level_id, academic_year)
-                VALUES (?, ?, ?, 2026)
-            `, [crypto.randomUUID(), studentId, levelId]);
+                // Update or Insert Health Records
+                const healthExists = await db.get("SELECT id FROM health_records WHERE student_id = ?", [studentId]);
+                if (healthExists) {
+                    await db.run(`
+                        UPDATE health_records SET 
+                            blood_type = ?, allergies = ?, chronic_diseases = ?
+                        WHERE student_id = ?
+                    `, [
+                        findCol(rowArr, ['GRUPO SANGUÍNEO', 'GRUPO_SANGUINEO']) || '', 
+                        findCol(rowArr, ['ALERGIAS']) || '', 
+                        findCol(rowArr, ['ENFERMEDADES', 'ENFERMEDADES_CRONICAS']) || '',
+                        studentId
+                    ]);
+                } else {
+                    await db.run(`
+                        INSERT INTO health_records (id, student_id, blood_type, allergies, chronic_diseases)
+                        VALUES (?, ?, ?, ?, ?)
+                    `, [
+                        crypto.randomUUID(), studentId, findCol(rowArr, ['GRUPO SANGUÍNEO', 'GRUPO_SANGUINEO']) || '', findCol(rowArr, ['ALERGIAS']) || '', findCol(rowArr, ['ENFERMEDADES', 'ENFERMEDADES_CRONICAS']) || ''
+                    ]);
+                }
+
+                // Update or Insert Enrollment for 2026
+                const enrollmentExists = await db.get("SELECT id FROM enrollments WHERE student_id = ? AND academic_year = 2026", [studentId]);
+                if (enrollmentExists) {
+                    await db.run(`
+                        UPDATE enrollments SET level_id = ?
+                        WHERE id = ?
+                    `, [levelId, enrollmentExists.id]);
+                } else {
+                    await db.run(`
+                        INSERT INTO enrollments (id, student_id, level_id, academic_year)
+                        VALUES (?, ?, ?, 2026)
+                    `, [crypto.randomUUID(), studentId, levelId]);
+                }
+
+            } else {
+                // Insert new student
+                studentId = crypto.randomUUID();
+                studentMap[run] = studentId;
+
+                await db.run(`
+                    INSERT INTO students (
+                        id, run, full_name, first_name, paternal_surname, maternal_surname,
+                        birth_date, gender, nationality, religion, marital_status, ethnicity,
+                        address, region, commune, email, phone, previous_school, health_system, enrollment_number,
+                        lives_with, family_members, total_siblings, school_siblings, liceo_siblings, sibling_position, status, entry_date, observaciones
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                `, [
+                    studentId, run, cleanFullName, firstName, paternalSurname, maternalSurname,
+                    birthDate, gender, nationality, religion, maritalStatus, ethnicity,
+                    address, region, commune, studentEmail, studentPhone, previousSchool, healthSystem, enrollmentNumber,
+                    livesWith, familyMembers, totalSiblings, schoolSiblings, liceoSiblings, siblingPosition, status, entryDate, observaciones
+                ]);
+
+                await db.run(`
+                    INSERT INTO health_records (id, student_id, blood_type, allergies, chronic_diseases)
+                    VALUES (?, ?, ?, ?, ?)
+                `, [
+                    crypto.randomUUID(), studentId, findCol(rowArr, ['GRUPO SANGUÍNEO', 'GRUPO_SANGUINEO']) || '', findCol(rowArr, ['ALERGIAS']) || '', findCol(rowArr, ['ENFERMEDADES', 'ENFERMEDADES_CRONICAS']) || ''
+                ]);
+
+                await db.run(`
+                    INSERT INTO enrollments (id, student_id, level_id, academic_year)
+                    VALUES (?, ?, ?, 2026)
+                `, [crypto.randomUUID(), studentId, levelId]);
+            }
             studentsCount++;
         }
 
+        // Import/Update Guardians
         if (workbook.SheetNames.includes('bd_titulares')) {
             const titularesData = xlsx.utils.sheet_to_json<any>(workbook.Sheets['bd_titulares'], { defval: "" });
             for (const row of titularesData) {
-                const studentRun = row['RUN Estudiante']?.trim();
-                if (!studentRun) continue;
-                const existingStudent = await db.get("SELECT id FROM students WHERE run = ?", [studentRun]);
-                if (existingStudent) {
-                    await db.run(`
-                        INSERT INTO guardians (id, student_id, guardian_type, run, full_name, relationship, phone, email, address)
-                        VALUES (?, ?, 'Titular', ?, ?, ?, ?, ?, ?)
-                    `, [crypto.randomUUID(), existingStudent.id, row['RUN/IPA'] || 'S/R', row['Nombre Apoderado Titular'] || 'Sin Nombre', row['Parentesco'] || '', row['Teléfono Titular'] || '', row['Email'] || '', row['Dirección'] || '']);
+                const sRun = cleanRun(row['RUN Estudiante']);
+                if (!sRun) continue;
+                const studentId = studentMap[sRun];
+                if (studentId) {
+                    const gRun = row['RUN/IPA'] || 'S/R';
+                    const gFullName = row['Nombre Apoderado Titular'] || 'Sin Nombre';
+                    
+                    const existingGuardian = await db.get("SELECT id FROM guardians WHERE student_id = ? AND guardian_type = 'Titular'", [studentId]);
+                    if (existingGuardian) {
+                        await db.run(`
+                            UPDATE guardians SET run = ?, full_name = ?, relationship = ?, phone = ?, email = ?, address = ?
+                            WHERE id = ?
+                        `, [gRun, gFullName, row['Parentesco'] || '', row['Teléfono Titular'] || '', row['Email'] || '', row['Dirección'] || '', existingGuardian.id]);
+                    } else {
+                        await db.run(`
+                            INSERT INTO guardians (id, student_id, guardian_type, run, full_name, relationship, phone, email, address)
+                            VALUES (?, ?, 'Titular', ?, ?, ?, ?, ?, ?)
+                        `, [crypto.randomUUID(), studentId, gRun, gFullName, row['Parentesco'] || '', row['Teléfono Titular'] || '', row['Email'] || '', row['Dirección'] || '']);
+                    }
                     titularesCount++;
                 }
             }
@@ -954,14 +1044,25 @@ export const importDataWeb = async (req: Request, res: Response) => {
         if (workbook.SheetNames.includes('bd_suplentes')) {
             const suplentesData = xlsx.utils.sheet_to_json<any>(workbook.Sheets['bd_suplentes'], { defval: "" });
             for (const row of suplentesData) {
-                const studentRun = row['RUN Estudiante']?.trim();
-                if (!studentRun) continue;
-                const existingStudent = await db.get("SELECT id FROM students WHERE run = ?", [studentRun]);
-                if (existingStudent) {
-                    await db.run(`
-                        INSERT INTO guardians (id, student_id, guardian_type, run, full_name, relationship, phone, email, address)
-                        VALUES (?, ?, 'Suplente', ?, ?, ?, ?, ?, ?)
-                    `, [crypto.randomUUID(), existingStudent.id, row['RUN/IPA'] || 'S/R', row['Nombre Apoderado Suplente'] || 'Sin Nombre', row['Parentesco'] || '', row['Teléfono Suplente'] || '', row['Email'] || '', row['Dirección'] || '']);
+                const sRun = cleanRun(row['RUN Estudiante']);
+                if (!sRun) continue;
+                const studentId = studentMap[sRun];
+                if (studentId) {
+                    const gRun = row['RUN/IPA'] || 'S/R';
+                    const gFullName = row['Nombre Apoderado Suplente'] || 'Sin Nombre';
+                    
+                    const existingGuardian = await db.get("SELECT id FROM guardians WHERE student_id = ? AND guardian_type = 'Suplente'", [studentId]);
+                    if (existingGuardian) {
+                        await db.run(`
+                            UPDATE guardians SET run = ?, full_name = ?, relationship = ?, phone = ?, email = ?, address = ?
+                            WHERE id = ?
+                        `, [gRun, gFullName, row['Parentesco'] || '', row['Teléfono Suplente'] || '', row['Email'] || '', row['Dirección'] || '', existingGuardian.id]);
+                    } else {
+                        await db.run(`
+                            INSERT INTO guardians (id, student_id, guardian_type, run, full_name, relationship, phone, email, address)
+                            VALUES (?, ?, 'Suplente', ?, ?, ?, ?, ?, ?)
+                        `, [crypto.randomUUID(), studentId, gRun, gFullName, row['Parentesco'] || '', row['Teléfono Suplente'] || '', row['Email'] || '', row['Dirección'] || '']);
+                    }
                     suplentesCount++;
                 }
             }
