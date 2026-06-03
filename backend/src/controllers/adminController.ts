@@ -897,10 +897,13 @@ export const importDataWeb = async (req: Request, res: Response) => {
             const ethnicity = findCol(rowArr, ['PUEBLO INDÍGENA', 'PUEBLO_INDIGENA']);
             const studentEmail = findCol(rowArr, ['EMAIL']);
             const studentPhone = findCol(rowArr, ['TELÉFONO ESTUDIANTE', 'TELEFONO_ESTUDIANTE']);
+            const rawRetiro = findCol(rowArr, ['FECHA DE RETIRO', 'FECHA RETIRO', 'FECHA_DE_RETIRO', 'FECHA_RETIRO', 'RETIRADO_FECHA']);
             const rawStatus = (findCol(rowArr, ['ESTADO', 'estado']) || 'Active').toString().trim().toUpperCase();
             let status = 'Active';
-            if (rawStatus.startsWith('RET') || rawStatus.startsWith('INAC') || rawStatus === 'INACTIVE' || rawStatus === 'INACTIVO') {
+            let withdrawalDate: string | null = null;
+            if (rawStatus.startsWith('RET') || rawStatus.startsWith('INAC') || rawStatus === 'INACTIVE' || rawStatus === 'INACTIVO' || (rawRetiro && String(rawRetiro).trim() !== '')) {
                 status = 'RETIRADO';
+                withdrawalDate = parseExcelDate(rawRetiro) || new Date().toISOString().split('T')[0];
             }
             const observaciones = findCol(rowArr, ['OBSERVACIONES']);
             const entryDate = parseExcelDate(findCol(rowArr, ['FECHA DE INGRESO', 'FECHA INGRESO', 'FECHA_DE_INGRESO', 'FECHA_INGRESO', 'FECHA INGRESO']));
@@ -934,13 +937,13 @@ export const importDataWeb = async (req: Request, res: Response) => {
                         full_name = ?, first_name = ?, paternal_surname = ?, maternal_surname = ?,
                         birth_date = ?, gender = ?, nationality = ?, religion = ?, marital_status = ?, ethnicity = ?,
                         address = ?, region = ?, commune = ?, email = ?, phone = ?, previous_school = ?, health_system = ?, enrollment_number = ?,
-                        lives_with = ?, family_members = ?, total_siblings = ?, school_siblings = ?, liceo_siblings = ?, sibling_position = ?, status = ?, entry_date = ?, observaciones = ?
+                        lives_with = ?, family_members = ?, total_siblings = ?, school_siblings = ?, liceo_siblings = ?, sibling_position = ?, status = ?, entry_date = ?, observaciones = ?, withdrawal_date = ?
                     WHERE id = ?
                 `, [
                     cleanFullName, firstName, paternalSurname, maternalSurname,
                     birthDate, gender, nationality, religion, maritalStatus, ethnicity,
                     address, region, commune, studentEmail, studentPhone, previousSchool, healthSystem, enrollmentNumber,
-                    livesWith, familyMembers, totalSiblings, schoolSiblings, liceoSiblings, siblingPosition, status, entryDate, observaciones,
+                    livesWith, familyMembers, totalSiblings, schoolSiblings, liceoSiblings, siblingPosition, status, entryDate, observaciones, withdrawalDate,
                     studentId
                 ]);
 
@@ -990,13 +993,13 @@ export const importDataWeb = async (req: Request, res: Response) => {
                         id, run, full_name, first_name, paternal_surname, maternal_surname,
                         birth_date, gender, nationality, religion, marital_status, ethnicity,
                         address, region, commune, email, phone, previous_school, health_system, enrollment_number,
-                        lives_with, family_members, total_siblings, school_siblings, liceo_siblings, sibling_position, status, entry_date, observaciones
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        lives_with, family_members, total_siblings, school_siblings, liceo_siblings, sibling_position, status, entry_date, observaciones, withdrawal_date
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 `, [
                     studentId, run, cleanFullName, firstName, paternalSurname, maternalSurname,
                     birthDate, gender, nationality, religion, maritalStatus, ethnicity,
                     address, region, commune, studentEmail, studentPhone, previousSchool, healthSystem, enrollmentNumber,
-                    livesWith, familyMembers, totalSiblings, schoolSiblings, liceoSiblings, siblingPosition, status, entryDate, observaciones
+                    livesWith, familyMembers, totalSiblings, schoolSiblings, liceoSiblings, siblingPosition, status, entryDate, observaciones, withdrawalDate
                 ]);
 
                 await db.run(`
