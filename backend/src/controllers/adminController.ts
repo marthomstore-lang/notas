@@ -53,11 +53,19 @@ export const deleteStudent = async (req: Request, res: Response) => {
         const { withdrawalDate } = req.body;
         const user = (req as any).user;
         
-        const student = await db.get("SELECT full_name FROM students WHERE id = ?", [id]);
+        const student = await db.get("SELECT full_name, status FROM students WHERE id = ?", [id]);
         if (!student) return res.status(404).json({ error: 'Estudiante no encontrado' });
 
-        // Cambiamos a Soft Delete con Fecha de Retiro por solicitud del usuario
-        await db.run("UPDATE students SET status = 'RETIRADO', withdrawal_date = ? WHERE id = ?", [withdrawalDate || new Date().toISOString().split('T')[0], id]);
+        if (student.status !== 'RETIRADO') {
+            // Cambiamos a Soft Delete con Fecha de Retiro por solicitud del usuario
+            await db.run("UPDATE students SET status = 'RETIRADO', withdrawal_date = ? WHERE id = ?", [withdrawalDate || new Date().toISOString().split('T')[0], id]);
+
+            // Decrementar el contador del curso en la tabla levels
+            const enrollment = await db.get("SELECT level_id FROM enrollments WHERE student_id = ? AND academic_year = 2026", [id]);
+            if (enrollment) {
+                await db.run("UPDATE levels SET current_enrolled = current_enrolled - 1 WHERE id = ?", [enrollment.level_id]);
+            }
+        }
 
         // Audit Log
         try {
@@ -80,14 +88,21 @@ export const reincorporateStudent = async (req: Request, res: Response) => {
         console.log(`[reincorporateStudent] Intentando reincorporar ID: ${id}`);
         const user = (req as any).user;
         
-        const student = await db.get("SELECT full_name FROM students WHERE id = ?", [id]);
+        const student = await db.get("SELECT full_name, status FROM students WHERE id = ?", [id]);
         if (!student) {
             console.warn(`[reincorporateStudent] Estudiante no encontrado: ${id}`);
             return res.status(404).json({ error: 'Estudiante no encontrado' });
         }
 
-        const result = await db.run("UPDATE students SET status = 'Active', withdrawal_date = NULL WHERE id = ?", [id]);
-        console.log(`[reincorporateStudent] Resultado del update:`, result);
+        if (student.status === 'RETIRADO') {
+            await db.run("UPDATE students SET status = 'Active', withdrawal_date = NULL WHERE id = ?", [id]);
+
+            // Incrementar el contador del curso en la tabla levels
+            const enrollment = await db.get("SELECT level_id FROM enrollments WHERE student_id = ? AND academic_year = 2026", [id]);
+            if (enrollment) {
+                await db.run("UPDATE levels SET current_enrolled = current_enrolled + 1 WHERE id = ?", [enrollment.level_id]);
+            }
+        }
 
         // Audit Log
         try {
@@ -1120,8 +1135,16 @@ export const changeStudentLevel = async (req: Request, res: Response) => {
         const oldLevelRes = await client.query("SELECT * FROM levels WHERE id = ?", [oldLevelId]);
         const oldLevel = oldLevelRes.rows[0];
         
-        // Verify capacity
-        if (newLevel.current_enrolled >= newLevel.total_capacity) {
+        // Verify capacity based on active enrollments
+        const activeCountRes = await client.query(`
+            SELECT COUNT(*) as count 
+            FROM enrollments e 
+            JOIN students s ON e.student_id = s.id 
+            WHERE e.level_id = ? AND e.academic_year = 2026 AND s.status = 'Active'
+        `, [newLevelId]);
+        const activeCount = parseInt(activeCountRes.rows[0]?.count || '0', 10);
+        
+        if (activeCount >= newLevel.total_capacity) {
             return res.status(400).json({ error: `El curso ${newLevel.name} no tiene cupos disponibles` });
         }
         

@@ -9,10 +9,22 @@ export const registerEnrollment = async (req: Request, res: Response) => {
         
         client = await db.connect();
         
-        // 1. Verificar cupos disponibles (Simulado para SQLite)
+        // 1. Verificar cupos disponibles (basado en estudiantes activos)
         const levelRes = await client.query('SELECT * FROM levels WHERE id = ?', [levelId]);
         const level = levelRes.rows[0];
-        if (!level || level.current_enrolled >= level.total_capacity) {
+        if (!level) {
+            return res.status(404).json({ error: 'Nivel no encontrado' });
+        }
+        
+        const activeCountRes = await client.query(`
+            SELECT COUNT(*) as count 
+            FROM enrollments e 
+            JOIN students s ON e.student_id = s.id 
+            WHERE e.level_id = ? AND e.academic_year = ? AND s.status = 'Active'
+        `, [levelId, academicYear || 2026]);
+        const activeCount = parseInt(activeCountRes.rows[0]?.count || '0', 10);
+
+        if (activeCount >= level.total_capacity) {
             return res.status(400).json({ error: 'No hay cupos disponibles en este nivel' });
         }
         // Función para formatear RUT con guion
