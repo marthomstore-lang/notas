@@ -6,6 +6,42 @@ import { StudentWindow } from '../components/StudentWindow';
 import Swal from 'sweetalert2';
 import './Dashboard.css';
 
+export const formatName = (name: string | undefined | null): string => {
+    if (!name || name === 'No asignado' || name === '________________________') return name || '';
+    
+    // Si contiene minúsculas, asumimos que ya está en formato "Nombre Apellidos"
+    const isAllUppercase = name === name.toUpperCase() && /[A-Z]/.test(name);
+    if (!isAllUppercase) {
+        return name;
+    }
+    
+    const parts = name.trim().split(/\s+/);
+    if (parts.length < 2) return name;
+    
+    let paternal = '';
+    let maternal = '';
+    let firstNames = '';
+    
+    if (parts.length >= 3) {
+        paternal = parts[0];
+        maternal = parts[1];
+        firstNames = parts.slice(2).join(' ');
+    } else if (parts.length === 2) {
+        paternal = parts[0];
+        firstNames = parts[1];
+    }
+    
+    const toCamelCase = (str: string) => {
+        return str.toLowerCase().split(' ').map(word => {
+            if (!word) return '';
+            return word.charAt(0).toUpperCase() + word.slice(1);
+        }).join(' ');
+    };
+    
+    const formattedName = `${firstNames} ${paternal} ${maternal}`.trim().replace(/\s+/g, ' ');
+    return toCamelCase(formattedName);
+};
+
 interface Assignment {
     assignment_id: string;
     level_name: string;
@@ -98,7 +134,7 @@ export const TeacherDashboard = () => {
                             </button>
                         )}
                     </div>
-                    <p>{user?.name}</p>
+                    <p>{formatName(user?.name)}</p>
                 </div>
                 <nav className="sidebar-nav">
                     <button className={activeView === 'courses' ? 'active' : ''} onClick={() => handleNavClick('courses')}><Book size={18} /> Mis Cursos</button>
@@ -195,7 +231,7 @@ export const TeacherDashboard = () => {
                                             {students.map(s => (
                                                 <tr key={s.id} style={s.status === 'RETIRADO' ? { color: '#ef4444', textDecoration: 'line-through', fontWeight: '500' } : {}}>
                                                     <td>{s.run}</td>
-                                                    <td>{s.full_name}</td>
+                                                    <td>{formatName(s.full_name)}</td>
                                                     <td style={{ display: 'flex', gap: '5px' }}>
                                                         <button className="primary-btn" onClick={() => loadObservations(s.id)}>Libro de Vida</button>
                                                         <button className="secondary-btn" title="Ver Expediente" onClick={() => setViewingStudentId(s.id)}>
@@ -238,7 +274,7 @@ export const TeacherDashboard = () => {
                                     {observations.length === 0 ? <p>No hay observaciones.</p> : observations.map(obs => (
                                         <div key={obs.id} style={{ padding: '12px', borderLeft: `4px solid ${obs.type === 'Positive' ? '#10b981' : '#ef4444'}`, background: '#fff', marginBottom: '10px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
                                             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#64748b', marginBottom: '5px' }}>
-                                                <span>{obs.teacher_name}</span>
+                                                <span>{formatName(obs.teacher_name)}</span>
                                                 <span>{new Date(obs.created_at.replace(' ', 'T') + 'Z').toLocaleString()}</span>
                                             </div>
                                             <p style={{ margin: 0 }}>{obs.content}</p>
@@ -300,10 +336,10 @@ export const TeacherDashboard = () => {
                                 });
                             }
                         }}>
-                            <div className="form-group" style={{ marginBottom: '15px' }}>
-                                <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500' }}>Nombre Completo</label>
-                                <input type="text" className="swal2-input" style={{ width: '100%', margin: 0, background: '#f1f5f9' }} value={user?.name} disabled />
-                            </div>
+                             <div className="form-group" style={{ marginBottom: '15px' }}>
+                                 <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500' }}>Nombre Completo</label>
+                                 <input type="text" className="swal2-input" style={{ width: '100%', margin: 0, background: '#f1f5f9' }} value={formatName(user?.name)} disabled />
+                             </div>
                             <div className="form-group" style={{ marginBottom: '15px' }}>
                                 <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500' }}>Correo Electrónico</label>
                                 <input name="email" type="email" className="swal2-input" style={{ width: '100%', margin: 0 }} defaultValue={(user as any)?.email} required />

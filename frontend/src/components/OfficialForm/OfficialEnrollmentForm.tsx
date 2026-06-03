@@ -1,6 +1,43 @@
 import React from 'react';
 import './OfficialForm.css';
 
+export const formatName = (name: string | undefined | null): string => {
+    if (!name || name === 'No asignado' || name === '________________________') return name || '';
+    
+    // Si contiene minúsculas, asumimos que ya está en formato "Nombre Apellidos"
+    const isAllUppercase = name === name.toUpperCase() && /[A-Z]/.test(name);
+    if (!isAllUppercase) {
+        return name;
+    }
+    
+    const parts = name.trim().split(/\s+/);
+    if (parts.length < 2) return name;
+    
+    let paternal = '';
+    let maternal = '';
+    let firstNames = '';
+    
+    if (parts.length >= 3) {
+        paternal = parts[0];
+        maternal = parts[1];
+        firstNames = parts.slice(2).join(' ');
+    } else if (parts.length === 2) {
+        paternal = parts[0];
+        firstNames = parts[1];
+    }
+    
+    const toCamelCase = (str: string) => {
+        return str.toLowerCase().split(' ').map(word => {
+            if (!word) return '';
+            return word.charAt(0).toUpperCase() + word.slice(1);
+        }).join(' ');
+    };
+    
+    const formattedName = `${firstNames} ${paternal} ${maternal}`.trim().replace(/\s+/g, ' ');
+    return toCamelCase(formattedName);
+};
+
+
 interface OfficialEnrollmentFormProps {
     data: any; // Contains { student, guardians, health }
 }
@@ -46,7 +83,7 @@ export const OfficialEnrollmentForm: React.FC<OfficialEnrollmentFormProps> = ({ 
                 <div className="section-title">1. ANTECEDENTES DEL ALUMNO(A)</div>
                 <div className="form-row">
                     <div className="field" style={{ flex: 1 }}><label>RUN</label><div className="value">{s.run}</div></div>
-                    <div className="field" style={{ flex: 3 }}><label>Nombre Completo</label><div className="value">{s.full_name}</div></div>
+                    <div className="field" style={{ flex: 3 }}><label>Nombre Completo</label><div className="value">{formatName(s.full_name)}</div></div>
                     <div className="field" style={{ flex: 1 }}><label>Curso 2026</label><div className="value">{s.level_name}</div></div>
                     <div className="field" style={{ flex: 1 }}><label>Fecha Ingreso</label><div className="value">{formatDate(s.entry_date) || new Date(s.created_at).toLocaleDateString()}</div></div>
                 </div>
@@ -90,7 +127,7 @@ export const OfficialEnrollmentForm: React.FC<OfficialEnrollmentFormProps> = ({ 
                 <div className="section-title">3. DATOS DE APODERADOS</div>
                 <h4 className="subsection-title">Apoderado Titular</h4>
                 <div className="form-row">
-                    <div className="field" style={{ flex: 3 }}><label>Nombre Completo</label><div className="value">{titular.full_name}</div></div>
+                    <div className="field" style={{ flex: 3 }}><label>Nombre Completo</label><div className="value">{formatName(titular.full_name)}</div></div>
                     <div className="field" style={{ flex: 1 }}><label>RUT</label><div className="value">{titular.run}</div></div>
                     <div className="field" style={{ flex: 1 }}><label>Parentesco</label><div className="value">{titular.relationship}</div></div>
                 </div>
@@ -102,7 +139,7 @@ export const OfficialEnrollmentForm: React.FC<OfficialEnrollmentFormProps> = ({ 
                 
                 <h4 className="subsection-title" style={{ marginTop: '20px' }}>Apoderado Suplente</h4>
                 <div className="form-row">
-                    <div className="field" style={{ flex: 3 }}><label>Nombre Completo</label><div className="value">{suplente.full_name}</div></div>
+                    <div className="field" style={{ flex: 3 }}><label>Nombre Completo</label><div className="value">{formatName(suplente.full_name)}</div></div>
                     <div className="field" style={{ flex: 1 }}><label>RUT</label><div className="value">{suplente.run}</div></div>
                 </div>
                 <div className="form-row">
@@ -127,7 +164,7 @@ export const OfficialEnrollmentForm: React.FC<OfficialEnrollmentFormProps> = ({ 
             <section className="compromise-box">
                 <h4>COMPROMISO CON LA NORMATIVA DEL ESTABLECIMIENTO EDUCACIONAL</h4>
                 <p>
-                    Yo, <strong>{titular.full_name}</strong>, RUN: <strong>{titular.run}</strong>, declaro conocer, respetar, cumplir, hacer cumplir y aceptar de forma integra 
+                    Yo, <strong>{formatName(titular.full_name)}</strong>, RUN: <strong>{titular.run}</strong>, declaro conocer, respetar, cumplir, hacer cumplir y aceptar de forma integra 
                     el Proyecto Educativo Institucional, el Reglamento de Convivencia Educativa y el Reglamento de Evaluación y Promoción Escolar del Liceo 
                     CAMPANARIO. AUTORIZO LAS SALIDAS DE MI PUPILO (A) a actividades curriculares y extracurriculares programadas fuera del establecimiento (actos, 
                     ceremonias, salidas pedagógicas, compromisos deportivos, recreativos y culturales, campañas solidarias y otras...) dentro de la comuna.
@@ -138,7 +175,7 @@ export const OfficialEnrollmentForm: React.FC<OfficialEnrollmentFormProps> = ({ 
                 <div className="signature-box">
                     <div className="line"></div>
                     <p>Firma Apoderado Titular</p>
-                    <p className="sub">{titular.full_name}</p>
+                    <p className="sub">{formatName(titular.full_name)}</p>
                     <p className="sub">{titular.run}</p>
                 </div>
                 <div className="signature-box">

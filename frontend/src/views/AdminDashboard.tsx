@@ -12,6 +12,42 @@ import './Dashboard.css';
 
 const MySwal = withReactContent(Swal);
 
+export const formatName = (name: string | undefined | null): string => {
+    if (!name || name === 'No asignado' || name === '________________________') return name || '';
+    
+    // Si contiene minúsculas, asumimos que ya está en formato "Nombre Apellidos"
+    const isAllUppercase = name === name.toUpperCase() && /[A-Z]/.test(name);
+    if (!isAllUppercase) {
+        return name;
+    }
+    
+    const parts = name.trim().split(/\s+/);
+    if (parts.length < 2) return name;
+    
+    let paternal = '';
+    let maternal = '';
+    let firstNames = '';
+    
+    if (parts.length >= 3) {
+        paternal = parts[0];
+        maternal = parts[1];
+        firstNames = parts.slice(2).join(' ');
+    } else if (parts.length === 2) {
+        paternal = parts[0];
+        firstNames = parts[1];
+    }
+    
+    const toCamelCase = (str: string) => {
+        return str.toLowerCase().split(' ').map(word => {
+            if (!word) return '';
+            return word.charAt(0).toUpperCase() + word.slice(1);
+        }).join(' ');
+    };
+    
+    const formattedName = `${firstNames} ${paternal} ${maternal}`.trim().replace(/\s+/g, ' ');
+    return toCamelCase(formattedName);
+};
+
 export const AdminDashboard = () => {
     const { user, logout, token } = useAuth();
     const isVisita = user?.role === 'Visita';
@@ -880,7 +916,7 @@ export const AdminDashboard = () => {
                             </button>
                         )}
                     </div>
-                    <p>{user?.name} {isVisita && <span className="badge warning" style={{ display: 'inline-block', marginLeft: '5px', fontSize: '0.7rem', padding: '2px 6px', background: '#d97706', color: 'white', borderRadius: '4px' }}>Visita</span>}</p>
+                    <p>{formatName(user?.name)} {isVisita && <span className="badge warning" style={{ display: 'inline-block', marginLeft: '5px', fontSize: '0.7rem', padding: '2px 6px', background: '#d97706', color: 'white', borderRadius: '4px' }}>Visita</span>}</p>
                 </div>
                 <nav className="sidebar-nav">
                     <button className={activeTab === 'grades' ? 'active' : ''} onClick={() => handleNavClick('grades')}>
@@ -1006,7 +1042,7 @@ export const AdminDashboard = () => {
                                         onChange={(e) => setAuditFilters({...auditFilters, teacher: e.target.value})}
                                     >
                                         <option value="">Todos los Docentes</option>
-                                        {teachers.map(t => <option key={t.id} value={t.name}>{t.name}</option>)}
+                                        {teachers.map(t => <option key={t.id} value={t.name}>{formatName(t.name)}</option>)}
                                     </select>
                                     <select 
                                         className="swal2-input" 
@@ -1084,7 +1120,7 @@ export const AdminDashboard = () => {
                                             {teachers.map(t => (
                                                 <tr key={t.id}>
                                                     <td>{t.run}</td>
-                                                    <td>{t.name}</td>
+                                                    <td>{formatName(t.name)}</td>
                                                     <td>
                                                         <span className={`badge ${t.role === 'Admin' ? 'admin' : t.role === 'Visita' ? 'visita' : 'docente'}`}>
                                                             {t.role === 'Admin' ? 'Administrador' : t.role === 'Visita' ? 'Visita (Solo Lectura)' : 'Docente'}
@@ -1229,7 +1265,7 @@ export const AdminDashboard = () => {
                                                     <label>Docente:</label>
                                                     <select name="teacherId" required>
                                                         <option value="">Seleccione Docente...</option>
-                                                        {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                                                        {teachers.map(t => <option key={t.id} value={t.id}>{formatName(t.name)}</option>)}
                                                     </select>
                                                 </div>
                                                 <div>
@@ -1278,7 +1314,7 @@ export const AdminDashboard = () => {
                                                     style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.85rem', background: 'white' }}
                                                 >
                                                     <option value="">Todos los Docentes...</option>
-                                                    {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                                                    {teachers.map(t => <option key={t.id} value={t.id}>{formatName(t.name)}</option>)}
                                                 </select>
                                             </div>
                                         </div>
@@ -1296,7 +1332,7 @@ export const AdminDashboard = () => {
                                                     <tr key={a.id}>
                                                         <td>{a.level_name}</td>
                                                         <td>{a.subject_name}</td>
-                                                        <td>{a.teacher_name}</td>
+                                                        <td>{formatName(a.teacher_name)}</td>
                                                         {!isVisita && (
                                                             <td style={{ textAlign: 'center' }}>
                                                                 <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
@@ -1357,7 +1393,7 @@ export const AdminDashboard = () => {
                                                     <label>Profesor Jefe:</label>
                                                     <select name="teacherId" required>
                                                         <option value="">Seleccione Docente...</option>
-                                                        {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                                                        {teachers.map(t => <option key={t.id} value={t.id}>{formatName(t.name)}</option>)}
                                                     </select>
                                                 </div>
                                                 <div style={{ display: 'flex', alignItems: 'flex-end', marginBottom: '0' }}>
@@ -1383,7 +1419,7 @@ export const AdminDashboard = () => {
                                                 <tr key={l.id}>
                                                     <td>{l.name}</td>
                                                     <td style={{ color: l.homeroom_teacher_name ? 'inherit' : '#94a3b8', fontStyle: l.homeroom_teacher_name ? 'normal' : 'italic' }}>
-                                                        {l.homeroom_teacher_name || 'Sin asignar'}
+                                                        {l.homeroom_teacher_name ? formatName(l.homeroom_teacher_name) : 'Sin asignar'}
                                                     </td>
                                                 </tr>
                                             ))}
@@ -1540,7 +1576,7 @@ export const AdminDashboard = () => {
                         }}>
                             <div className="form-group" style={{ marginBottom: '15px' }}>
                                 <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500' }}>Nombre Administrador</label>
-                                <input type="text" className="swal2-input" style={{ width: '100%', margin: 0, background: '#f1f5f9' }} value={user?.name} disabled />
+                                <input type="text" className="swal2-input" style={{ width: '100%', margin: 0, background: '#f1f5f9' }} value={formatName(user?.name)} disabled />
                             </div>
                             <div className="form-group" style={{ marginBottom: '15px' }}>
                                 <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500' }}>Correo Electrónico</label>
@@ -1644,7 +1680,7 @@ export const AdminDashboard = () => {
                                                             />
                                                         </td>
                                                         <td>{s.run}</td>
-                                                        <td>{s.full_name}</td>
+                                                        <td>{formatName(s.full_name)}</td>
                                                         <td>{s.level_name}</td>
                                                         <td>{new Date(s.created_at).toLocaleDateString()}</td>
                                                         <td style={{ display: 'flex', gap: '5px' }}>
@@ -1695,7 +1731,7 @@ export const AdminDashboard = () => {
                 {selectedStudentForObs && (
                     <div className="card" style={{ marginTop: '20px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <h3>Libro de Vida: {selectedStudentForObs.full_name}</h3>
+                            <h3>Libro de Vida: {formatName(selectedStudentForObs.full_name)}</h3>
                             <button onClick={() => setSelectedStudentForObs(null)} className="logout-btn" style={{ width: 'auto', background: '#64748b' }}>Cerrar</button>
                         </div>
                         
@@ -1734,7 +1770,7 @@ export const AdminDashboard = () => {
                                     boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
                                 }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#64748b', marginBottom: '5px' }}>
-                                        <span>{obs.teacher_name}</span>
+                                        <span>{formatName(obs.teacher_name)}</span>
                                         <span>{new Date(obs.created_at).toLocaleString()}</span>
                                     </div>
                                     <p style={{ margin: 0 }}>{obs.content}</p>

@@ -10,6 +10,42 @@ import { useA11y } from '../../context/A11yContext';
 import { StudentWindow } from '../StudentWindow';
 import './GradesSheet.css';
 
+export const formatName = (name: string | undefined | null): string => {
+    if (!name || name === 'No asignado' || name === '________________________') return name || '';
+    
+    // Si contiene minúsculas, asumimos que ya está en formato "Nombre Apellidos"
+    const isAllUppercase = name === name.toUpperCase() && /[A-Z]/.test(name);
+    if (!isAllUppercase) {
+        return name;
+    }
+    
+    const parts = name.trim().split(/\s+/);
+    if (parts.length < 2) return name;
+    
+    let paternal = '';
+    let maternal = '';
+    let firstNames = '';
+    
+    if (parts.length >= 3) {
+        paternal = parts[0];
+        maternal = parts[1];
+        firstNames = parts.slice(2).join(' ');
+    } else if (parts.length === 2) {
+        paternal = parts[0];
+        firstNames = parts[1];
+    }
+    
+    const toCamelCase = (str: string) => {
+        return str.toLowerCase().split(' ').map(word => {
+            if (!word) return '';
+            return word.charAt(0).toUpperCase() + word.slice(1);
+        }).join(' ');
+    };
+    
+    const formattedName = `${firstNames} ${paternal} ${maternal}`.trim().replace(/\s+/g, ' ');
+    return toCamelCase(formattedName);
+};
+
 const MySwal = withReactContent(Swal);
 
 interface Student {
@@ -653,7 +689,7 @@ export const GradesSheet: React.FC<GradesSheetProps> = ({ initialLevelId, initia
                                             onClick={() => setViewingStudentId(s.id)}
                                             title="Ver Expediente"
                                         >
-                                            {s.full_name}
+                                            {formatName(s.full_name)}
                                         </span>
                                         {s.status === 'RETIRADO' && <span className="retired-badge" style={{ textDecoration: 'none', display: 'inline-block', color: '#ef4444', fontWeight: 'bold', fontSize: '0.7rem' }}>ESTUDIANTE RETIRADO</span>}
                                     </div>
@@ -685,7 +721,7 @@ export const GradesSheet: React.FC<GradesSheetProps> = ({ initialLevelId, initia
                                                 e.target.select();
                                                 
                                                 // Narración por radar
-                                                speak(`${c.title} de ${s.full_name}`);
+                                                speak(`${c.title} de ${formatName(s.full_name)}`);
                                             }}
                                             onBlur={() => {
                                                 setFocusedCell(null);
@@ -718,7 +754,7 @@ export const GradesSheet: React.FC<GradesSheetProps> = ({ initialLevelId, initia
                                                 setFocusedCell(key);
                                                 setLocalValue(formatGrade(grades[key]));
                                                 e.target.select();
-                                                speak(`Promedio final de ${s.full_name}`);
+                                                speak(`Promedio final de ${formatName(s.full_name)}`);
                                             }}
                                             onBlur={() => setFocusedCell(null)}
                                             disabled={s.status === 'RETIRADO' || isLocked || isVisita}

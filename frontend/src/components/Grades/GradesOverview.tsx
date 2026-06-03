@@ -7,6 +7,42 @@ import './GradesOverview.css';
 
 const MySwal = withReactContent(Swal);
 
+export const formatName = (name: string | undefined | null): string => {
+    if (!name || name === 'No asignado' || name === '________________________') return name || '';
+    
+    // Si contiene minúsculas, asumimos que ya está en formato "Nombre Apellidos"
+    const isAllUppercase = name === name.toUpperCase() && /[A-Z]/.test(name);
+    if (!isAllUppercase) {
+        return name;
+    }
+    
+    const parts = name.trim().split(/\s+/);
+    if (parts.length < 2) return name;
+    
+    let paternal = '';
+    let maternal = '';
+    let firstNames = '';
+    
+    if (parts.length >= 3) {
+        paternal = parts[0];
+        maternal = parts[1];
+        firstNames = parts.slice(2).join(' ');
+    } else if (parts.length === 2) {
+        paternal = parts[0];
+        firstNames = parts[1];
+    }
+    
+    const toCamelCase = (str: string) => {
+        return str.toLowerCase().split(' ').map(word => {
+            if (!word) return '';
+            return word.charAt(0).toUpperCase() + word.slice(1);
+        }).join(' ');
+    };
+    
+    const formattedName = `${firstNames} ${paternal} ${maternal}`.trim().replace(/\s+/g, ' ');
+    return toCamelCase(formattedName);
+};
+
 export const GradesOverview: React.FC = () => {
     const { token } = useAuth();
     const [levels, setLevels] = useState<any[]>([]);
@@ -253,7 +289,7 @@ export const GradesOverview: React.FC = () => {
                                         {data.students.map((stu: any) => (
                                             <tr key={stu.id} className={stu.gpaNum && stu.gpaNum < 4.0 ? 'danger-row' : ''}>
                                                 <td style={{ textAlign: 'center', color: '#64748b' }}>{stu.listNumber || '-'}</td>
-                                                <td style={{ fontWeight: '600' }}>{stu.name}</td>
+                                                <td style={{ fontWeight: '600' }}>{formatName(stu.name)}</td>
                                                 <td style={{ textAlign: 'center', fontWeight: '700', color: '#166534' }}>{stu.blueCount}</td>
                                                 <td style={{ textAlign: 'center', fontWeight: '700', color: '#991b1b' }}>{stu.redCount}</td>
                                                 <td style={{ textAlign: 'center', fontWeight: '800' }} className={stu.gpa !== '-' && isGpaRed(stu.gpa) ? 'text-red' : 'text-blue'}>
@@ -298,7 +334,7 @@ export const GradesOverview: React.FC = () => {
                                     {data.students.map((stu: any) => (
                                         <tr key={stu.id} className={stu.gpaNum && stu.gpaNum < 4.0 ? 'danger-row' : ''}>
                                             <td style={{ textAlign: 'center', color: '#64748b' }}>{stu.listNumber || '-'}</td>
-                                            <td style={{ fontWeight: '600', textAlign: 'left' }}>{stu.name}</td>
+                                            <td style={{ fontWeight: '600', textAlign: 'left' }}>{formatName(stu.name)}</td>
                                             {data.subjects.map((sub: any) => {
                                                 const gradeVal = stu.subjectAverages?.[sub.id] || '-';
                                                 const isRed = gradeVal !== '-' && (

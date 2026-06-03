@@ -7,6 +7,42 @@ import './StudentWindow.css';
 
 const MySwal = withReactContent(Swal);
 
+export const formatName = (name: string | undefined | null): string => {
+    if (!name || name === 'No asignado' || name === '________________________') return name || '';
+    
+    // Si contiene minúsculas, asumimos que ya está en formato "Nombre Apellidos"
+    const isAllUppercase = name === name.toUpperCase() && /[A-Z]/.test(name);
+    if (!isAllUppercase) {
+        return name;
+    }
+    
+    const parts = name.trim().split(/\s+/);
+    if (parts.length < 2) return name;
+    
+    let paternal = '';
+    let maternal = '';
+    let firstNames = '';
+    
+    if (parts.length >= 3) {
+        paternal = parts[0];
+        maternal = parts[1];
+        firstNames = parts.slice(2).join(' ');
+    } else if (parts.length === 2) {
+        paternal = parts[0];
+        firstNames = parts[1];
+    }
+    
+    const toCamelCase = (str: string) => {
+        return str.toLowerCase().split(' ').map(word => {
+            if (!word) return '';
+            return word.charAt(0).toUpperCase() + word.slice(1);
+        }).join(' ');
+    };
+    
+    const formattedName = `${firstNames} ${paternal} ${maternal}`.trim().replace(/\s+/g, ' ');
+    return toCamelCase(formattedName);
+};
+
 interface StudentWindowProps {
     studentId: string;
     token: string;
@@ -142,7 +178,7 @@ export const StudentWindow: React.FC<StudentWindowProps> = ({ studentId, token, 
     const handleRetireInWindow = async () => {
         const { value: date } = await MySwal.fire({
             title: 'Confirmar Retiro',
-            text: `¿Estás seguro de que deseas retirar a ${student.full_name}? Por favor ingresa la fecha de retiro:`,
+            text: `¿Estás seguro de que deseas retirar a ${formatName(student.full_name)}? Por favor ingresa la fecha de retiro:`,
             input: 'date',
             inputValue: new Date().toISOString().split('T')[0],
             showCancelButton: true,
@@ -338,7 +374,7 @@ export const StudentWindow: React.FC<StudentWindowProps> = ({ studentId, token, 
                             <User size={32} />
                         </div>
                         <div>
-                            <h2>{student.full_name}</h2>
+                            <h2>{formatName(student.full_name)}</h2>
                             <p>{student.run} • {student.level_name || 'Sin curso asignado'}</p>
                         </div>
                     </div>

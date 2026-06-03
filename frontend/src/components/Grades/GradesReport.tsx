@@ -1,6 +1,43 @@
 import React, { Fragment } from 'react';
 import './GradesReport.css';
 
+export const formatName = (name: string | undefined | null): string => {
+    if (!name || name === 'No asignado' || name === '________________________') return name || '';
+    
+    // Si contiene minúsculas, asumimos que ya está en formato "Nombre Apellidos"
+    const isAllUppercase = name === name.toUpperCase() && /[A-Z]/.test(name);
+    if (!isAllUppercase) {
+        return name;
+    }
+    
+    const parts = name.trim().split(/\s+/);
+    if (parts.length < 2) return name;
+    
+    let paternal = '';
+    let maternal = '';
+    let firstNames = '';
+    
+    if (parts.length >= 3) {
+        paternal = parts[0];
+        maternal = parts[1];
+        firstNames = parts.slice(2).join(' ');
+    } else if (parts.length === 2) {
+        paternal = parts[0];
+        firstNames = parts[1];
+    }
+    
+    const toCamelCase = (str: string) => {
+        return str.toLowerCase().split(' ').map(word => {
+            if (!word) return '';
+            return word.charAt(0).toUpperCase() + word.slice(1);
+        }).join(' ');
+    };
+    
+    const formattedName = `${firstNames} ${paternal} ${maternal}`.trim().replace(/\s+/g, ' ');
+    return toCamelCase(formattedName);
+};
+
+
 interface Props {
     data: any[]; 
     period: string;
@@ -124,7 +161,7 @@ export const GradesReport: React.FC<Props> = ({ data, period, year, onClose }) =
                                     <div className="info-grid">
                                         <div className="info-item">
                                             <label>ESTUDIANTE :</label>
-                                            <span className="info-value">{student?.full_name || 'N/A'}</span>
+                                            <span className="info-value">{formatName(student?.full_name) || 'N/A'}</span>
                                         </div>
                                         <div className="info-item">
                                             <label>RUT :</label>
@@ -232,13 +269,13 @@ export const GradesReport: React.FC<Props> = ({ data, period, year, onClose }) =
                                             <p className="name">
                                                 {(!homeroomTeacherName || homeroomTeacherName === 'No asignado') 
                                                     ? '________________________' 
-                                                    : homeroomTeacherName}
+                                                    : formatName(homeroomTeacherName)}
                                             </p>
                                             <p className="title">Profesor(a) Jefe</p>
                                         </div>
                                         <div className="signature-box">
                                             <div className="line"></div>
-                                            <p className="name">{directorName || '________________________'}</p>
+                                            <p className="name">{formatName(directorName) || '________________________'}</p>
                                             <p className="title">Director(a)</p>
                                         </div>
                                     </div>
