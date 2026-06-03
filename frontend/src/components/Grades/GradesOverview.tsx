@@ -132,7 +132,7 @@ export const GradesOverview: React.FC = () => {
             <div className="print-only-header">
                 <h2>Liceo Pro - Panorama General de Calificaciones</h2>
                 <div className="print-header-meta">
-                    <span><strong>Curso:</strong> {levels.find(l => String(l.id) === String(filters.levelId))?.name || 'Cargando...'}</span>
+                    <span><strong>Curso:</strong> {filters.levelId === 'all' ? 'TODOS' : (levels.find(l => String(l.id) === String(filters.levelId))?.name || 'Cargando...')}</span>
                     <span><strong>Período:</strong> {filters.period}</span>
                     <span><strong>Año:</strong> {filters.year}</span>
                     <span><strong>Fecha:</strong> {new Date().toLocaleDateString('es-CL')}</span>
@@ -152,10 +152,11 @@ export const GradesOverview: React.FC = () => {
                         </div>
                         <div className="filter-item">
                             <label>Curso:</label>
-                            <select value={filters.levelId} onChange={e => setFilters({...filters, levelId: e.target.value})}>
-                                <option value="">Seleccione Curso</option>
-                                {levels.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
-                            </select>
+                             <select value={filters.levelId} onChange={e => setFilters({...filters, levelId: e.target.value})}>
+                                 <option value="">Seleccione Curso</option>
+                                 <option value="all">TODOS</option>
+                                 {levels.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                             </select>
                         </div>
                         <div className="filter-item">
                             <label>Período:</label>

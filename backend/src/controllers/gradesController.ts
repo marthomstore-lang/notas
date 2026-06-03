@@ -376,37 +376,68 @@ export const getGradesOverview = async (req: Request, res: Response) => {
     }
 
     try {
-        const levelIdNum = levelId ? parseInt(String(levelId), 10) : 0;
+        const isAll = levelId === 'all';
+        const levelIdNum = levelId && !isAll ? parseInt(String(levelId), 10) : 0;
         const yearNum = year ? parseInt(String(year), 10) : 0;
         const periodStr = String(period || '');
 
-        if (!levelIdNum || !yearNum || !periodStr) {
+        if ((!isAll && !levelIdNum) || !yearNum || !periodStr) {
             return res.status(400).json({ error: 'Faltan parámetros requeridos: levelId, period, year' });
         }
 
-        // 1. Get all active students in the course (level)
-        const students = await db.all(`
-            SELECT s.id, s.full_name, s.run, e.list_number
-            FROM students s
-            JOIN enrollments e ON s.id = e.student_id
-            WHERE e.level_id = ? AND e.academic_year = ? AND s.status = 'Active'
-            ORDER BY e.list_number ASC, s.full_name ASC
-        `, [levelIdNum, yearNum]);
+        // 1. Get all active students in the course or whole school
+        let students;
+        if (isAll) {
+            students = await db.all(`
+                SELECT s.id, s.full_name, s.run, e.list_number, e.level_id
+                FROM students s
+                JOIN enrollments e ON s.id = e.student_id
+                WHERE e.academic_year = ? AND s.status = 'Active'
+                ORDER BY e.level_id ASC, e.list_number ASC, s.full_name ASC
+            `, [yearNum]);
+        } else {
+            students = await db.all(`
+                SELECT s.id, s.full_name, s.run, e.list_number, e.level_id
+                FROM students s
+                JOIN enrollments e ON s.id = e.student_id
+                WHERE e.level_id = ? AND e.academic_year = ? AND s.status = 'Active'
+                ORDER BY e.list_number ASC, s.full_name ASC
+            `, [levelIdNum, yearNum]);
+        }
 
-        // 2. Get all subjects assigned to that level
-        const subjects = await db.all(`
-            SELECT DISTINCT sub.id, sub.name
-            FROM teacher_assignments ta
-            JOIN subjects sub ON ta.subject_id = sub.id
-            WHERE ta.level_id = ? AND ta.academic_year = ?
-        `, [levelIdNum, yearNum]);
+        // 2. Get all subjects assigned to that level or whole school
+        let subjects;
+        if (isAll) {
+            subjects = await db.all(`
+                SELECT DISTINCT sub.id, sub.name
+                FROM teacher_assignments ta
+                JOIN subjects sub ON ta.subject_id = sub.id
+                WHERE ta.academic_year = ?
+            `, [yearNum]);
+        } else {
+            subjects = await db.all(`
+                SELECT DISTINCT sub.id, sub.name
+                FROM teacher_assignments ta
+                JOIN subjects sub ON ta.subject_id = sub.id
+                WHERE ta.level_id = ? AND ta.academic_year = ?
+            `, [levelIdNum, yearNum]);
+        }
 
         // 3. Get all grade columns for this level, period and year
-        const columns = await db.all(`
-            SELECT id, subject_id, position, weighting
-            FROM grade_columns
-            WHERE level_id = ? AND academic_year = ? AND period = ?
-        `, [levelIdNum, yearNum, periodStr]);
+        let columns;
+        if (isAll) {
+            columns = await db.all(`
+                SELECT id, subject_id, position, weighting, level_id
+                FROM grade_columns
+                WHERE academic_year = ? AND period = ?
+            `, [yearNum, periodStr]);
+        } else {
+            columns = await db.all(`
+                SELECT id, subject_id, position, weighting, level_id
+                FROM grade_columns
+                WHERE level_id = ? AND academic_year = ? AND period = ?
+            `, [levelIdNum, yearNum, periodStr]);
+        }
 
         // 4. Get all grades for these students and columns
         let grades: any[] = [];
@@ -414,18 +445,33 @@ export const getGradesOverview = async (req: Request, res: Response) => {
         const columnIds = columns.map(c => c.id);
 
         if (studentIds.length > 0 && columnIds.length > 0) {
-            grades = await db.all(`
-                SELECT student_id, grade_column_id, grade_value
-                FROM grades
-                WHERE student_id IN (
-                    SELECT student_id FROM enrollments 
-                    WHERE level_id = ? AND academic_year = ? AND status = 'Active'
-                )
-                AND grade_column_id IN (
-                    SELECT id FROM grade_columns 
-                    WHERE level_id = ? AND academic_year = ? AND period = ?
-                )
-            `, [levelIdNum, yearNum, levelIdNum, yearNum, periodStr]);
+            if (isAll) {
+                grades = await db.all(`
+                    SELECT student_id, grade_column_id, grade_value
+                    FROM grades
+                    WHERE student_id IN (
+                        SELECT student_id FROM enrollments 
+                        WHERE academic_year = ? AND status = 'Active'
+                    )
+                    AND grade_column_id IN (
+                        SELECT id FROM grade_columns 
+                        WHERE academic_year = ? AND period = ?
+                    )
+                `, [yearNum, yearNum, periodStr]);
+            } else {
+                grades = await db.all(`
+                    SELECT student_id, grade_column_id, grade_value
+                    FROM grades
+                    WHERE student_id IN (
+                        SELECT student_id FROM enrollments 
+                        WHERE level_id = ? AND academic_year = ? AND status = 'Active'
+                    )
+                    AND grade_column_id IN (
+                        SELECT id FROM grade_columns 
+                        WHERE level_id = ? AND academic_year = ? AND period = ?
+                    )
+                `, [levelIdNum, yearNum, levelIdNum, yearNum, periodStr]);
+            }
         }
 
         const isQualitativeSubject = (name: string): boolean => {
@@ -455,8 +501,10 @@ export const getGradesOverview = async (req: Request, res: Response) => {
                 const stuGrades = subGrades.filter(g => String(g.student_id) === String(stu.id));
                 if (stuGrades.length === 0) continue;
 
+                const studentSubCols = subCols.filter(c => String(c.level_id) === String(stu.level_id));
+
                 if (isQual) {
-                    const avgCol = subCols.find(c => c.position === 11);
+                    const avgCol = studentSubCols.find(c => c.position === 11);
                     const avgGrade = avgCol ? stuGrades.find(g => String(g.grade_column_id) === String(avgCol.id)) : null;
                     if (avgGrade) {
                         const val = parseFloat(avgGrade.grade_value);
@@ -471,7 +519,7 @@ export const getGradesOverview = async (req: Request, res: Response) => {
                     let stuSimpleSum = 0;
                     let stuSimpleCount = 0;
 
-                    subCols.filter(c => c.position <= 10).forEach(col => {
+                    studentSubCols.filter(c => c.position <= 10).forEach(col => {
                         const g = stuGrades.find(g => String(g.grade_column_id) === String(col.id));
                         if (g) {
                             const gradeVal = parseFloat(g.grade_value) || 0;
@@ -538,7 +586,7 @@ export const getGradesOverview = async (req: Request, res: Response) => {
                 subjectAverages[String(sub.id)] = '-';
 
                 const isQual = isQualitativeSubject(sub.name);
-                const subCols = columns.filter(c => String(c.subject_id) === String(sub.id));
+                const subCols = columns.filter(c => String(c.subject_id) === String(sub.id) && String(c.level_id) === String(stu.level_id));
                 const subColIds = subCols.map(c => String(c.id));
 
                 const stuGradesForSub = grades.filter(g => String(g.student_id) === String(stu.id) && subColIds.includes(String(g.grade_column_id)));
@@ -573,8 +621,8 @@ export const getGradesOverview = async (req: Request, res: Response) => {
                 } else {
                     let stuSum = 0;
                     let stuTotalWeight = 0;
-                    let stuSimpleSum = 0;
-                    let stuSimpleCount = 0;
+                    let stuSimpleSimpleSum = 0;
+                    let stuSimpleSimpleCount = 0;
 
                     subCols.filter(c => c.position <= 10).forEach(col => {
                         const g = stuGradesForSub.find(g => String(g.grade_column_id) === String(col.id));
@@ -583,15 +631,15 @@ export const getGradesOverview = async (req: Request, res: Response) => {
                             const colWeight = parseFloat(col.weighting) || 0;
                             stuSum += gradeVal * colWeight;
                             stuTotalWeight += colWeight;
-                            stuSimpleSum += gradeVal;
-                            stuSimpleCount++;
+                            stuSimpleSimpleSum += gradeVal;
+                            stuSimpleSimpleCount++;
                         }
                     });
 
                     if (stuTotalWeight > 0) {
                         subAvg = stuSum / stuTotalWeight;
-                    } else if (stuSimpleCount > 0) {
-                        subAvg = stuSimpleSum / stuSimpleCount;
+                    } else if (stuSimpleSimpleCount > 0) {
+                        subAvg = stuSimpleSimpleSum / stuSimpleSimpleCount;
                     }
                 }
 
