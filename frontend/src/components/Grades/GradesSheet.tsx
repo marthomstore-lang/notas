@@ -684,7 +684,7 @@ export const GradesSheet: React.FC<GradesSheetProps> = ({ initialLevelId, initia
                                         disabled={s.status === 'RETIRADO' || isVisita}
                                     />
                                 </td>
-                                <td className="student-name-col">
+                                <td className="student-name-col" title={s.status === 'RETIRADO' ? "Estudiante retirado" : undefined}>
                                     <div style={{ display: 'flex', flexDirection: 'column' }}>
                                         <span 
                                             style={{ 
@@ -694,7 +694,7 @@ export const GradesSheet: React.FC<GradesSheetProps> = ({ initialLevelId, initia
                                                 textDecoration: s.status === 'RETIRADO' ? 'line-through' : 'none'
                                             }}
                                             onClick={() => setViewingStudentId(s.id)}
-                                            title="Ver Expediente"
+                                            title={s.status === 'RETIRADO' ? "Estudiante retirado" : "Ver Expediente"}
                                         >
                                             {formatName(s.full_name)}
                                         </span>

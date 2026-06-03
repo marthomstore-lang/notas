@@ -1687,7 +1687,7 @@ export const AdminDashboard = () => {
                                                             />
                                                         </td>
                                                         <td>{s.run}</td>
-                                                        <td>{formatName(s.full_name)}</td>
+                                                        <td title={s.status === 'RETIRADO' ? "Estudiante retirado" : undefined}>{formatName(s.full_name)}</td>
                                                         <td>{s.level_name}</td>
                                                         <td>{new Date(s.created_at).toLocaleDateString()}</td>
                                                         <td style={{ display: 'flex', gap: '5px' }}>

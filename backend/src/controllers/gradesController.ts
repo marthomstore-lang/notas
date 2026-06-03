@@ -30,7 +30,7 @@ export const getGradesSheet = async (req: Request, res: Response) => {
 
         // 1. Get Students in the level (Include Active and Retired)
         const students = await db.all(`
-            SELECT s.id, s.full_name, s.run, e.status, e.list_number
+            SELECT s.id, s.full_name, s.run, s.status, e.list_number
             FROM students s
             JOIN enrollments e ON s.id = e.student_id
             WHERE e.level_id = ? AND e.academic_year = ?

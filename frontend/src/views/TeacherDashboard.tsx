@@ -231,7 +231,7 @@ export const TeacherDashboard = () => {
                                             {students.map(s => (
                                                 <tr key={s.id} style={s.status === 'RETIRADO' ? { color: '#ef4444', textDecoration: 'line-through', fontWeight: '500' } : {}}>
                                                     <td>{s.run}</td>
-                                                    <td>{formatName(s.full_name)}</td>
+                                                    <td title={s.status === 'RETIRADO' ? "Estudiante retirado" : undefined}>{formatName(s.full_name)}</td>
                                                     <td style={{ display: 'flex', gap: '5px' }}>
                                                         <button className="primary-btn" onClick={() => loadObservations(s.id)}>Libro de Vida</button>
                                                         <button className="secondary-btn" title="Ver Expediente" onClick={() => setViewingStudentId(s.id)}>

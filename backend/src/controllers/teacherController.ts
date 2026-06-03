@@ -37,7 +37,7 @@ export const getGrades = async (req: Request, res: Response) => {
 
         // 2. Obtener estudiantes matriculados en ese nivel
         const studentsRes = await client.query(`
-            SELECT s.id, s.run, s.full_name, e.list_number
+            SELECT s.id, s.run, s.full_name, e.list_number, s.status
             FROM enrollments e
             JOIN students s ON e.student_id = s.id
             WHERE e.level_id = ? AND e.academic_year = ?
