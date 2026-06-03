@@ -34,7 +34,7 @@ export const getGradesSheet = async (req: Request, res: Response) => {
             FROM students s
             JOIN enrollments e ON s.id = e.student_id
             WHERE e.level_id = ? AND e.academic_year = ?
-            ORDER BY e.list_number ASC
+            ORDER BY COALESCE(e.list_number, 999999) ASC, s.full_name ASC
         `, [levelIdNum, yearNum]);
 
         // 2. Get Grade Columns settings
@@ -393,7 +393,7 @@ export const getGradesOverview = async (req: Request, res: Response) => {
                 FROM students s
                 JOIN enrollments e ON s.id = e.student_id
                 WHERE e.academic_year = ? AND s.status = 'Active'
-                ORDER BY e.level_id ASC, e.list_number ASC, s.full_name ASC
+                ORDER BY e.level_id ASC, COALESCE(e.list_number, 999999) ASC, s.full_name ASC
             `, [yearNum]);
         } else {
             students = await db.all(`
@@ -401,7 +401,7 @@ export const getGradesOverview = async (req: Request, res: Response) => {
                 FROM students s
                 JOIN enrollments e ON s.id = e.student_id
                 WHERE e.level_id = ? AND e.academic_year = ? AND s.status = 'Active'
-                ORDER BY e.list_number ASC, s.full_name ASC
+                ORDER BY COALESCE(e.list_number, 999999) ASC, s.full_name ASC
             `, [levelIdNum, yearNum]);
         }
 

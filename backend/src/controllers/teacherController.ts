@@ -41,7 +41,7 @@ export const getGrades = async (req: Request, res: Response) => {
             FROM enrollments e
             JOIN students s ON e.student_id = s.id
             WHERE e.level_id = ? AND e.academic_year = ?
-            ORDER BY e.list_number ASC
+            ORDER BY COALESCE(e.list_number, 999999) ASC, s.full_name ASC
         `, [assignment.level_id, assignment.academic_year]);
 
         // 3. Obtener columnas de evaluación

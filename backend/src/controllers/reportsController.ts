@@ -236,7 +236,7 @@ export const getLevelGradesReport = async (req: Request, res: Response) => {
             JOIN students s ON e.student_id = s.id
             WHERE e.level_id = ? AND e.academic_year = ? 
             AND s.status = 'Active'
-            ORDER BY e.list_number ASC
+            ORDER BY COALESCE(e.list_number, 999999) ASC, s.full_name ASC
         `, [levelId, yearStr]);
 
         const reports = [];

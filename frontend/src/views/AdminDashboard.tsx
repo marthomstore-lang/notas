@@ -1667,7 +1667,14 @@ export const AdminDashboard = () => {
                                             <tbody>
                                                 {students
                                                     .filter(s => s.level_name === selectedLevelFilter)
-                                                    .sort((a, b) => (a.list_number || 999) - (b.list_number || 999))
+                                                    .sort((a, b) => {
+                                                        const listA = a.list_number ?? 999999;
+                                                        const listB = b.list_number ?? 999999;
+                                                        if (listA !== listB) {
+                                                            return listA - listB;
+                                                        }
+                                                        return a.full_name.localeCompare(b.full_name, 'es', { sensitivity: 'base' });
+                                                    })
                                                     .map((s) => (
                                                     <tr key={s.id} style={s.status === 'RETIRADO' ? { color: '#ef4444', textDecoration: 'line-through', fontWeight: '500' } : {}}>
                                                         <td>

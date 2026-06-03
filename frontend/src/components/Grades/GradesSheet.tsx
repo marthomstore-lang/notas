@@ -666,7 +666,14 @@ export const GradesSheet: React.FC<GradesSheetProps> = ({ initialLevelId, initia
                         </tr>
                     </thead>
                     <tbody>
-                        {[...students].sort((a, b) => a.list_number - b.list_number).map((s, idx) => (
+                        {[...students].sort((a, b) => {
+                            const listA = a.list_number ?? 999999;
+                            const listB = b.list_number ?? 999999;
+                            if (listA !== listB) {
+                                return listA - listB;
+                            }
+                            return a.full_name.localeCompare(b.full_name, 'es', { sensitivity: 'base' });
+                        }).map((s, idx) => (
                             <tr key={s.id} style={s.status === 'RETIRADO' ? { color: '#dc2626', textDecoration: 'line-through', textDecorationColor: '#000' } : {}}>
                                 <td style={{ textAlign: 'center' }}>
                                     <input 

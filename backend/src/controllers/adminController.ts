@@ -13,7 +13,7 @@ export const getStudents = async (req: Request, res: Response) => {
             FROM students s 
             LEFT JOIN enrollments e ON s.id = e.student_id 
             LEFT JOIN levels l ON e.level_id = l.id
-            ORDER BY l.name, e.list_number, s.full_name
+            ORDER BY l.name ASC, COALESCE(e.list_number, 999999) ASC, s.full_name ASC
         `);
         res.json(result.rows);
     } catch (error) {
@@ -721,7 +721,7 @@ export const exportData = async (req: Request, res: Response) => {
             LEFT JOIN levels l ON e.level_id = l.id
             LEFT JOIN health_records hr ON s.id = hr.student_id
             WHERE s.status = 'Active'
-            ORDER BY l.name, s.full_name
+            ORDER BY l.name ASC, COALESCE(e.list_number, 999999) ASC, s.full_name ASC
         `);
 
         if (!result.rows || result.rows.length === 0) {
