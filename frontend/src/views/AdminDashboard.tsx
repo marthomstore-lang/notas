@@ -4,6 +4,7 @@ import { LogOut, Plus, Users, BookOpen, GraduationCap, Menu, X, Printer, User, U
 import { EnrollmentForm } from '../components/OfficialForm/EnrollmentForm';
 import { OfficialEnrollmentForm } from '../components/OfficialForm/OfficialEnrollmentForm';
 import { StudentWindow } from '../components/StudentWindow';
+import { ReorderStudentsModal } from '../components/ReorderStudentsModal';
 import { GradesSheet } from '../components/Grades/GradesSheet';
 import { GradesOverview } from '../components/Grades/GradesOverview';
 import Swal from 'sweetalert2';
@@ -66,6 +67,7 @@ export const AdminDashboard = () => {
     const [observations, setObservations] = useState<any[]>([]);
     const [newObs, setNewObs] = useState({ content: '', type: 'Positive' });
     const [viewingStudentId, setViewingStudentId] = useState<string | null>(null);
+    const [showReorderModal, setShowReorderModal] = useState(false);
     const [selectedLevelFilter, setSelectedLevelFilter] = useState<string>(() => {
         return localStorage.getItem('adminStudentLevelFilter') || '';
     });
@@ -255,15 +257,25 @@ export const AdminDashboard = () => {
         setStudents(students.map(s => s.id === studentId ? { ...s, list_number: num } : s));
 
         try {
-            await fetch('/_/backend/api/admin/grades/update-position', {
+            const lvl = levels.find(l => l.name === selectedLevelFilter);
+            if (!lvl) return;
+
+            await fetch('/_/backend/api/admin/grades/student-position', {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ studentId, listNumber: num })
+                body: JSON.stringify({ 
+                    studentId, 
+                    levelId: lvl.id, 
+                    academicYear: 2026, 
+                    newListNumber: num 
+                })
             });
         } catch (error) {
             console.error("Error updating list number:", error);
         }
     };
+
+
 
     useEffect(() => {
         fetchData();
@@ -1616,16 +1628,27 @@ export const AdminDashboard = () => {
                             {showEnrollmentForm ? (
                                 <EnrollmentForm levels={levels} onSubmit={handleEnrollSubmit} onCancel={() => setShowEnrollmentForm(false)} />
                             ) : (
-                                <div style={{ marginBottom: '20px' }}>
-                                    <label style={{ fontWeight: 'bold', marginRight: '10px' }}>Filtrar por Curso:</label>
-                                    <select 
-                                        value={selectedLevelFilter} 
-                                        onChange={(e) => setSelectedLevelFilter(e.target.value)}
-                                        style={{ padding: '8px', borderRadius: '4px', border: '1px solid #cbd5e1' }}
-                                    >
-                                        <option value="">Seleccione un curso...</option>
-                                        {levels.map(l => <option key={l.id} value={l.name}>{l.name}</option>)}
-                                    </select>
+                                <div style={{ marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center' }}>
+                                        <label style={{ fontWeight: 'bold', marginRight: '10px' }}>Filtrar por Curso:</label>
+                                        <select 
+                                            value={selectedLevelFilter} 
+                                            onChange={(e) => setSelectedLevelFilter(e.target.value)}
+                                            style={{ padding: '8px', borderRadius: '4px', border: '1px solid #cbd5e1' }}
+                                        >
+                                            <option value="">Seleccione un curso...</option>
+                                            {levels.map(l => <option key={l.id} value={l.name}>{l.name}</option>)}
+                                        </select>
+                                    </div>
+                                    {selectedLevelFilter !== '' && !isVisita && (
+                                        <button 
+                                            className="primary-btn" 
+                                            style={{ background: '#0284c7', display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 16px', fontSize: '0.9rem', boxShadow: '0 4px 6px -1px rgba(2, 132, 199, 0.2)' }}
+                                            onClick={() => setShowReorderModal(true)}
+                                        >
+                                            <ListOrdered size={18} /> Ordenar Alumnos
+                                        </button>
+                                    )}
                                 </div>
                             )}
                         </div>
@@ -1709,6 +1732,18 @@ export const AdminDashboard = () => {
                         token={token || ''} 
                         onClose={() => { setViewingStudentId(null); fetchData(); }} 
                         onPrint={handlePrintOfficial}
+                    />
+                )}
+
+                {showReorderModal && selectedLevelFilter && (
+                    <ReorderStudentsModal
+                        isOpen={showReorderModal}
+                        onClose={() => setShowReorderModal(false)}
+                        levelName={selectedLevelFilter}
+                        levelId={String(levels.find(l => l.name === selectedLevelFilter)?.id || '')}
+                        students={students.filter(s => s.level_name === selectedLevelFilter)}
+                        token={token || ''}
+                        onSaveSuccess={fetchData}
                     />
                 )}
 
