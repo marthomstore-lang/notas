@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { 
-    FileText, Save, Printer, Lock, Unlock, Edit2
+    FileText, Save, Printer, Lock, Unlock, Edit2, ListOrdered
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import Swal from 'sweetalert2';
@@ -8,6 +8,7 @@ import withReactContent from 'sweetalert2-react-content';
 import { GradesReport } from './GradesReport';
 import { useA11y } from '../../context/A11yContext';
 import { StudentWindow } from '../StudentWindow';
+import { ReorderStudentsModal } from '../ReorderStudentsModal';
 import './GradesSheet.css';
 
 export const formatName = (name: string | undefined | null): string => {
@@ -94,6 +95,7 @@ export const GradesSheet: React.FC<GradesSheetProps> = ({ initialLevelId, initia
     const [localValue, setLocalValue] = useState<string>('');
     const [isLocked, setIsLocked] = useState(false);
     const [viewingStudentId, setViewingStudentId] = useState<string | null>(null);
+    const [showReorderModal, setShowReorderModal] = useState(false);
 
     // Autosave logic
     useEffect(() => {
@@ -553,6 +555,16 @@ export const GradesSheet: React.FC<GradesSheetProps> = ({ initialLevelId, initia
                     >
                         Recargar
                     </button>
+                    {!isVisita && filters.levelId && (
+                        <button 
+                            className="secondary-btn" 
+                            onClick={() => setShowReorderModal(true)} 
+                            title="Ordenar Alumnos del Curso"
+                            style={{ marginRight: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}
+                        >
+                            <ListOrdered size={18} /> Ordenar Alumnos
+                        </button>
+                    )}
                     <button className="save-btn" onClick={saveAll} title="Guardar Manualmente" disabled={isVisita || (isLocked && (user as any).role !== 'Admin')}><Save size={20} /></button>
                     <button className="secondary-btn" onClick={handlePrintCourse} title="Generar informes de todo el curso">
                         <FileText size={18} /> Informes/Certificados
@@ -770,6 +782,18 @@ export const GradesSheet: React.FC<GradesSheetProps> = ({ initialLevelId, initia
                     token={token || ''} 
                     onClose={() => setViewingStudentId(null)} 
                     onPrint={() => {}} 
+                />
+            )}
+
+            {showReorderModal && (
+                <ReorderStudentsModal
+                    isOpen={showReorderModal}
+                    onClose={() => setShowReorderModal(false)}
+                    levelId={filters.levelId}
+                    levelName={options.levels.find(l => String(l.id) === String(filters.levelId))?.name || ''}
+                    students={students}
+                    token={token || ''}
+                    onSaveSuccess={fetchSheet}
                 />
             )}
         </div>

@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { LogOut, Book, Calendar, Menu, X, ClipboardCheck, User, LayoutGrid, LayoutList } from 'lucide-react';
+import { LogOut, Book, Calendar, Menu, X, ClipboardCheck, User, LayoutGrid, LayoutList, ListOrdered } from 'lucide-react';
 import { StudentWindow } from '../components/StudentWindow';
+import { ReorderStudentsModal } from '../components/ReorderStudentsModal';
 import Swal from 'sweetalert2';
 import './Dashboard.css';
 
@@ -21,6 +22,7 @@ export const formatName = (name: string | undefined | null): string => {
 
 interface Assignment {
     assignment_id: string;
+    level_id: string;
     level_name: string;
     subject_name: string;
     academic_year: number;
@@ -52,6 +54,7 @@ export const TeacherDashboard = () => {
     const [observations, setObservations] = useState<any[]>([]);
     const [newObs, setNewObs] = useState({ content: '', type: 'Positive' });
     const [viewingStudentId, setViewingStudentId] = useState<string | null>(null);
+    const [showReorderModal, setShowReorderModal] = useState(false);
 
     useEffect(() => {
         if (token) {
@@ -97,6 +100,8 @@ export const TeacherDashboard = () => {
             setNewObs({ content: '', type: 'Positive' });
         }
     };
+
+    const currentAssignment = assignments.find(a => String(a.assignment_id) === String(selectedLevelId));
 
     return (
         <div className="dashboard-layout">
@@ -198,14 +203,30 @@ export const TeacherDashboard = () => {
                         ) : !selectedStudentId ? (
                             <div className="card card-split-layout">
                                 <div className="card-split-header">
-                                    <button onClick={() => setSelectedLevelId(null)} className="logout-btn" style={{ width: 'auto', background: '#64748b', marginBottom: '20px' }}>Volver a Cursos</button>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
+                                        <button onClick={() => setSelectedLevelId(null)} className="logout-btn" style={{ width: 'auto', background: '#64748b', margin: 0 }}>Volver a Cursos</button>
+                                        {currentAssignment && (
+                                            <button 
+                                                onClick={() => setShowReorderModal(true)} 
+                                                className="secondary-btn" 
+                                                style={{ display: 'flex', alignItems: 'center', gap: '6px', width: 'auto' }}
+                                            >
+                                                <ListOrdered size={18} /> Ordenar Alumnos
+                                            </button>
+                                        )}
+                                    </div>
                                     <h3 style={{ margin: 0, marginBottom: '10px' }}>Seleccione un estudiante</h3>
                                 </div>
                                 <div className="card-split-content">
                                     <table className="data-table">
                                         <thead><tr><th>RUN</th><th>Nombre Alumno</th><th>Acción</th></tr></thead>
                                         <tbody>
-                                            {students.map(s => (
+                                            {[...students].sort((a, b) => {
+                                                const listA = a.list_number ?? 999999;
+                                                const listB = b.list_number ?? 999999;
+                                                if (listA !== listB) return listA - listB;
+                                                return a.full_name.localeCompare(b.full_name, 'es', { sensitivity: 'base' });
+                                            }).map(s => (
                                                 <tr key={s.id} style={s.status === 'RETIRADO' ? { color: '#ef4444', textDecoration: 'line-through', fontWeight: '500' } : {}}>
                                                     <td>{s.run}</td>
                                                     <td title={s.status === 'RETIRADO' ? "Estudiante retirado" : undefined}>{formatName(s.full_name)}</td>
@@ -344,6 +365,20 @@ export const TeacherDashboard = () => {
                     token={token || ''} 
                     onClose={() => setViewingStudentId(null)} 
                     onPrint={() => {}} 
+                />
+            )}
+
+            {showReorderModal && currentAssignment && (
+                <ReorderStudentsModal
+                    isOpen={showReorderModal}
+                    onClose={() => setShowReorderModal(false)}
+                    levelId={currentAssignment.level_id}
+                    levelName={currentAssignment.level_name}
+                    students={students}
+                    token={token || ''}
+                    onSaveSuccess={() => {
+                        loadStudentsForObs(selectedLevelId as any);
+                    }}
                 />
             )}
         </div>
