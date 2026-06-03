@@ -45,6 +45,7 @@ export const formatName = (name: string | undefined | null): string => {
 
 export const GradesOverview: React.FC = () => {
     const { token } = useAuth();
+    const [showOnlyFailing, setShowOnlyFailing] = useState(false);
     const [levels, setLevels] = useState<any[]>([]);
     
     const [filters, setFilters] = useState(() => {
@@ -126,6 +127,12 @@ export const GradesOverview: React.FC = () => {
         return !isNaN(val) && val < 4.0;
     };
 
+    const displayedStudents = data && data.students ? (
+        showOnlyFailing 
+            ? data.students.filter((stu: any) => stu.gpaNum !== null && stu.gpaNum !== undefined && stu.gpaNum < 4.0) 
+            : data.students
+    ) : [];
+
     return (
         <div className="overview-container">
             {/* Print-Only Header */}
@@ -164,6 +171,18 @@ export const GradesOverview: React.FC = () => {
                                 <option value="1er Semestre">1er Semestre</option>
                                 <option value="2do Semestre">2do Semestre</option>
                             </select>
+                        </div>
+                        <div className="filter-item" style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                            <input 
+                                type="checkbox" 
+                                id="only-red-gpas"
+                                checked={showOnlyFailing} 
+                                onChange={e => setShowOnlyFailing(e.target.checked)}
+                                style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                            />
+                            <label htmlFor="only-red-gpas" style={{ margin: 0, fontWeight: 'bold', color: '#dc2626', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                <AlertTriangle size={16} /> Solo Promedios Rojos (&lt; 4,0)
+                            </label>
                         </div>
                     </div>
                     <div style={{ display: 'flex', gap: '10px' }}>
@@ -221,7 +240,18 @@ export const GradesOverview: React.FC = () => {
                             </div>
                         </div>
 
-                        <div className="kpi-card risk-kpi">
+                        <div 
+                            className={`kpi-card risk-kpi ${showOnlyFailing ? 'active' : ''}`}
+                            onClick={() => setShowOnlyFailing(!showOnlyFailing)}
+                            style={{ 
+                                cursor: 'pointer', 
+                                border: showOnlyFailing ? '2px solid #ef4444' : '2px solid transparent',
+                                boxShadow: showOnlyFailing ? '0 0 10px rgba(239, 68, 68, 0.4)' : 'none',
+                                transform: showOnlyFailing ? 'scale(1.02)' : 'none',
+                                transition: 'all 0.2s ease-in-out'
+                            }}
+                            title="Haz clic para filtrar solo estudiantes con promedio rojo"
+                        >
                             <div className="kpi-icon-wrapper">
                                 <AlertTriangle size={24} />
                             </div>
@@ -287,7 +317,7 @@ export const GradesOverview: React.FC = () => {
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {data.students.map((stu: any) => (
+                                        {displayedStudents.map((stu: any) => (
                                             <tr key={stu.id} className={stu.gpaNum && stu.gpaNum < 4.0 ? 'danger-row' : ''}>
                                                 <td style={{ textAlign: 'center', color: '#64748b' }}>{stu.listNumber || '-'}</td>
                                                 <td style={{ fontWeight: '600' }}>{formatName(stu.name)}</td>
@@ -332,7 +362,7 @@ export const GradesOverview: React.FC = () => {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {data.students.map((stu: any) => (
+                                    {displayedStudents.map((stu: any) => (
                                         <tr key={stu.id} className={stu.gpaNum && stu.gpaNum < 4.0 ? 'danger-row' : ''}>
                                             <td style={{ textAlign: 'center', color: '#64748b' }}>{stu.listNumber || '-'}</td>
                                             <td style={{ fontWeight: '600', textAlign: 'left' }}>{formatName(stu.name)}</td>
