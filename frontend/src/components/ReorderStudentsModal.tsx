@@ -38,15 +38,14 @@ export const ReorderStudentsModal: React.FC<ReorderStudentsModalProps> = ({
 
     useEffect(() => {
         if (isOpen) {
-            const sortedActive = [...students]
-                .filter(s => s.status !== 'RETIRADO')
+            const sortedAll = [...students]
                 .sort((a, b) => {
                     const listA = a.list_number ?? 999999;
                     const listB = b.list_number ?? 999999;
                     if (listA !== listB) return listA - listB;
                     return a.full_name.localeCompare(b.full_name, 'es', { sensitivity: 'base' });
                 });
-            setLocalStudents(sortedActive);
+            setLocalStudents(sortedAll);
         }
     }, [isOpen, students]);
 
@@ -187,7 +186,7 @@ export const ReorderStudentsModal: React.FC<ReorderStudentsModalProps> = ({
                             Reordenar Alumnos
                         </h2>
                         <p style={{ margin: '4px 0 0', color: '#64748b', fontSize: '0.9rem' }}>
-                            Curso: <strong style={{ color: '#0f172a' }}>{levelName}</strong> &bull; {localStudents.length} estudiantes activos
+                            Curso: <strong style={{ color: '#0f172a' }}>{levelName}</strong> &bull; {localStudents.filter(s => s.status !== 'RETIRADO').length} activos &bull; {localStudents.filter(s => s.status === 'RETIRADO').length} retirados
                         </p>
                     </div>
                     <button 
@@ -290,8 +289,29 @@ export const ReorderStudentsModal: React.FC<ReorderStudentsModalProps> = ({
                                         
                                         {/* Student Info */}
                                         <div>
-                                            <div style={{ fontWeight: '600', color: '#1e293b', fontSize: '0.95rem' }}>
+                                            <div style={{ 
+                                                fontWeight: '600', 
+                                                color: student.status === 'RETIRADO' ? '#ef4444' : '#1e293b', 
+                                                fontSize: '0.95rem',
+                                                textDecoration: student.status === 'RETIRADO' ? 'line-through' : 'none'
+                                            }}>
                                                 {formatName(student.full_name)}
+                                                {student.status === 'RETIRADO' && (
+                                                    <span style={{
+                                                        marginLeft: '8px',
+                                                        fontSize: '0.7rem',
+                                                        background: '#fee2e2',
+                                                        color: '#ef4444',
+                                                        padding: '2px 6px',
+                                                        borderRadius: '4px',
+                                                        textDecoration: 'none',
+                                                        display: 'inline-block',
+                                                        fontWeight: 'bold',
+                                                        border: '1px solid #fecaca'
+                                                    }}>
+                                                        RETIRADO
+                                                    </span>
+                                                )}
                                             </div>
                                             <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '2px' }}>
                                                 RUN: {student.run}
