@@ -1077,3 +1077,122 @@ export const importDataWeb = async (req: Request, res: Response) => {
         res.status(500).json({ error: 'Error al importar datos', details: error.message });
     }
 };
+
+export const changeStudentLevel = async (req: Request, res: Response) => {
+    let client;
+    try {
+        const { id } = req.params;
+        const { newLevelId } = req.body;
+        const user = (req as any).user;
+        
+        if (user.role !== 'Admin') {
+            return res.status(403).json({ error: 'Solo administradores pueden cambiar a un estudiante de curso' });
+        }
+        
+        client = await db.connect();
+        
+        // 1. Get student and enrollment
+        const studentRes = await client.query("SELECT * FROM students WHERE id = ?", [id]);
+        if (studentRes.rows.length === 0) {
+            return res.status(404).json({ error: 'Estudiante no encontrado' });
+        }
+        const student = studentRes.rows[0];
+        
+        const enrollmentRes = await client.query("SELECT * FROM enrollments WHERE student_id = ? AND academic_year = 2026", [id]);
+        if (enrollmentRes.rows.length === 0) {
+            return res.status(400).json({ error: 'El estudiante no tiene una matrícula activa para el año escolar actual' });
+        }
+        const enrollment = enrollmentRes.rows[0];
+        const oldLevelId = enrollment.level_id;
+        
+        if (parseInt(String(oldLevelId), 10) === parseInt(String(newLevelId), 10)) {
+            return res.json({ message: 'El estudiante ya está en ese curso' });
+        }
+        
+        // 2. Verify new level exists
+        const newLevelRes = await client.query("SELECT * FROM levels WHERE id = ?", [newLevelId]);
+        if (newLevelRes.rows.length === 0) {
+            return res.status(404).json({ error: 'Curso de destino no encontrado' });
+        }
+        const newLevel = newLevelRes.rows[0];
+        
+        // Get old level details for audit log
+        const oldLevelRes = await client.query("SELECT * FROM levels WHERE id = ?", [oldLevelId]);
+        const oldLevel = oldLevelRes.rows[0];
+        
+        // Verify capacity
+        if (newLevel.current_enrolled >= newLevel.total_capacity) {
+            return res.status(400).json({ error: `El curso ${newLevel.name} no tiene cupos disponibles` });
+        }
+        
+        // 3. Calculate list number for the new level (put at the end)
+        const maxListNumRes = await client.query("SELECT MAX(list_number) as max_val FROM enrollments WHERE level_id = ? AND academic_year = 2026", [newLevelId]);
+        const newListNumber = (maxListNumRes.rows[0]?.max_val || 0) + 1;
+        
+        // 4. Update enrollment
+        await client.query("UPDATE enrollments SET level_id = ?, list_number = ? WHERE student_id = ? AND academic_year = 2026", [newLevelId, newListNumber, id]);
+        
+        // 5. Update attendance level_id
+        await client.query("UPDATE attendance SET level_id = ? WHERE student_id = ?", [newLevelId, id]);
+        
+        // 6. Update capacity counters in levels
+        await client.query("UPDATE levels SET current_enrolled = current_enrolled - 1 WHERE id = ?", [oldLevelId]);
+        await client.query("UPDATE levels SET current_enrolled = current_enrolled + 1 WHERE id = ?", [newLevelId]);
+        
+        // 7. Transfer and preserve grades
+        const oldGradesRes = await client.query(`
+            SELECT g.id, g.grade_column_id, g.grade_value, gc.subject_id, gc.period, gc.title, gc.position, gc.weighting
+            FROM grades g
+            JOIN grade_columns gc ON g.grade_column_id = gc.id
+            WHERE g.student_id = ? AND gc.academic_year = 2026 AND gc.level_id = ?
+        `, [id, oldLevelId]);
+        
+        for (const grade of oldGradesRes.rows) {
+            // Find corresponding column in new level
+            const matchingColRes = await client.query(`
+                SELECT id FROM grade_columns 
+                WHERE level_id = ? AND subject_id = ? AND academic_year = 2026 AND period = ? AND position = ?
+            `, [newLevelId, grade.subject_id, grade.period, grade.position]);
+            
+            let targetColId;
+            if (matchingColRes.rows.length > 0) {
+                targetColId = matchingColRes.rows[0].id;
+            } else {
+                // Create corresponding grade column in target level
+                targetColId = crypto.randomUUID();
+                await client.query(`
+                    INSERT INTO grade_columns (id, level_id, subject_id, academic_year, period, title, position, weighting)
+                    VALUES (?, ?, ?, 2026, ?, ?, ?, ?)
+                `, [targetColId, newLevelId, grade.subject_id, grade.period, grade.title, grade.position, grade.weighting]);
+            }
+            
+            // Check if there is already a grade for this student in the target column
+            const existingGradeInTarget = await client.query("SELECT id FROM grades WHERE student_id = ? AND grade_column_id = ?", [id, targetColId]);
+            if (existingGradeInTarget.rows.length > 0) {
+                await client.query("UPDATE grades SET grade_value = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", [grade.grade_value, existingGradeInTarget.rows[0].id]);
+                await client.query("DELETE FROM grades WHERE id = ?", [grade.id]);
+            } else {
+                await client.query("UPDATE grades SET grade_column_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", [targetColId, grade.id]);
+            }
+        }
+        
+        // 8. Log action in audit logs
+        await client.query(`
+            INSERT INTO audit_logs (id, user_id, user_name, action, details)
+            VALUES (?, ?, ?, ?, ?)
+        `, [
+            crypto.randomUUID(),
+            user.id,
+            user.name || user.run || 'Sistema',
+            'CHANGE_STUDENT_LEVEL',
+            `Cambio de curso del estudiante: ${student.full_name} de ${oldLevel?.name || oldLevelId} a ${newLevel.name}`
+        ]);
+        
+        res.json({ message: 'Estudiante cambiado de curso exitosamente' });
+    } catch (error: any) {
+        console.error("Error changing student level:", error);
+        res.status(500).json({ error: 'Error interno al cambiar curso del estudiante', details: error.message });
+    } finally {
+        if (client) client.release();
+    }
+};

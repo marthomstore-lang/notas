@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { X, Save, Edit2, Printer, User, Heart, Users as UsersIcon } from 'lucide-react';
+import { X, Save, Edit2, Printer, User, Heart, Users as UsersIcon, RefreshCw } from 'lucide-react';
 import Swal from 'sweetalert2';
 import withReactContent from 'sweetalert2-react-content';
 import './StudentWindow.css';
@@ -188,6 +188,74 @@ export const StudentWindow: React.FC<StudentWindowProps> = ({ studentId, token, 
         }
     };
 
+    const handleChangeLevelInWindow = async () => {
+        try {
+            const levelsRes = await fetch('/_/backend/api/admin/levels', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (!levelsRes.ok) throw new Error("No se pudieron cargar los cursos");
+            const levelsList = await levelsRes.json();
+
+            const { value: newLevelId } = await MySwal.fire({
+                title: 'Cambiar de Curso',
+                html: `
+                    <p style="margin-bottom: 15px; font-size: 0.95rem;">Seleccione el nuevo curso de destino para <strong>${formatName(student.full_name)}</strong>:</p>
+                    <select id="swal-new-level" class="swal2-input" style="margin: 0 auto; width: 85%; font-size: 0.95rem;">
+                        <option value="">-- Seleccionar Curso --</option>
+                        ${levelsList
+                            .filter((l: any) => l.name !== student.level_name)
+                            .map((l: any) => `<option value="${l.id}">${l.name} (Cupos: ${l.current_enrolled}/${l.total_capacity})</option>`)
+                            .join('')}
+                    </select>
+                    <div style="margin-top: 15px; padding: 10px; background: #fee2e2; border-radius: 6px; font-size: 0.85rem; color: #b91c1c; text-align: left; line-height: 1.4;">
+                        <strong>Importante:</strong> Se transferirán y conservarán todas las calificaciones (notas) del estudiante al nuevo curso de destino. Si una asignatura o columna de nota no existe en el nuevo curso, el sistema la creará de manera automática.
+                    </div>
+                `,
+                showCancelButton: true,
+                confirmButtonText: 'Confirmar Cambio',
+                cancelButtonText: 'Cancelar',
+                focusConfirm: false,
+                preConfirm: () => {
+                    const selectEl = document.getElementById('swal-new-level') as HTMLSelectElement;
+                    if (!selectEl.value) {
+                        Swal.showValidationMessage('Debe seleccionar un curso');
+                        return false;
+                    }
+                    return selectEl.value;
+                }
+            });
+
+            if (newLevelId) {
+                MySwal.fire({
+                    title: 'Procesando cambio...',
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+
+                const res = await fetch(`/_/backend/api/admin/students/${studentId}/change-level`, {
+                    method: 'POST',
+                    headers: { 
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ newLevelId: parseInt(newLevelId, 10) })
+                });
+
+                if (res.ok) {
+                    await MySwal.fire('Éxito', 'El estudiante ha sido cambiado de curso correctamente. Todas las notas han sido preservadas.', 'success');
+                    fetchStudent(); // Recargar datos locales
+                } else {
+                    const err = await res.json();
+                    MySwal.fire('Error', err.error || 'No se pudo procesar el cambio de curso', 'error');
+                }
+            }
+        } catch (error: any) {
+            MySwal.fire('Error', error.message || 'Error de conexión', 'error');
+        }
+    };
+
     const updateStudentField = (field: string, value: any) => {
         let finalValue = value;
         if (field === 'run') {
@@ -360,13 +428,22 @@ export const StudentWindow: React.FC<StudentWindowProps> = ({ studentId, token, 
                         {(user as any)?.role === 'Admin' && (
                             <>
                                 {student.status !== 'RETIRADO' && (
-                                    <button 
-                                        onClick={handleRetireInWindow} 
-                                        title="Dar de baja / Retirar" 
-                                        style={{ color: '#ef4444' }}
-                                    >
-                                        <X size={20} />
-                                    </button>
+                                    <>
+                                        <button 
+                                            onClick={handleChangeLevelInWindow} 
+                                            title="Cambiar de Curso" 
+                                            style={{ color: '#3b82f6' }}
+                                        >
+                                            <RefreshCw size={20} />
+                                        </button>
+                                        <button 
+                                            onClick={handleRetireInWindow} 
+                                            title="Dar de baja / Retirar" 
+                                            style={{ color: '#ef4444' }}
+                                        >
+                                            <X size={20} />
+                                        </button>
+                                    </>
                                 )}
                                 <button onClick={() => setIsEditing(!isEditing)} title={isEditing ? "Cancelar edición" : "Editar ficha"}>
                                     {isEditing ? <X size={20} /> : <Edit2 size={20} />}

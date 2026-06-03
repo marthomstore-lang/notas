@@ -6,7 +6,7 @@ import jwt from 'jsonwebtoken';
 import { login, updateProfile } from './controllers/authController';
 import { getAssignments, getGrades, addColumn, saveGrade } from './controllers/teacherController';
 import { registerEnrollment } from './controllers/enrollmentController';
-import { getTeachers, createTeacher, updateTeacher, deleteTeacher, getSubjects, createSubject, updateSubject, deleteSubject, checkSubjectGrades, getLevels, updateLevelCapacity, getAssignmentsAdmin, createAssignment, updateAssignment, deleteAssignment, getStudents, getStudentById, updateStudent, deleteStudent, reincorporateStudent, getStudentObservations, addObservation, exportData, importDataWeb } from './controllers/adminController';
+import { getTeachers, createTeacher, updateTeacher, deleteTeacher, getSubjects, createSubject, updateSubject, deleteSubject, checkSubjectGrades, getLevels, updateLevelCapacity, getAssignmentsAdmin, createAssignment, updateAssignment, deleteAssignment, getStudents, getStudentById, updateStudent, deleteStudent, reincorporateStudent, getStudentObservations, addObservation, exportData, importDataWeb, changeStudentLevel } from './controllers/adminController';
 import { getFiltersData, getGradesSheet, saveGradesSheet, updateStudentPosition, bulkUpdateStudentPositions, toggleLockAssignment, getAuditLogs, getGradesOverview } from './controllers/gradesController';
 import { getStudentGradesReport, getLevelGradesReport, updateInstitutionalSettings, setHomeroomTeacher, getSubjectOrder, updateSubjectOrder } from './controllers/reportsController';
 import multer from 'multer';
@@ -75,6 +75,7 @@ router.get('/admin/students/:id', authMiddleware, getStudentById);
 router.put('/admin/students/:id', authMiddleware, updateStudent);
 router.delete('/admin/students/:id', authMiddleware, deleteStudent);
 router.post('/admin/students/:id/reincorporate', authMiddleware, reincorporateStudent);
+router.post('/admin/students/:id/change-level', authMiddleware, changeStudentLevel);
 router.get('/admin/students/:id/observations', authMiddleware, getStudentObservations);
 router.post('/admin/students/:id/observations', authMiddleware, addObservation);
 

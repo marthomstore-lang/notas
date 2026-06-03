@@ -1707,7 +1707,7 @@ export const AdminDashboard = () => {
                     <StudentWindow 
                         studentId={viewingStudentId} 
                         token={token || ''} 
-                        onClose={() => setViewingStudentId(null)} 
+                        onClose={() => { setViewingStudentId(null); fetchData(); }} 
                         onPrint={handlePrintOfficial}
                     />
                 )}
