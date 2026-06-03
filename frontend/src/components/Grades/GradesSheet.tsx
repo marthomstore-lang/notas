@@ -13,28 +13,6 @@ import './GradesSheet.css';
 export const formatName = (name: string | undefined | null): string => {
     if (!name || name === 'No asignado' || name === '________________________') return name || '';
     
-    // Si contiene minúsculas, asumimos que ya está en formato "Nombre Apellidos"
-    const isAllUppercase = name === name.toUpperCase() && /[A-Z]/.test(name);
-    if (!isAllUppercase) {
-        return name;
-    }
-    
-    const parts = name.trim().split(/\s+/);
-    if (parts.length < 2) return name;
-    
-    let paternal = '';
-    let maternal = '';
-    let firstNames = '';
-    
-    if (parts.length >= 3) {
-        paternal = parts[0];
-        maternal = parts[1];
-        firstNames = parts.slice(2).join(' ');
-    } else if (parts.length === 2) {
-        paternal = parts[0];
-        firstNames = parts[1];
-    }
-    
     const toCamelCase = (str: string) => {
         return str.toLowerCase().split(' ').map(word => {
             if (!word) return '';
@@ -42,8 +20,7 @@ export const formatName = (name: string | undefined | null): string => {
         }).join(' ');
     };
     
-    const formattedName = `${firstNames} ${paternal} ${maternal}`.trim().replace(/\s+/g, ' ');
-    return toCamelCase(formattedName);
+    return toCamelCase(name);
 };
 
 const MySwal = withReactContent(Swal);
@@ -685,21 +662,18 @@ export const GradesSheet: React.FC<GradesSheetProps> = ({ initialLevelId, initia
                                     />
                                 </td>
                                 <td className="student-name-col" title={s.status === 'RETIRADO' ? "Estudiante retirado" : undefined}>
-                                    <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                        <span 
-                                            style={{ 
-                                                cursor: 'pointer', 
-                                                color: s.status === 'RETIRADO' ? '#ef4444' : '#2563eb', 
-                                                fontWeight: '500',
-                                                textDecoration: s.status === 'RETIRADO' ? 'line-through' : 'none'
-                                            }}
-                                            onClick={() => setViewingStudentId(s.id)}
-                                            title={s.status === 'RETIRADO' ? "Estudiante retirado" : "Ver Expediente"}
-                                        >
-                                            {formatName(s.full_name)}
-                                        </span>
-                                        {s.status === 'RETIRADO' && <span className="retired-badge" style={{ textDecoration: 'none', display: 'inline-block', color: '#ef4444', fontWeight: 'bold', fontSize: '0.7rem' }}>ESTUDIANTE RETIRADO</span>}
-                                    </div>
+                                    <span 
+                                        style={{ 
+                                            cursor: 'pointer', 
+                                            color: s.status === 'RETIRADO' ? '#ef4444' : '#2563eb', 
+                                            fontWeight: '500',
+                                            textDecoration: s.status === 'RETIRADO' ? 'line-through' : 'none'
+                                        }}
+                                        onClick={() => setViewingStudentId(s.id)}
+                                        title={s.status === 'RETIRADO' ? "Estudiante retirado" : "Ver Expediente"}
+                                    >
+                                        {formatName(s.full_name)}
+                                    </span>
                                 </td>
                                 {columns.slice(0, 10).map(c => (
                                     <td key={c.position}>

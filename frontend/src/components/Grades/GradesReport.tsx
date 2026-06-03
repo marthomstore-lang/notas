@@ -4,28 +4,6 @@ import './GradesReport.css';
 export const formatName = (name: string | undefined | null): string => {
     if (!name || name === 'No asignado' || name === '________________________') return name || '';
     
-    // Si contiene minúsculas, asumimos que ya está en formato "Nombre Apellidos"
-    const isAllUppercase = name === name.toUpperCase() && /[A-Z]/.test(name);
-    if (!isAllUppercase) {
-        return name;
-    }
-    
-    const parts = name.trim().split(/\s+/);
-    if (parts.length < 2) return name;
-    
-    let paternal = '';
-    let maternal = '';
-    let firstNames = '';
-    
-    if (parts.length >= 3) {
-        paternal = parts[0];
-        maternal = parts[1];
-        firstNames = parts.slice(2).join(' ');
-    } else if (parts.length === 2) {
-        paternal = parts[0];
-        firstNames = parts[1];
-    }
-    
     const toCamelCase = (str: string) => {
         return str.toLowerCase().split(' ').map(word => {
             if (!word) return '';
@@ -33,8 +11,7 @@ export const formatName = (name: string | undefined | null): string => {
         }).join(' ');
     };
     
-    const formattedName = `${firstNames} ${paternal} ${maternal}`.trim().replace(/\s+/g, ' ');
-    return toCamelCase(formattedName);
+    return toCamelCase(name);
 };
 
 
