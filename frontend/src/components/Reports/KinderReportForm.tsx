@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { KINDER_REPORT_STRUCTURE } from './kinderReportData';
 import { PrintableKinderReport } from './PrintableKinderReport';
 import { Printer, Save, FileText } from 'lucide-react';
