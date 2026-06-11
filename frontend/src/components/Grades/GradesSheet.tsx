@@ -450,7 +450,7 @@ export const GradesSheet: React.FC<GradesSheetProps> = ({ initialLevelId, initia
             return 'I';
         }
         if (isNaN(Number(val))) return '';
-        return Number(val).toFixed(1).replace('.', ',');
+        return (Math.round((Number(val) + 1e-9) * 10) / 10).toFixed(1).replace('.', ',');
     };
 
     const toggleLock = async () => {
@@ -505,7 +505,7 @@ export const GradesSheet: React.FC<GradesSheetProps> = ({ initialLevelId, initia
             finalAvg = (sum / totalWeight);
         }
 
-        return finalAvg > 0 ? finalAvg.toFixed(1).replace('.', ',') : '-';
+        return finalAvg > 0 ? (Math.round((finalAvg + 1e-9) * 10) / 10).toFixed(1).replace('.', ',') : '-';
     };
 
     return (

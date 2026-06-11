@@ -532,10 +532,12 @@ export const getGradesOverview = async (req: Request, res: Response) => {
                     });
 
                     if (stuTotalWeight > 0) {
-                        sumAverages += (stuSum / stuTotalWeight);
+                        const rawAvg = stuSum / stuTotalWeight;
+                        sumAverages += Math.round((rawAvg + 1e-9) * 10) / 10;
                         countAverages++;
                     } else if (stuSimpleCount > 0) {
-                        sumAverages += (stuSimpleSum / stuSimpleCount);
+                        const rawAvg = stuSimpleSum / stuSimpleCount;
+                        sumAverages += Math.round((rawAvg + 1e-9) * 10) / 10;
                         countAverages++;
                     }
                 }
@@ -548,7 +550,7 @@ export const getGradesOverview = async (req: Request, res: Response) => {
                 name: sub.name,
                 hasGrades,
                 gradesCount,
-                average: subjectAverage !== null ? subjectAverage.toFixed(1).replace('.', ',') : '-',
+                average: subjectAverage !== null ? (Math.round((subjectAverage + 1e-9) * 10) / 10).toFixed(1).replace('.', ',') : '-',
                 isQualitative: isQual
             });
         }
@@ -562,7 +564,7 @@ export const getGradesOverview = async (req: Request, res: Response) => {
                 if (val >= 4.0) return 'S';
                 return 'I';
             }
-            return Number(val).toFixed(1).replace('.', ',');
+            return (Math.round((Number(val) + 1e-9) * 10) / 10).toFixed(1).replace('.', ',');
         };
 
         const studentsData = [];
@@ -646,11 +648,12 @@ export const getGradesOverview = async (req: Request, res: Response) => {
                 if (subAvg !== null) {
                     subjectAverages[String(sub.id)] = formatAverage(subAvg, isQual);
                     if (!isQual) {
-                        studentSumAverages += subAvg;
+                        const roundedSubAvg = Math.round((subAvg + 1e-9) * 10) / 10;
+                        studentSumAverages += roundedSubAvg;
                         studentCountAverages++;
 
-                        if (subAvg < 4.0) {
-                            failingSubjects.push(`${sub.name} (${subAvg.toFixed(1).replace('.', ',')})`);
+                        if (roundedSubAvg < 4.0) {
+                            failingSubjects.push(`${sub.name} (${roundedSubAvg.toFixed(1).replace('.', ',')})`);
                         }
                     }
                 }
@@ -658,10 +661,11 @@ export const getGradesOverview = async (req: Request, res: Response) => {
 
             const studentGpa = studentCountAverages > 0 ? (studentSumAverages / studentCountAverages) : null;
             if (studentGpa !== null) {
-                courseGpaSum += studentGpa;
+                const roundedGpa = Math.round((studentGpa + 1e-9) * 10) / 10;
+                courseGpaSum += roundedGpa;
                 courseGpaCount++;
 
-                if (studentGpa < 4.0) {
+                if (roundedGpa < 4.0) {
                     atRiskCount++;
                 }
             }
@@ -675,8 +679,8 @@ export const getGradesOverview = async (req: Request, res: Response) => {
                 run: stu.run,
                 name: stu.full_name,
                 listNumber: stu.list_number,
-                gpa: studentGpa !== null ? studentGpa.toFixed(1).replace('.', ',') : '-',
-                gpaNum: studentGpa,
+                gpa: studentGpa !== null ? (Math.round((studentGpa + 1e-9) * 10) / 10).toFixed(1).replace('.', ',') : '-',
+                gpaNum: studentGpa !== null ? Math.round((studentGpa + 1e-9) * 10) / 10 : null,
                 redCount,
                 blueCount,
                 failingSubjects,
@@ -688,7 +692,7 @@ export const getGradesOverview = async (req: Request, res: Response) => {
         const totalGrades = totalBlueGrades + totalRedGrades;
 
         const stats = {
-            courseGpa: courseGpa !== null ? courseGpa.toFixed(1).replace('.', ',') : '-',
+            courseGpa: courseGpa !== null ? (Math.round((courseGpa + 1e-9) * 10) / 10).toFixed(1).replace('.', ',') : '-',
             totalGrades,
             blueCount: totalBlueGrades,
             redCount: totalRedGrades,

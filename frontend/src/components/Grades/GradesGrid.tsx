@@ -130,7 +130,7 @@ export const GradesGrid: React.FC = () => {
                 count++;
             }
         });
-        return count > 0 ? (sum / count).toFixed(1) : '-';
+        return count > 0 ? (Math.round(((sum / count) + 1e-9) * 10) / 10).toFixed(1).replace('.', ',') : '-';
     };
 
     if (loading) return <div>Cargando...</div>;

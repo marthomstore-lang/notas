@@ -64,6 +64,10 @@ export const GradesReport: React.FC<Props> = ({ data, period, year, onClose }) =
                     let generalAvgS2 = '-';
                     let generalAvgFinal = '-';
 
+                    const roundGradeStr = (val: number): string => {
+                        return (Math.round((val + 1e-9) * 10) / 10).toFixed(1).replace('.', ',');
+                    };
+
                     if (periodData && Array.isArray(periodData)) {
                         if (isAnnual) {
                             const numericAvgS1 = periodData
@@ -75,7 +79,7 @@ export const GradesReport: React.FC<Props> = ({ data, period, year, onClose }) =
                                 })
                                 .filter((val: number | null) => val !== null) as number[];
                             generalAvgS1 = numericAvgS1.length > 0
-                                ? (numericAvgS1.reduce((sum, val) => sum + val, 0) / numericAvgS1.length).toFixed(1).replace('.', ',')
+                                ? roundGradeStr(numericAvgS1.reduce((sum, val) => sum + val, 0) / numericAvgS1.length)
                                 : '-';
 
                             const numericAvgS2 = periodData
@@ -87,7 +91,7 @@ export const GradesReport: React.FC<Props> = ({ data, period, year, onClose }) =
                                 })
                                 .filter((val: number | null) => val !== null) as number[];
                             generalAvgS2 = numericAvgS2.length > 0
-                                ? (numericAvgS2.reduce((sum, val) => sum + val, 0) / numericAvgS2.length).toFixed(1).replace('.', ',')
+                                ? roundGradeStr(numericAvgS2.reduce((sum, val) => sum + val, 0) / numericAvgS2.length)
                                 : '-';
 
                             const numericFinal = periodData
@@ -99,7 +103,7 @@ export const GradesReport: React.FC<Props> = ({ data, period, year, onClose }) =
                                 })
                                 .filter((val: number | null) => val !== null) as number[];
                             generalAvgFinal = numericFinal.length > 0
-                                ? (numericFinal.reduce((sum, val) => sum + val, 0) / numericFinal.length).toFixed(1).replace('.', ',')
+                                ? roundGradeStr(numericFinal.reduce((sum, val) => sum + val, 0) / numericFinal.length)
                                 : '-';
                         } else {
                             const numericAverages = periodData
@@ -111,7 +115,7 @@ export const GradesReport: React.FC<Props> = ({ data, period, year, onClose }) =
                                 })
                                 .filter((val: number | null) => val !== null) as number[];
                             generalAverage = numericAverages.length > 0
-                                ? (numericAverages.reduce((sum, val) => sum + val, 0) / numericAverages.length).toFixed(1).replace('.', ',')
+                                ? roundGradeStr(numericAverages.reduce((sum, val) => sum + val, 0) / numericAverages.length)
                                 : '-';
                         }
                     }

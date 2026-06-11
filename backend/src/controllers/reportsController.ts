@@ -72,7 +72,7 @@ async function generateStudentReport(dbInstance: any, studentId: any, year: any,
                     if (v >= 4.0) return 'S';
                     return 'I';
                 }
-                return Number(v).toFixed(1).replace('.', ',');
+                return (Math.round((Number(v) + 1e-9) * 10) / 10).toFixed(1).replace('.', ',');
             };
 
             const getSemData = async (p: string) => {
@@ -113,9 +113,13 @@ async function generateStudentReport(dbInstance: any, studentId: any, year: any,
             const s2 = await getSemData('2do Semestre');
 
             let finalAvg: number | null = null;
-            if (s1.avg !== null && s2.avg !== null) finalAvg = (s1.avg + s2.avg) / 2;
-            else if (s1.avg !== null) finalAvg = s1.avg;
-            else if (s2.avg !== null) finalAvg = s2.avg;
+            if (s1.avg !== null && s2.avg !== null) {
+                const r1 = Math.round((s1.avg + 1e-9) * 10) / 10;
+                const r2 = Math.round((s2.avg + 1e-9) * 10) / 10;
+                finalAvg = (r1 + r2) / 2;
+            }
+            else if (s1.avg !== null) finalAvg = Math.round((s1.avg + 1e-9) * 10) / 10;
+            else if (s2.avg !== null) finalAvg = Math.round((s2.avg + 1e-9) * 10) / 10;
 
             reportData.push({
                 subjectName: sub.name,
@@ -162,15 +166,17 @@ async function generateStudentReport(dbInstance: any, studentId: any, year: any,
                 }
             });
 
-            const formatGrade = (val: number | null | undefined) => {
-                if (val === null || val === undefined || isNaN(val)) return '-';
+            const formatGrade = (val: any) => {
+                if (val === null || val === undefined || val === '') return '-';
+                const numVal = typeof val === 'number' ? val : parseFloat(String(val).replace(',', '.'));
+                if (isNaN(numVal)) return '-';
                 if (isQual) {
-                    if (val >= 6.0) return 'MB';
-                    if (val >= 5.0) return 'B';
-                    if (val >= 4.0) return 'S';
+                    if (numVal >= 6.0) return 'MB';
+                    if (numVal >= 5.0) return 'B';
+                    if (numVal >= 4.0) return 'S';
                     return 'I';
                 }
-                return Number(val).toFixed(1).replace('.', ',');
+                return (Math.round((numVal + 1e-9) * 10) / 10).toFixed(1).replace('.', ',');
             };
 
             let average = '-';
