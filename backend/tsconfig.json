@@ -8,5 +8,6 @@
     "strict": false,
     "rootDir": "./src", "outDir": "./dist"
   },
-  "exclude": ["scratch"]
+  "exclude": ["scratch", "check_grades.ts", "check_students.ts"],
+  "include": ["src/**/*"]
 }

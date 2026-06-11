@@ -38,7 +38,7 @@ export const getAssignments = async (req: Request, res: Response) => {
 export const getGrades = async (req: Request, res: Response) => {
     let client;
     try {
-        const { assignmentId } = req.params;
+        const assignmentId = req.params.assignmentId as string;
         client = await db.connect();
         
         let level_id, subject_id, academic_year;
