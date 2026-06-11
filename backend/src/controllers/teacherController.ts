@@ -13,11 +13,22 @@ export const getAssignments = async (req: Request, res: Response) => {
             FROM teacher_assignments ta
             JOIN levels l ON ta.level_id = l.id
             JOIN subjects s ON ta.subject_id = s.id
-            WHERE ta.teacher_id = ?
+            WHERE ta.teacher_id = $1
+            UNION
+            SELECT 
+                'homeroom_' || l.id as assignment_id,
+                l.id as level_id,
+                NULL as subject_id,
+                l.name as level_name,
+                'Jefatura de Curso' as subject_name,
+                EXTRACT(YEAR FROM CURRENT_DATE) as academic_year
+            FROM levels l
+            WHERE l.homeroom_teacher_id = $1
         `, [userId]);
 
         res.json(result.rows);
     } catch (error) {
+        console.error(error);
         res.status(500).json({ error: 'Error al obtener asignaciones' });
     } finally {
         if (client) client.release();
@@ -30,38 +41,54 @@ export const getGrades = async (req: Request, res: Response) => {
         const { assignmentId } = req.params;
         client = await db.connect();
         
-        // 1. Obtener info de la asignación
-        const assignmentRes = await client.query('SELECT * FROM teacher_assignments WHERE id = ?', [assignmentId]);
-        if (assignmentRes.rows.length === 0) return res.status(404).json({ error: 'No encontrado' });
-        const assignment = assignmentRes.rows[0];
+        let level_id, subject_id, academic_year;
+
+        if (assignmentId.startsWith('homeroom_')) {
+            level_id = parseInt(assignmentId.replace('homeroom_', ''));
+            subject_id = null;
+            academic_year = new Date().getFullYear();
+        } else {
+            const assignmentRes = await client.query('SELECT * FROM teacher_assignments WHERE id = $1', [assignmentId]);
+            if (assignmentRes.rows.length === 0) return res.status(404).json({ error: 'No encontrado' });
+            const assignment = assignmentRes.rows[0];
+            level_id = assignment.level_id;
+            subject_id = assignment.subject_id;
+            academic_year = assignment.academic_year;
+        }
 
         // 2. Obtener estudiantes matriculados en ese nivel
         const studentsRes = await client.query(`
             SELECT s.id, s.run, s.full_name, e.list_number, s.status
             FROM enrollments e
             JOIN students s ON e.student_id = s.id
-            WHERE e.level_id = ? AND e.academic_year = ?
+            WHERE e.level_id = $1 AND e.academic_year = $2
             ORDER BY COALESCE(e.list_number, 999999) ASC, s.full_name ASC
-        `, [assignment.level_id, assignment.academic_year]);
+        `, [level_id, academic_year]);
 
         // 3. Obtener columnas de evaluación
-        const columnsRes = await client.query(`
-            SELECT id, title FROM grade_columns
-            WHERE level_id = ? AND subject_id = ? AND academic_year = ?
-        `, [assignment.level_id, assignment.subject_id, assignment.academic_year]);
+        let columnsRows = [];
+        let gradesRows = [];
+        if (subject_id) {
+            const columnsRes = await client.query(`
+                SELECT id, title FROM grade_columns
+                WHERE level_id = $1 AND subject_id = $2 AND academic_year = $3
+            `, [level_id, subject_id, academic_year]);
+            columnsRows = columnsRes.rows;
 
-        // 4. Obtener notas
-        const gradesRes = await client.query(`
-            SELECT g.student_id, g.grade_column_id, g.grade_value
-            FROM grades g
-            JOIN grade_columns gc ON g.grade_column_id = gc.id
-            WHERE gc.level_id = ? AND gc.subject_id = ? AND gc.academic_year = ?
-        `, [assignment.level_id, assignment.subject_id, assignment.academic_year]);
+            // 4. Obtener notas
+            const gradesRes = await client.query(`
+                SELECT g.student_id, g.grade_column_id, g.grade_value
+                FROM grades g
+                JOIN grade_columns gc ON g.grade_column_id = gc.id
+                WHERE gc.level_id = $1 AND gc.subject_id = $2 AND gc.academic_year = $3
+            `, [level_id, subject_id, academic_year]);
+            gradesRows = gradesRes.rows;
+        }
 
         res.json({
             students: studentsRes.rows,
-            columns: columnsRes.rows,
-            grades: gradesRes.rows
+            columns: columnsRows,
+            grades: gradesRows
         });
     } catch (error) {
         console.error("Error en getGrades", error);

@@ -79,8 +79,8 @@ export const StudentWindow: React.FC<StudentWindowProps> = ({ studentId, token, 
     const [student, setStudent] = useState<any>(null);
     const [guardians, setGuardians] = useState<any[]>([]);
     const [health, setHealth] = useState<any>(null);
-    const [isEditing, setIsEditing] = useState(false);
     const [loading, setLoading] = useState(true);
+    const [isEditing, setIsEditing] = useState(false);
     const [activeTab, setActiveTab] = useState<'personal' | 'escolar' | 'family' | 'health'>('personal');
 
     const fetchStudent = async () => {
@@ -831,6 +831,7 @@ export const StudentWindow: React.FC<StudentWindowProps> = ({ studentId, token, 
                             </div>
                         </div>
                     )}
+
                     {student.status === 'RETIRADO' && (
                         <div style={{ 
                             background: '#fee2e2', 
@@ -842,13 +843,15 @@ export const StudentWindow: React.FC<StudentWindowProps> = ({ studentId, token, 
                             fontWeight: 'bold',
                             display: 'flex',
                             alignItems: 'center',
-                            gap: '10px'
+                            justifyContent: 'space-between'
                         }}>
-                            <X size={24} />
-                            <div>
-                                <div style={{ fontSize: '1.1rem' }}>ESTUDIANTE RETIRADO</div>
-                                <div style={{ fontSize: '0.9rem', fontWeight: 'normal' }}>
-                                    Fecha de Retiro: {student.withdrawal_date ? new Date(student.withdrawal_date + 'T12:00:00').toLocaleDateString() : 'No registrada'}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <X size={24} />
+                                <div>
+                                    <div style={{ fontSize: '1.1rem' }}>ESTUDIANTE RETIRADO</div>
+                                    <div style={{ fontSize: '0.9rem', fontWeight: 'normal' }}>
+                                        Fecha de Retiro: {student.withdrawal_date ? new Date(student.withdrawal_date + 'T12:00:00').toLocaleDateString('es-CL') : 'No registrada'}
+                                    </div>
                                 </div>
                             </div>
                             <button 

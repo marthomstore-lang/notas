@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { LogOut, Plus, Users, BookOpen, GraduationCap, Menu, X, Printer, User, Upload, Edit2, Trash2, BarChart3, Settings, ListOrdered, PieChart } from 'lucide-react';
+import { LogOut, Plus, Users, BookOpen, GraduationCap, Menu, X, Printer, User, Upload, Edit2, Trash2, BarChart3, Settings, ListOrdered, PieChart, FileText } from 'lucide-react';
 import { EnrollmentForm } from '../components/OfficialForm/EnrollmentForm';
 import { OfficialEnrollmentForm } from '../components/OfficialForm/OfficialEnrollmentForm';
 import { StudentWindow } from '../components/StudentWindow';
+import { KinderReportForm } from '../components/Reports/KinderReportForm';
 import { ReorderStudentsModal } from '../components/ReorderStudentsModal';
 import { GradesSheet } from '../components/Grades/GradesSheet';
 import { GradesOverview } from '../components/Grades/GradesOverview';
@@ -29,13 +30,13 @@ export const formatName = (name: string | undefined | null): string => {
 export const AdminDashboard = () => {
     const { user, logout, token } = useAuth();
     const isVisita = user?.role === 'Visita';
-    const [activeTab, setActiveTab] = useState<'config' | 'students' | 'grades' | 'overview' | 'audit' | 'profile'>(() => {
+    const [activeTab, setActiveTab] = useState<'config' | 'students' | 'grades' | 'overview' | 'audit' | 'profile' | 'reports'>(() => {
         const saved = localStorage.getItem('adminActiveTab');
-        return (['config', 'students', 'grades', 'overview', 'audit', 'profile'].includes(saved as string)) ? (saved as any) : 'grades';
+        return (['config', 'students', 'grades', 'overview', 'audit', 'profile', 'reports'].includes(saved as string)) ? (saved as any) : 'grades';
     });
-    const [configSubTab, setConfigSubTab] = useState<'teachers' | 'courses' | 'subjects' | 'assignments' | 'homeroom' | 'subject_order'>(() => {
+    const [configSubTab, setConfigSubTab] = useState<'teachers' | 'courses' | 'subjects' | 'assignments' | 'homeroom' | 'subject_order' | 'templates'>(() => {
         const saved = localStorage.getItem('adminConfigSubTab');
-        return (['teachers', 'courses', 'subjects', 'assignments', 'homeroom', 'subject_order'].includes(saved as string)) ? (saved as any) : 'teachers';
+        return (['teachers', 'courses', 'subjects', 'assignments', 'homeroom', 'subject_order', 'templates'].includes(saved as string)) ? (saved as any) : 'teachers';
     });
     const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth >= 768);
 
@@ -80,7 +81,9 @@ export const AdminDashboard = () => {
     const [auditFilters, setAuditFilters] = useState({ teacher: '', action: '' });
     const [assignmentTeacherFilter, setAssignmentTeacherFilter] = useState('');
     const [assignmentLevelFilter, setAssignmentLevelFilter] = useState('');
-
+    const [reportTemplates, setReportTemplates] = useState<any[]>([]);
+    const [selectedStudentReport, setSelectedStudentReport] = useState<string | null>(null);
+    const [reportsLevelId, setReportsLevelId] = useState<string>('');
     // Subject ordering states
     const [selectedLevelIdOrder, setSelectedLevelIdOrder] = useState<string>('');
     const [orderedSubjects, setOrderedSubjects] = useState<any[]>([]);
@@ -205,6 +208,15 @@ export const AdminDashboard = () => {
             const levelsData = await handleRes(lRes, 'Levels');
             const stuData = await handleRes(stuRes, 'Students');
             const assignmentsData = await handleRes(aRes, 'Assignments');
+            
+            try {
+                const rtRes = await fetch('/_/backend/api/admin/report-templates', { headers });
+                if (rtRes.ok) {
+                    setReportTemplates(await rtRes.json());
+                }
+            } catch (err) {
+                console.error("Error fetching report templates:", err);
+            }
 
             // Orden y Filtrado de Niveles
             const levelOrder = [
@@ -845,6 +857,102 @@ export const AdminDashboard = () => {
         }
     };
 
+    const handleAssignTemplate = async (levelId: string, templateId: string) => {
+        try {
+            const res = await fetch(`/_/backend/api/admin/levels/${levelId}/template`, {
+                method: 'PUT',
+                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ report_template_id: templateId || null })
+            });
+            if (res.ok) {
+                MySwal.fire({ icon: 'success', title: 'Plantilla Asignada', toast: true, position: 'top-end', showConfirmButton: false, timer: 2000 });
+                fetchData();
+            } else {
+                MySwal.fire('Error', 'No se pudo asignar la plantilla', 'error');
+            }
+        } catch (error) {
+            console.error(error);
+            MySwal.fire('Error', 'Error de red', 'error');
+        }
+    };
+
+    const handleCreateTemplate = async () => {
+        const { value: formValues } = await MySwal.fire({
+            title: 'Nueva Plantilla (JSON)',
+            html: `
+                <div style="text-align: left; display: flex; flex-direction: column; gap: 15px;">
+                    <div><label>Nombre:</label><input id="swal-tpl-name" class="swal2-input" /></div>
+                    <div><label>Estructura (JSON):</label><textarea id="swal-tpl-json" class="swal2-textarea" style="height:200px;font-family:monospace;"></textarea></div>
+                </div>
+            `,
+            focusConfirm: false,
+            showCancelButton: true,
+            confirmButtonText: 'Guardar',
+            preConfirm: () => {
+                const name = (document.getElementById('swal-tpl-name') as HTMLInputElement).value;
+                const jsonStr = (document.getElementById('swal-tpl-json') as HTMLTextAreaElement).value;
+                if (!name || !jsonStr) return Swal.showValidationMessage('Ambos campos son requeridos');
+                try {
+                    return { name, structure_json: JSON.parse(jsonStr) };
+                } catch (e) {
+                    return Swal.showValidationMessage('El JSON proporcionado no es válido');
+                }
+            }
+        });
+
+        if (formValues) {
+            const res = await fetch('/_/backend/api/admin/report-templates', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify(formValues)
+            });
+            if (res.ok) { MySwal.fire('Éxito', 'Plantilla creada', 'success'); fetchData(); }
+        }
+    };
+
+    const handleEditTemplate = async (template: any) => {
+        const { value: formValues } = await MySwal.fire({
+            title: 'Editar Plantilla (JSON)',
+            html: `
+                <div style="text-align: left; display: flex; flex-direction: column; gap: 15px;">
+                    <div><label>Nombre:</label><input id="swal-tpl-name" class="swal2-input" value="${template.name}" /></div>
+                    <div><label>Estructura (JSON):</label><textarea id="swal-tpl-json" class="swal2-textarea" style="height:200px;font-family:monospace;">${JSON.stringify(template.structure_json, null, 2)}</textarea></div>
+                </div>
+            `,
+            focusConfirm: false,
+            showCancelButton: true,
+            confirmButtonText: 'Guardar',
+            preConfirm: () => {
+                const name = (document.getElementById('swal-tpl-name') as HTMLInputElement).value;
+                const jsonStr = (document.getElementById('swal-tpl-json') as HTMLTextAreaElement).value;
+                if (!name || !jsonStr) return Swal.showValidationMessage('Ambos campos son requeridos');
+                try {
+                    return { name, structure_json: JSON.parse(jsonStr) };
+                } catch (e) {
+                    return Swal.showValidationMessage('El JSON proporcionado no es válido');
+                }
+            }
+        });
+
+        if (formValues) {
+            const res = await fetch(`/_/backend/api/admin/report-templates/${template.id}`, {
+                method: 'PUT',
+                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify(formValues)
+            });
+            if (res.ok) { MySwal.fire('Éxito', 'Plantilla actualizada', 'success'); fetchData(); }
+        }
+    };
+
+    const handleDeleteTemplate = async (id: number) => {
+        const result = await MySwal.fire({ title: '¿Eliminar plantilla?', icon: 'warning', showCancelButton: true, confirmButtonText: 'Sí, eliminar', confirmButtonColor: '#ef4444' });
+        if (result.isConfirmed) {
+            const res = await fetch(`/_/backend/api/admin/report-templates/${id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } });
+            if (res.ok) { MySwal.fire('Eliminada', 'Plantilla eliminada', 'success'); fetchData(); }
+            else MySwal.fire('Error', 'No se pudo eliminar, es posible que esté en uso.', 'error');
+        }
+    };
+
     if (printingStudentData) {
         return (
             <div style={{ background: '#f5f5f5', minHeight: '100vh', padding: '20px 0' }}>
@@ -923,6 +1031,9 @@ export const AdminDashboard = () => {
                     <button className={activeTab === 'profile' ? 'active' : ''} onClick={() => handleNavClick('profile')}>
                         <User size={18} /> Mi Cuenta
                     </button>
+                    <button className={activeTab === 'reports' ? 'active' : ''} onClick={() => handleNavClick('reports')}>
+                        <FileText size={18} /> Generar Informes al Hogar
+                    </button>
                     
                     <div className="sidebar-divider">Configuración de Sistema</div>
                     
@@ -943,6 +1054,9 @@ export const AdminDashboard = () => {
                     </button>
                     <button className={activeTab === 'config' && configSubTab === 'subject_order' ? 'active' : ''} onClick={() => handleNavClick('config', 'subject_order')}>
                         <ListOrdered size={16} /> Orden Asignaturas
+                    </button>
+                    <button className={activeTab === 'config' && configSubTab === 'templates' ? 'active' : ''} onClick={() => handleNavClick('config', 'templates')}>
+                        <FileText size={16} /> Plantillas Informes
                     </button>
                 </nav>
                 <div className="sidebar-footer">
@@ -966,7 +1080,8 @@ export const AdminDashboard = () => {
                                         configSubTab === 'subjects' ? 'Asignaturas' :
                                         configSubTab === 'assignments' ? 'Asignaciones' :
                                         configSubTab === 'homeroom' ? 'Profesores Jefe' :
-                                        configSubTab === 'subject_order' ? 'Orden de Asignaturas en Informes' : ''
+                                        configSubTab === 'subject_order' ? 'Orden de Asignaturas en Informes' : 
+                                        configSubTab === 'templates' ? 'Plantillas de Informes al Hogar' : ''
                                     }
                                 </>
                             )}
@@ -1160,6 +1275,7 @@ export const AdminDashboard = () => {
                                                 <th>Capacidad</th>
                                                 <th>Matriculados</th>
                                                 <th>Cupos Disponibles (SAE)</th>
+                                                <th>Plantilla Informe</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -1187,6 +1303,19 @@ export const AdminDashboard = () => {
                                                                (l.total_capacity - l.current_enrolled) > 0 ? '#d97706' : '#dc2626'
                                                     }}>
                                                         {l.total_capacity - l.current_enrolled}
+                                                    </td>
+                                                    <td>
+                                                        <select
+                                                            value={l.report_template_id || ''}
+                                                            onChange={(e) => handleAssignTemplate(l.id, e.target.value)}
+                                                            disabled={isVisita}
+                                                            style={{ padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '0.85rem' }}
+                                                        >
+                                                            <option value="">Sin Plantilla (Oculto)</option>
+                                                            {reportTemplates.map(t => (
+                                                                <option key={t.id} value={t.id}>{t.name}</option>
+                                                            ))}
+                                                        </select>
                                                     </td>
                                                 </tr>
                                             ))}
@@ -1519,6 +1648,122 @@ export const AdminDashboard = () => {
                                         </div>
                                     )}
                                 </div>
+                            </div>
+                        )}
+
+                        {configSubTab === 'templates' && (
+                            <div className="card card-split-layout">
+                                <div className="card-split-header">
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
+                                        <h3 style={{ margin: 0 }}>Plantillas de Informes al Hogar</h3>
+                                        {!isVisita && (
+                                            <button className="primary-btn" onClick={handleCreateTemplate}>
+                                                <Plus size={18} /> Nueva Plantilla
+                                            </button>
+                                        )}
+                                    </div>
+                                    <p style={{ color: '#64748b', fontSize: '0.85rem' }}>
+                                        Gestiona las plantillas dinámicas que determinan qué campos se evalúan en cada informe (Ámbitos, Núcleos e Indicadores).
+                                    </p>
+                                </div>
+                                <div className="card-split-content">
+                                    <table className="data-table">
+                                        <thead><tr><th>ID</th><th>Nombre Plantilla</th><th>Estructura (JSON)</th>{!isVisita && <th>Acciones</th>}</tr></thead>
+                                        <tbody>
+                                            {reportTemplates.map(tpl => (
+                                                <tr key={tpl.id}>
+                                                    <td style={{ fontWeight: 'bold' }}>#{tpl.id}</td>
+                                                    <td>{tpl.name}</td>
+                                                    <td><span className="badge secondary">Configuración Interna</span></td>
+                                                    {!isVisita && (
+                                                        <td>
+                                                            <div style={{ display: 'flex', gap: '15px' }}>
+                                                                <button type="button" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#3b82f6', padding: '5px' }} title="Editar JSON" onClick={() => handleEditTemplate(tpl)}>
+                                                                    <Edit2 size={20} />
+                                                                </button>
+                                                                <button type="button" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: '5px' }} title="Eliminar Plantilla" onClick={() => handleDeleteTemplate(tpl.id)}>
+                                                                    <Trash2 size={20} />
+                                                                </button>
+                                                            </div>
+                                                        </td>
+                                                    )}
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {activeTab === 'reports' && (
+                    <div className="card">
+                        {selectedStudentReport ? (
+                            <div style={{ padding: '20px' }}>
+                                <button className="secondary-btn" onClick={() => setSelectedStudentReport(null)} style={{ marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <X size={18} /> Volver a la Lista de Estudiantes
+                                </button>
+                                <KinderReportForm 
+                                    studentId={selectedStudentReport}
+                                    studentName={formatName(students.find(s => s.id === selectedStudentReport)?.full_name)}
+                                    token={token || ''}
+                                    teacherName={user?.name || ''}
+                                />
+                            </div>
+                        ) : (
+                            <div style={{ padding: '20px' }}>
+                                <h3 style={{ marginTop: 0, marginBottom: '20px' }}>Generación de Informes al Hogar</h3>
+                                <div style={{ marginBottom: '20px' }}>
+                                    <label style={{ fontWeight: 'bold' }}>Seleccione Curso:</label>
+                                    <select 
+                                        className="swal2-input" 
+                                        style={{ maxWidth: '300px', display: 'inline-block', margin: '0 0 0 10px' }}
+                                        value={reportsLevelId}
+                                        onChange={(e) => setReportsLevelId(e.target.value)}
+                                    >
+                                        <option value="">-- Seleccionar Nivel --</option>
+                                        {levels.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                                    </select>
+                                </div>
+                                {reportsLevelId && (() => {
+                                    const lvlStudents = students.filter(s => String(s.level_id) === reportsLevelId && !s.withdrawal_date);
+                                    return (
+                                        <div>
+                                            <table className="data-table">
+                                                <thead>
+                                                    <tr>
+                                                        <th>N° Lista</th>
+                                                        <th>Estudiante</th>
+                                                        <th style={{ textAlign: 'center' }}>Acciones</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {lvlStudents.length === 0 ? (
+                                                        <tr><td colSpan={3} style={{ textAlign: 'center', padding: '20px' }}>No hay estudiantes activos en este curso.</td></tr>
+                                                    ) : (
+                                                        lvlStudents.map(s => (
+                                                            <tr key={s.id}>
+                                                                <td style={{ fontWeight: 'bold', color: '#64748b' }}>{s.list_number || '-'}</td>
+                                                                <td style={{ fontWeight: '500' }}>{formatName(s.full_name)}</td>
+                                                                <td style={{ textAlign: 'center' }}>
+                                                                    <button 
+                                                                        className="primary-btn" 
+                                                                        style={{ padding: '6px 12px', fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center' }}
+                                                                        onClick={() => setSelectedStudentReport(s.id)}
+                                                                    >
+                                                                        <FileText size={14} style={{ marginRight: '5px' }} />
+                                                                        Generar Informe
+                                                                    </button>
+                                                                </td>
+                                                            </tr>
+                                                        ))
+                                                    )}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    );
+                                })()}
                             </div>
                         )}
                     </div>

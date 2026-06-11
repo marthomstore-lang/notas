@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { LogOut, Book, Calendar, Menu, X, ClipboardCheck, User, LayoutGrid, LayoutList, ListOrdered } from 'lucide-react';
+import { LogOut, Book, Calendar, Menu, X, ClipboardCheck, User, LayoutGrid, LayoutList, ListOrdered, Users } from 'lucide-react';
 import { StudentWindow } from '../components/StudentWindow';
 import { ReorderStudentsModal } from '../components/ReorderStudentsModal';
+import { KinderReportForm } from '../components/Reports/KinderReportForm';
 import Swal from 'sweetalert2';
 import './Dashboard.css';
 
@@ -33,7 +34,7 @@ export const TeacherDashboard = () => {
     const navigate = useNavigate();
     const [assignments, setAssignments] = useState<Assignment[]>([]);
     const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth >= 768);
-    const [activeView, setActiveView] = useState<'courses' | 'observations' | 'schedule' | 'profile'>('courses');
+    const [activeView, setActiveView] = useState<'courses' | 'observations' | 'schedule' | 'profile' | 'homeroom'>('courses');
     const [viewMode, setViewMode] = useState<'list' | 'grid'>(() => (localStorage.getItem('teacherViewMode') as 'list' | 'grid') || 'list');
 
     const toggleViewMode = (mode: 'list' | 'grid') => {
@@ -41,7 +42,7 @@ export const TeacherDashboard = () => {
         localStorage.setItem('teacherViewMode', mode);
     };
 
-    const handleNavClick = (view: 'courses' | 'observations' | 'schedule' | 'profile') => {
+    const handleNavClick = (view: 'courses' | 'observations' | 'schedule' | 'profile' | 'homeroom') => {
         setActiveView(view);
         if (window.innerWidth < 768) {
             setIsSidebarOpen(false);
@@ -55,6 +56,9 @@ export const TeacherDashboard = () => {
     const [newObs, setNewObs] = useState({ content: '', type: 'Positive' });
     const [viewingStudentId, setViewingStudentId] = useState<string | null>(null);
     const [showReorderModal, setShowReorderModal] = useState(false);
+    
+    const [homeroomData, setHomeroomData] = useState<{ isHomeroomTeacher: boolean, level?: any, students?: any[] }>({ isHomeroomTeacher: false });
+    const [selectedHomeroomStudent, setSelectedHomeroomStudent] = useState<any>(null);
 
     useEffect(() => {
         if (token) {
@@ -64,6 +68,13 @@ export const TeacherDashboard = () => {
             .then(res => res.json())
             .then(data => setAssignments(data))
             .catch(err => console.error("Error fetching assignments:", err));
+            
+            fetch('/_/backend/api/teacher/homeroom', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            })
+            .then(res => res.json())
+            .then(data => setHomeroomData(data))
+            .catch(err => console.error("Error fetching homeroom:", err));
         }
     }, [token]);
 
@@ -121,6 +132,9 @@ export const TeacherDashboard = () => {
                 <nav className="sidebar-nav">
                     <button className={activeView === 'courses' ? 'active' : ''} onClick={() => handleNavClick('courses')}><Book size={18} /> Mis Cursos</button>
                     <button className={activeView === 'observations' ? 'active' : ''} onClick={() => { handleNavClick('observations'); setSelectedLevelId(null); setSelectedStudentId(null); }}><ClipboardCheck size={18} /> Libro de Vida</button>
+                    {homeroomData.isHomeroomTeacher && (
+                        <button className={activeView === 'homeroom' ? 'active' : ''} onClick={() => handleNavClick('homeroom')}><Users size={18} /> Jefatura</button>
+                    )}
                     <button className={activeView === 'schedule' ? 'active' : ''} onClick={() => handleNavClick('schedule')}><Calendar size={18} /> Horario</button>
                     <button className={activeView === 'profile' ? 'active' : ''} onClick={() => handleNavClick('profile')}><User size={18} /> Mi Cuenta</button>
                 </nav>
@@ -141,6 +155,7 @@ export const TeacherDashboard = () => {
                             {activeView === 'observations' && 'Anotaciones / Libro de Vida'}
                             {activeView === 'schedule' && 'Mi Horario Semanal'}
                             {activeView === 'profile' && 'Configuración de Mi Cuenta'}
+                            {activeView === 'homeroom' && 'Jefatura y Reportes'}
                         </h1>
                     </div>
                     {((activeView === 'courses') || (activeView === 'observations' && !selectedLevelId)) && (
@@ -279,6 +294,54 @@ export const TeacherDashboard = () => {
                                         </div>
                                     ))}
                                 </div>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {activeView === 'homeroom' && (
+                    <div>
+                        {homeroomData.isHomeroomTeacher ? (
+                            !selectedHomeroomStudent ? (
+                                <div className="card">
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                                        <h3 style={{ margin: 0 }}>Mi Jefatura: {homeroomData.level?.name}</h3>
+                                    </div>
+                                    <p style={{ color: '#64748b', marginBottom: '20px' }}>Seleccione un estudiante para generar o editar su Informe al Hogar.</p>
+                                    <table className="data-table">
+                                        <thead><tr><th>RUN</th><th>Nombre Alumno</th><th>Estado</th><th>Acción</th></tr></thead>
+                                        <tbody>
+                                            {homeroomData.students?.map(s => (
+                                                <tr key={s.id} style={s.status === 'RETIRADO' ? { color: '#ef4444', textDecoration: 'line-through', fontWeight: '500' } : {}}>
+                                                    <td>{s.run}</td>
+                                                    <td>{formatName(s.full_name)}</td>
+                                                    <td>{s.status}</td>
+                                                    <td>
+                                                        <button className="primary-btn" onClick={() => setSelectedHomeroomStudent(s)}>Informe al Hogar (Kinder)</button>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                            {(!homeroomData.students || homeroomData.students.length === 0) && (
+                                                <tr><td colSpan={4} style={{ textAlign: 'center' }}>No hay estudiantes registrados.</td></tr>
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            ) : (
+                                <div>
+                                    <button onClick={() => setSelectedHomeroomStudent(null)} className="secondary-btn" style={{ marginBottom: '20px' }}>Volver a Jefatura</button>
+                                    <KinderReportForm 
+                                        studentId={selectedHomeroomStudent.id} 
+                                        studentName={formatName(selectedHomeroomStudent.full_name)} 
+                                        token={token || ''}
+                                        teacherName={formatName(user?.name)}
+                                    />
+                                </div>
+                            )
+                        ) : (
+                            <div className="card">
+                                <h3>Jefatura</h3>
+                                <p style={{ color: '#64748b' }}>No tienes una jefatura asignada en este momento.</p>
                             </div>
                         )}
                     </div>

@@ -316,3 +316,69 @@ export const updateSubjectOrder = async (req: Request, res: Response) => {
         res.status(500).json({ error: error.message });
     }
 };
+
+export const getHomeroomData = async (req: Request, res: Response) => {
+    const userId = (req as any).user.id;
+    const year = req.query.year || new Date().getFullYear();
+    try {
+        const level = await db.get(`SELECT id, name FROM levels WHERE homeroom_teacher_id = ?`, [userId]);
+        if (!level) return res.json({ isHomeroomTeacher: false });
+
+        const students = await db.all(`
+            SELECT s.id, s.run, s.full_name, s.status, e.list_number 
+            FROM enrollments e 
+            JOIN students s ON e.student_id = s.id 
+            WHERE e.level_id = ? AND e.academic_year = ?
+            ORDER BY COALESCE(e.list_number, 999999) ASC, s.full_name ASC
+        `, [level.id, year]);
+
+        res.json({ isHomeroomTeacher: true, level, students });
+    } catch (error: any) {
+        console.error("Error in getHomeroomData", error);
+        res.status(500).json({ error: error.message });
+    }
+};
+
+export const getPersonalityReport = async (req: Request, res: Response) => {
+    const { studentId, semester } = req.params;
+    const year = req.query.year || new Date().getFullYear();
+    try {
+        const enrollment = await db.get(`SELECT level_id FROM enrollments WHERE student_id = ? AND academic_year = ?`, [studentId, year]);
+        const level = enrollment ? await db.get(`SELECT report_template_id FROM levels WHERE id = ?`, [enrollment.level_id]) : null;
+        
+        let template = null;
+        if (level && level.report_template_id) {
+            template = await db.get(`SELECT id, name, structure_json FROM report_templates WHERE id = ?`, [level.report_template_id]);
+        } else {
+            // Fallback for old Kinder logic
+            template = await db.get(`SELECT id, name, structure_json FROM report_templates WHERE name = 'Informe de Kínder 2026'`);
+        }
+
+        const report = await db.get(`SELECT * FROM personality_reports WHERE student_id = ? AND semester = ? AND academic_year = ?`, [studentId, semester, year]);
+        res.json({ report: report || null, template: template || null });
+    } catch (error: any) {
+        console.error("Error in getPersonalityReport", error);
+        res.status(500).json({ error: error.message });
+    }
+};
+
+export const savePersonalityReport = async (req: Request, res: Response) => {
+    const userId = (req as any).user.id;
+    const { studentId, semester, year, evaluation_data, observations, template_id } = req.body;
+    try {
+        const existing = await db.get(`SELECT id FROM personality_reports WHERE student_id = ? AND semester = ? AND academic_year = ?`, [studentId, semester, year]);
+        if (existing) {
+            await db.run(`UPDATE personality_reports SET evaluation_data = ?, observations = ?, template_id = ? WHERE id = ?`, [JSON.stringify(evaluation_data), observations, template_id || null, existing.id]);
+        } else {
+            const crypto = require('crypto');
+            const newId = crypto.randomUUID();
+            const enrollment = await db.get(`SELECT level_id FROM enrollments WHERE student_id = ? AND academic_year = ?`, [studentId, year]);
+            const levelId = enrollment ? enrollment.level_id : null;
+            await db.run(`INSERT INTO personality_reports (id, student_id, teacher_id, level_id, academic_year, semester, report_type, evaluation_data, observations, template_id) VALUES (?, ?, ?, ?, ?, ?, 'Dynamic', ?, ?, ?)`, [newId, studentId, userId, levelId, year, semester, JSON.stringify(evaluation_data), observations, template_id || null]);
+        }
+        res.json({ success: true });
+    } catch (error: any) {
+        console.error("Error in savePersonalityReport", error);
+        res.status(500).json({ error: error.message });
+    }
+};

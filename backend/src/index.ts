@@ -6,9 +6,10 @@ import jwt from 'jsonwebtoken';
 import { login, updateProfile } from './controllers/authController';
 import { getAssignments, getGrades, addColumn, saveGrade } from './controllers/teacherController';
 import { registerEnrollment } from './controllers/enrollmentController';
+import { getReportTemplates, createReportTemplate, updateReportTemplate, deleteReportTemplate, assignTemplateToLevel } from './controllers/reportTemplatesController';
 import { getTeachers, createTeacher, updateTeacher, deleteTeacher, getSubjects, createSubject, updateSubject, deleteSubject, checkSubjectGrades, getLevels, updateLevelCapacity, getAssignmentsAdmin, createAssignment, updateAssignment, deleteAssignment, getStudents, getStudentById, updateStudent, deleteStudent, reincorporateStudent, getStudentObservations, addObservation, exportData, importDataWeb, changeStudentLevel } from './controllers/adminController';
 import { getFiltersData, getGradesSheet, saveGradesSheet, updateStudentPosition, bulkUpdateStudentPositions, toggleLockAssignment, getAuditLogs, getGradesOverview } from './controllers/gradesController';
-import { getStudentGradesReport, getLevelGradesReport, updateInstitutionalSettings, setHomeroomTeacher, getSubjectOrder, updateSubjectOrder } from './controllers/reportsController';
+import { getStudentGradesReport, getLevelGradesReport, updateInstitutionalSettings, setHomeroomTeacher, getSubjectOrder, updateSubjectOrder, getHomeroomData, getPersonalityReport, savePersonalityReport } from './controllers/reportsController';
 import multer from 'multer';
 import db from './config/db';
 
@@ -79,6 +80,13 @@ router.post('/admin/students/:id/change-level', authMiddleware, changeStudentLev
 router.get('/admin/students/:id/observations', authMiddleware, getStudentObservations);
 router.post('/admin/students/:id/observations', authMiddleware, addObservation);
 
+// Rutas Plantillas de Informes
+router.get('/admin/report-templates', authMiddleware, getReportTemplates);
+router.post('/admin/report-templates', authMiddleware, createReportTemplate);
+router.put('/admin/report-templates/:id', authMiddleware, updateReportTemplate);
+router.delete('/admin/report-templates/:id', authMiddleware, deleteReportTemplate);
+router.put('/admin/levels/:id/template', authMiddleware, assignTemplateToLevel);
+
 // Rutas Calificaciones (Notas)
 router.get('/admin/grades/filters', authMiddleware, getFiltersData);
 router.get('/admin/grades/overview', authMiddleware, getGradesOverview);
@@ -102,6 +110,12 @@ router.get('/teacher/assignments', authMiddleware, getAssignments);
 router.get('/teacher/grades/:assignmentId', authMiddleware, getGrades);
 router.post('/teacher/grades/:assignmentId/columns', authMiddleware, addColumn);
 router.post('/teacher/grades/save', authMiddleware, saveGrade);
+
+// Rutas de Profesor Jefe (Informes de Personalidad)
+router.get('/teacher/homeroom', authMiddleware, getHomeroomData);
+router.get('/teacher/reports/personality/:studentId/:semester', authMiddleware, getPersonalityReport);
+router.post('/teacher/reports/personality', authMiddleware, savePersonalityReport);
+
 
 router.get('/debug/db', async (req, res) => {
     try {

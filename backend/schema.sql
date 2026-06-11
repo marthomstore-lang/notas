@@ -146,6 +146,30 @@ CREATE TABLE IF NOT EXISTS enrollments (
     UNIQUE(student_id, academic_year)
 );
 
+-- Homeroom Teachers
+CREATE TABLE IF NOT EXISTS homeroom_teachers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    level_id INTEGER REFERENCES levels(id),
+    teacher_id TEXT REFERENCES users(id),
+    academic_year INTEGER NOT NULL,
+    UNIQUE(level_id, academic_year)
+);
+
+-- Personality Reports
+CREATE TABLE IF NOT EXISTS personality_reports (
+    id TEXT PRIMARY KEY,
+    student_id TEXT REFERENCES students(id) ON DELETE CASCADE,
+    teacher_id TEXT REFERENCES users(id),
+    level_id INTEGER REFERENCES levels(id),
+    academic_year INTEGER,
+    semester INTEGER,
+    report_type TEXT,
+    evaluation_data JSON,
+    observations TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(student_id, academic_year, semester, report_type)
+);
+
 -- Columnas de Evaluación
 CREATE TABLE IF NOT EXISTS grade_columns (
     id TEXT PRIMARY KEY,

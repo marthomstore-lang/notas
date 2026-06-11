@@ -198,6 +198,21 @@ CREATE TABLE IF NOT EXISTS homeroom_teachers (
     UNIQUE(level_id, academic_year)
 );
 
+-- Personality Reports
+CREATE TABLE IF NOT EXISTS personality_reports (
+    id TEXT PRIMARY KEY,
+    student_id TEXT REFERENCES students(id) ON DELETE CASCADE,
+    teacher_id TEXT REFERENCES users(id),
+    level_id INTEGER REFERENCES levels(id),
+    academic_year INTEGER,
+    semester INTEGER,
+    report_type TEXT,
+    evaluation_data JSONB,
+    observations TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(student_id, academic_year, semester, report_type)
+);
+
 -- Seed default Admin user (RUT: 18803735-6, Contraseña: 182011)
 INSERT INTO users (id, run, name, email, password_hash, password_plain, role, temp_password)
 VALUES (

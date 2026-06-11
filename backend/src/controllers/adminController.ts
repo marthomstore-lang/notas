@@ -9,7 +9,7 @@ export const getStudents = async (req: Request, res: Response) => {
     try {
         client = await db.connect();
         const result = await client.query(`
-            SELECT s.*, l.name as level_name, e.list_number 
+            SELECT s.*, l.name as level_name, e.list_number, e.level_id 
             FROM students s 
             LEFT JOIN enrollments e ON s.id = e.student_id 
             LEFT JOIN levels l ON e.level_id = l.id
@@ -524,6 +524,7 @@ export const getLevels = async (req: Request, res: Response) => {
                 l.id, 
                 l.name, 
                 l.total_capacity,
+                l.report_template_id,
                 (SELECT COUNT(*) FROM enrollments e JOIN students s ON e.student_id = s.id WHERE e.level_id = l.id AND e.academic_year = 2026 AND s.status = 'Active') as current_enrolled,
                 u.name as homeroom_teacher_name 
             FROM levels l
