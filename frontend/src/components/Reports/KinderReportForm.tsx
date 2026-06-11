@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { KINDER_REPORT_STRUCTURE } from './kinderReportData';
+import { KINDER_REPORT_STRUCTURE, PREKINDER_REPORT_STRUCTURE } from './kinderReportData';
 import { PrintableKinderReport } from './PrintableKinderReport';
 import { Printer, Save, FileText } from 'lucide-react';
 import Swal from 'sweetalert2';
@@ -9,9 +9,10 @@ interface KinderReportFormProps {
     studentName: string;
     token: string;
     teacherName: string;
+    levelName?: string;
 }
 
-export const KinderReportForm: React.FC<KinderReportFormProps> = ({ studentId, studentName, token, teacherName }) => {
+export const KinderReportForm: React.FC<KinderReportFormProps> = ({ studentId, studentName, token, teacherName, levelName }) => {
     const [evaluationData, setEvaluationData] = useState<Record<string, string>>({});
     const [observations, setObservations] = useState('');
     const [semester, setSemester] = useState(1);
@@ -38,7 +39,9 @@ export const KinderReportForm: React.FC<KinderReportFormProps> = ({ studentId, s
                     setReportStructure(typeof data.template.structure_json === 'string' ? JSON.parse(data.template.structure_json) : data.template.structure_json);
                     setTemplateId(data.template.id);
                 } else {
-                    setReportStructure(KINDER_REPORT_STRUCTURE);
+                    const nameLower = (levelName || '').toLowerCase();
+                    const isPreKinder = nameLower.includes('pre') || nameLower.includes('transición 1') || nameLower.includes('transicion 1') || nameLower.includes('primer nivel');
+                    setReportStructure(isPreKinder ? PREKINDER_REPORT_STRUCTURE : KINDER_REPORT_STRUCTURE);
                 }
 
                 if (data.report) {

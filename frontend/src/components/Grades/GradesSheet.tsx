@@ -103,7 +103,7 @@ export const GradesSheet: React.FC<GradesSheetProps> = ({ initialLevelId, initia
             if (Object.keys(grades).length >= 0) {
                 autosave();
             }
-        }, 2000);
+        }, 5000);
         return () => clearTimeout(timer);
     }, [grades, columns]);
 

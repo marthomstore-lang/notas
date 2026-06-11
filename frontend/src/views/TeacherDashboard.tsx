@@ -317,7 +317,7 @@ export const TeacherDashboard = () => {
                                                     <td>{formatName(s.full_name)}</td>
                                                     <td>{s.status}</td>
                                                     <td>
-                                                        <button className="primary-btn" onClick={() => setSelectedHomeroomStudent(s)}>Informe al Hogar (Kinder)</button>
+                                                        <button className="primary-btn" onClick={() => setSelectedHomeroomStudent(s)}>Informe al Hogar ({homeroomData.level?.name || ''})</button>
                                                     </td>
                                                 </tr>
                                             ))}
@@ -335,6 +335,7 @@ export const TeacherDashboard = () => {
                                         studentName={formatName(selectedHomeroomStudent.full_name)} 
                                         token={token || ''}
                                         teacherName={formatName(user?.name)}
+                                        levelName={homeroomData.level?.name}
                                     />
                                 </div>
                             )
