@@ -122,6 +122,7 @@ async function generateStudentReport(dbInstance: any, studentId: any, year: any,
             else if (s2.avg !== null) finalAvg = Math.round((s2.avg + 1e-9) * 10) / 10;
 
             reportData.push({
+                subjectId: sub.id,
                 subjectName: sub.name,
                 s1: s1.partials,
                 avgS1: format(s1.avg),
@@ -193,10 +194,20 @@ async function generateStudentReport(dbInstance: any, studentId: any, year: any,
             }
 
             reportData.push({
+                subjectId: sub.id,
                 subjectName: sub.name,
                 grades: columns.filter(col => col.position <= 10).map(col => {
                     const g = grades.find(grade => grade.grade_column_id === col.id);
                     return g ? formatGrade(g.grade_value) : null;
+                }),
+                gradeDetails: columns.filter(col => col.position <= 10).map(col => {
+                    const g = grades.find(grade => grade.grade_column_id === col.id);
+                    return {
+                        position: col.position,
+                        weighting: col.weighting,
+                        title: col.title,
+                        value: g ? formatGrade(g.grade_value) : '-'
+                    };
                 }),
                 average,
                 isAnnual: false
@@ -327,7 +338,7 @@ export const getHomeroomData = async (req: Request, res: Response) => {
     const userId = (req as any).user.id;
     const year = req.query.year || new Date().getFullYear();
     try {
-        const level = await db.get(`SELECT id, name FROM levels WHERE homeroom_teacher_id = ?`, [userId]);
+        const level = await db.get(`SELECT id, name, report_template_id FROM levels WHERE homeroom_teacher_id = ?`, [userId]);
         if (!level) return res.json({ isHomeroomTeacher: false });
 
         const students = await db.all(`
@@ -355,9 +366,6 @@ export const getPersonalityReport = async (req: Request, res: Response) => {
         let template = null;
         if (level && level.report_template_id) {
             template = await db.get(`SELECT id, name, structure_json FROM report_templates WHERE id = ?`, [level.report_template_id]);
-        } else {
-            // Fallback for old Kinder logic
-            template = await db.get(`SELECT id, name, structure_json FROM report_templates WHERE name = 'Informe de Kínder 2026'`);
         }
 
         const report = await db.get(`SELECT * FROM personality_reports WHERE student_id = ? AND semester = ? AND academic_year = ?`, [studentId, semester, year]);

@@ -37,6 +37,10 @@ export const GradesOverview: React.FC = () => {
 
     const [data, setData] = useState<any>(null);
     const [loading, setLoading] = useState(false);
+    const [selectedStudentDetail, setSelectedStudentDetail] = useState<any | null>(null);
+    const [studentGradesData, setStudentGradesData] = useState<any | null>(null);
+    const [loadingGrades, setLoadingGrades] = useState(false);
+    const [expandedSubjectId, setExpandedSubjectId] = useState<number | null>(null);
 
     useEffect(() => {
         localStorage.setItem('overviewFilters', JSON.stringify(filters));
@@ -98,6 +102,35 @@ export const GradesOverview: React.FC = () => {
     useEffect(() => {
         fetchOverview();
     }, [filters, token]);
+
+    useEffect(() => {
+        if (!selectedStudentDetail || !token) {
+            setStudentGradesData(null);
+            setExpandedSubjectId(null);
+            return;
+        }
+
+        setLoadingGrades(true);
+        setExpandedSubjectId(null); // Reset expanded accordion when student changes
+        
+        fetch(`/_/backend/api/reports/grades/${selectedStudentDetail.id}?year=${filters.year}&period=${filters.period}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        })
+        .then(res => {
+            if (!res.ok) throw new Error("No se pudieron cargar las calificaciones");
+            return res.json();
+        })
+        .then(data => {
+            setStudentGradesData(data);
+        })
+        .catch(err => {
+            console.error("Error fetching student report grades:", err);
+            MySwal.fire('Error', 'No se pudieron cargar las calificaciones parciales del estudiante', 'error');
+        })
+        .finally(() => {
+            setLoadingGrades(false);
+        });
+    }, [selectedStudentDetail, token, filters.year, filters.period]);
 
     const isGpaRed = (gpaStr: string) => {
         const val = parseFloat(gpaStr.replace(',', '.'));
@@ -297,7 +330,14 @@ export const GradesOverview: React.FC = () => {
                                         {displayedStudents.map((stu: any) => (
                                             <tr key={stu.id} className={stu.gpaNum && stu.gpaNum < 4.0 ? 'danger-row' : ''}>
                                                 <td style={{ textAlign: 'center', color: '#64748b' }}>{stu.listNumber || '-'}</td>
-                                                <td style={{ fontWeight: '600' }}>{formatName(stu.name)}</td>
+                                                 <td 
+                                                     style={{ fontWeight: '600', cursor: 'pointer' }} 
+                                                     className="student-name-clickable"
+                                                     onClick={() => setSelectedStudentDetail(stu)}
+                                                     title="Click para ver panorama de promedios"
+                                                 >
+                                                     {formatName(stu.name)}
+                                                 </td>
                                                 <td style={{ textAlign: 'center', fontWeight: '700', color: '#166534' }}>{stu.blueCount}</td>
                                                 <td style={{ textAlign: 'center', fontWeight: '700', color: '#991b1b' }}>{stu.redCount}</td>
                                                 <td style={{ textAlign: 'center', fontWeight: '800' }} className={stu.gpa !== '-' && isGpaRed(stu.gpa) ? 'text-red' : 'text-blue'}>
@@ -342,7 +382,14 @@ export const GradesOverview: React.FC = () => {
                                     {displayedStudents.map((stu: any) => (
                                         <tr key={stu.id} className={stu.gpaNum && stu.gpaNum < 4.0 ? 'danger-row' : ''}>
                                             <td style={{ textAlign: 'center', color: '#64748b' }}>{stu.listNumber || '-'}</td>
-                                            <td style={{ fontWeight: '600', textAlign: 'left' }}>{formatName(stu.name)}</td>
+                                            <td 
+                                                style={{ fontWeight: '600', textAlign: 'left', cursor: 'pointer' }}
+                                                className="student-name-clickable"
+                                                onClick={() => setSelectedStudentDetail(stu)}
+                                                title="Click para ver panorama de promedios"
+                                            >
+                                                {formatName(stu.name)}
+                                            </td>
                                             {data.subjects.map((sub: any) => {
                                                 const gradeVal = stu.subjectAverages?.[sub.id] || '-';
                                                 const isRed = gradeVal !== '-' && (
@@ -373,7 +420,178 @@ export const GradesOverview: React.FC = () => {
                             </table>
                         </div>
                     </div>
+                </div>
+            )}
 
+            {/* Modal: Panorama Completo del Estudiante */}
+            {selectedStudentDetail && (
+                <div className="overview-modal-overlay no-print" onClick={() => setSelectedStudentDetail(null)}>
+                    <div className="overview-modal-card" onClick={(e) => e.stopPropagation()}>
+                        <header className="overview-modal-header">
+                            <div>
+                                <h2>Panorama de Promedios</h2>
+                                <p className="student-name">{formatName(selectedStudentDetail.name)}</p>
+                                <p className="student-run">RUN: {selectedStudentDetail.run || 'N/A'}</p>
+                            </div>
+                            <button className="close-modal-btn" onClick={() => setSelectedStudentDetail(null)}>&times;</button>
+                        </header>
+                        
+                        <div className="overview-modal-body">
+                            <div className="student-summary-strip">
+                                <div className="summary-stat">
+                                    <span className="stat-label">Promedio General</span>
+                                    <span className={`stat-val ${isGpaRed(selectedStudentDetail.gpa) ? 'red' : 'blue'}`}>
+                                        {selectedStudentDetail.gpa}
+                                    </span>
+                                </div>
+                                <div className="summary-stat">
+                                    <span className="stat-label">Aprobadas (Azules)</span>
+                                    <span className="summary-val-pill blue">{selectedStudentDetail.blueCount}</span>
+                                </div>
+                                <div className="summary-stat">
+                                    <span className="stat-label">Reprobadas (Rojas)</span>
+                                    <span className="summary-val-pill red">{selectedStudentDetail.redCount}</span>
+                                </div>
+                            </div>
+                            
+                            <h3 className="section-title">Detalle de Calificaciones por Asignatura</h3>
+                            <div className="modal-table-wrapper">
+                                <table className="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Asignatura</th>
+                                            <th style={{ textAlign: 'center' }}>Promedio</th>
+                                            <th style={{ textAlign: 'center' }}>Estado</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {data.subjects.map((sub: any) => {
+                                            const gradeVal = selectedStudentDetail.subjectAverages?.[sub.id] || '-';
+                                            const isRed = gradeVal !== '-' && (
+                                                gradeVal === 'I' || 
+                                                (!isNaN(parseFloat(gradeVal.replace(',', '.'))) && parseFloat(gradeVal.replace(',', '.')) < 4.0)
+                                            );
+                                            const isBlue = gradeVal !== '-' && !isRed;
+                                            const isExpanded = expandedSubjectId === sub.id;
+                                            const subjectReport = studentGradesData?.periodData?.find((p: any) => String(p.subjectId) === String(sub.id));
+                                            
+                                            return (
+                                                <React.Fragment key={sub.id}>
+                                                    <tr 
+                                                        onClick={() => {
+                                                            if (gradeVal === '-') return;
+                                                            setExpandedSubjectId(isExpanded ? null : sub.id);
+                                                        }}
+                                                        style={{ cursor: gradeVal !== '-' ? 'pointer' : 'default' }}
+                                                        className={isExpanded ? 'active-accordion-row' : ''}
+                                                    >
+                                                        <td style={{ fontWeight: '600' }}>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                                {gradeVal !== '-' && (
+                                                                    <span className={`accordion-chevron ${isExpanded ? 'expanded' : ''}`}>
+                                                                        ▸
+                                                                    </span>
+                                                                )}
+                                                                {sub.name}
+                                                            </div>
+                                                        </td>
+                                                        <td 
+                                                            style={{ textAlign: 'center', fontWeight: '800' }}
+                                                            className={isRed ? 'text-red' : isBlue ? 'text-blue' : ''}
+                                                        >
+                                                            {gradeVal}
+                                                        </td>
+                                                        <td style={{ textAlign: 'center' }}>
+                                                            {gradeVal === '-' ? (
+                                                                <span className="status-badge gray">Sin notas</span>
+                                                            ) : isRed ? (
+                                                                <span className="status-badge red">Reprobado</span>
+                                                            ) : (
+                                                                <span className="status-badge green">Aprobado</span>
+                                                            )}
+                                                        </td>
+                                                    </tr>
+                                                    {isExpanded && (
+                                                        <tr className="expanded-grades-row">
+                                                            <td colSpan={3}>
+                                                                {loadingGrades ? (
+                                                                    <div className="loading-partials">Cargando calificaciones parciales...</div>
+                                                                ) : subjectReport ? (
+                                                                    <div className="partials-container">
+                                                                        {subjectReport.isAnnual ? (
+                                                                            <div className="annual-partials-container">
+                                                                                <div className="semester-partials-col">
+                                                                                    <h4>1er Semestre (Promedio: {subjectReport.avgS1 || '-'})</h4>
+                                                                                    <div className="partials-list">
+                                                                                        {subjectReport.s1?.filter((val: any) => val !== null && val !== '-').map((val: any, idx: number) => (
+                                                                                            <div key={idx} className="partial-grade-card">
+                                                                                                <span className="partial-grade-title">Nota {idx + 1}</span>
+                                                                                                <span className={`partial-grade-value ${parseFloat(val.replace(',', '.')) < 4.0 ? 'red' : 'blue'}`}>{val}</span>
+                                                                                            </div>
+                                                                                        ))}
+                                                                                        {(!subjectReport.s1 || subjectReport.s1.filter((val: any) => val !== null && val !== '-').length === 0) && (
+                                                                                            <span className="no-partials-msg">Sin calificaciones registradas</span>
+                                                                                        )}
+                                                                                    </div>
+                                                                                </div>
+                                                                                <div className="semester-partials-col">
+                                                                                    <h4>2do Semestre (Promedio: {subjectReport.avgS2 || '-'})</h4>
+                                                                                    <div className="partials-list">
+                                                                                        {subjectReport.s2?.filter((val: any) => val !== null && val !== '-').map((val: any, idx: number) => (
+                                                                                            <div key={idx} className="partial-grade-card">
+                                                                                                <span className="partial-grade-title">Nota {idx + 1}</span>
+                                                                                                <span className={`partial-grade-value ${parseFloat(val.replace(',', '.')) < 4.0 ? 'red' : 'blue'}`}>{val}</span>
+                                                                                            </div>
+                                                                                        ))}
+                                                                                        {(!subjectReport.s2 || subjectReport.s2.filter((val: any) => val !== null && val !== '-').length === 0) && (
+                                                                                            <span className="no-partials-msg">Sin calificaciones registradas</span>
+                                                                                        )}
+                                                                                    </div>
+                                                                                </div>
+                                                                            </div>
+                                                                        ) : (
+                                                                            <div className="partials-list">
+                                                                                {subjectReport.gradeDetails?.filter((d: any) => d.value !== '-').map((detail: any, idx: number) => {
+                                                                                    const isGradeRed = detail.value !== '-' && (
+                                                                                        detail.value === 'I' || 
+                                                                                        (!isNaN(parseFloat(detail.value.replace(',', '.'))) && parseFloat(detail.value.replace(',', '.')) < 4.0)
+                                                                                    );
+                                                                                    return (
+                                                                                        <div key={idx} className="partial-grade-card">
+                                                                                            <span className="partial-grade-title" title={detail.title || `Calificación ${detail.position}`}>
+                                                                                                {detail.title || `Nota ${detail.position}`}
+                                                                                            </span>
+                                                                                            <span className={`partial-grade-value ${isGradeRed ? 'red' : 'blue'}`}>{detail.value}</span>
+                                                                                            {detail.weighting && parseFloat(detail.weighting) > 0 ? (
+                                                                                                <span className="partial-grade-weight">({detail.weighting}%)</span>
+                                                                                            ) : null}
+                                                                                        </div>
+                                                                                    );
+                                                                                })}
+                                                                                {(!subjectReport.gradeDetails || subjectReport.gradeDetails.filter((d: any) => d.value !== '-').length === 0) && (
+                                                                                    <span className="no-partials-msg">No se registran calificaciones parciales ingresadas.</span>
+                                                                                )}
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                ) : (
+                                                                    <div className="no-partials-msg">No se pudieron obtener las calificaciones.</div>
+                                                                )}
+                                                            </td>
+                                                        </tr>
+                                                    )}
+                                                </React.Fragment>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        
+                        <footer className="overview-modal-footer">
+                            <button className="primary-btn" onClick={() => setSelectedStudentDetail(null)}>Cerrar</button>
+                        </footer>
+                    </div>
                 </div>
             )}
         </div>

@@ -21,6 +21,66 @@ export const formatName = (name: string | undefined | null): string => {
     return toCamelCase(name);
 };
 
+export const getSubjectImageUrl = (subjectName: string): string => {
+    const name = (subjectName || '').toLowerCase().trim();
+    
+    // Matemática / Medición
+    if (name.includes('matemát') || name.includes('medición') || name.includes('cálculo') || name.includes('verificación')) {
+        return 'https://images.unsplash.com/photo-1635070041078-e363dbe005cb?w=300&auto=format&fit=crop&q=60';
+    }
+    // Ciencias Naturales / Ciencias para la Ciudadanía
+    if (name.includes('naturales') || name.includes('ciudadanía') || name.includes('química') || name.includes('física') || name.includes('biología') || name.includes('ciencias')) {
+        return 'https://images.unsplash.com/photo-1507413245164-6160d8298b31?w=300&auto=format&fit=crop&q=60';
+    }
+    // Lenguaje / Literatura / Lengua / Inglés / Idioma Extranjero
+    if (name.includes('lenguaje') || name.includes('literatura') || name.includes('lengua') || name.includes('expresión literaria') || name.includes('inglés') || name.includes('ingles') || name.includes('extranjero')) {
+        return 'https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?w=300&auto=format&fit=crop&q=60';
+    }
+    // Historia / Cs. Sociales / Ciudadana / Filosofía
+    if (name.includes('historia') || name.includes('geografía') || name.includes('sociales') || name.includes('ciudadana') || name.includes('filosofía')) {
+        return 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=300&auto=format&fit=crop&q=60';
+    }
+    // Música / Expresión Musical
+    if (name.includes('música') || name.includes('musica') || name.includes('musical')) {
+        return 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=300&auto=format&fit=crop&q=60';
+    }
+    // Artes Visuales / Material Didáctico / Ambientación
+    if (name.includes('artes') || name.includes('visuales') || name.includes('didáctico') || name.includes('ambientación')) {
+        return 'https://images.unsplash.com/photo-1513364776144-60967b0f800f?w=300&auto=format&fit=crop&q=60';
+    }
+    // Educación Física / Recreación
+    if (name.includes('física') || name.includes('fisica') || name.includes('deporte') || name.includes('recreación') || name.includes('bienestar')) {
+        return 'https://images.unsplash.com/photo-1517649763962-0c623066013b?w=300&auto=format&fit=crop&q=60';
+    }
+    // Tecnología / Electrotecnia / Procesos / Control / Automación / Robótica
+    if (name.includes('tecnolog') || name.includes('electrotecnia') || name.includes('procesos') || name.includes('control')) {
+        return 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=300&auto=format&fit=crop&q=60';
+    }
+    // Mecánica / Soldadura / Herramientas / Mantenimiento / Montaje / Maestranza / Banco / Planos
+    if (name.includes('mecán') || name.includes('mecan') || name.includes('soldadura') || name.includes('herramientas') || name.includes('mantenimiento') || name.includes('montaje') || name.includes('maestranza') || name.includes('banco') || name.includes('planos')) {
+        return 'https://images.unsplash.com/photo-1504917595217-d4dc5ebe6122?w=300&auto=format&fit=crop&q=60';
+    }
+    // Párvulos / Familia / Actividades Educativas / Orientación
+    if (name.includes('párvulo') || name.includes('parvulo') || name.includes('actividades educativas') || name.includes('orientación') || name.includes('orientacion') || name.includes('familia')) {
+        return 'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=300&auto=format&fit=crop&q=60';
+    }
+    // Salud / Alimentación / Higiene / Seguridad
+    if (name.includes('salud') || name.includes('alimentación') || name.includes('higiene') || name.includes('seguridad')) {
+        return 'https://images.unsplash.com/photo-1498837167922-ddd27525d352?w=300&auto=format&fit=crop&q=60';
+    }
+    // Religión
+    if (name.includes('religión') || name.includes('religion')) {
+        return 'https://images.unsplash.com/photo-1438032005730-c779502df39b?w=300&auto=format&fit=crop&q=60';
+    }
+    // Jefatura / Emprendimiento / Empleabilidad
+    if (name.includes('jefatura') || name.includes('emprendimiento') || name.includes('empleabilidad')) {
+        return 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=300&auto=format&fit=crop&q=60';
+    }
+    
+    // Default
+    return 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=300&auto=format&fit=crop&q=60';
+};
+
 interface Assignment {
     assignment_id: string;
     level_id: string;
@@ -132,7 +192,7 @@ export const TeacherDashboard = () => {
                 <nav className="sidebar-nav">
                     <button className={activeView === 'courses' ? 'active' : ''} onClick={() => handleNavClick('courses')}><Book size={18} /> Mis Cursos</button>
                     <button className={activeView === 'observations' ? 'active' : ''} onClick={() => { handleNavClick('observations'); setSelectedLevelId(null); setSelectedStudentId(null); }}><ClipboardCheck size={18} /> Libro de Vida</button>
-                    {homeroomData.isHomeroomTeacher && (
+                    {homeroomData.isHomeroomTeacher && homeroomData.level?.report_template_id && (
                         <button className={activeView === 'homeroom' ? 'active' : ''} onClick={() => handleNavClick('homeroom')}><Users size={18} /> Jefatura</button>
                     )}
                     <button className={activeView === 'schedule' ? 'active' : ''} onClick={() => handleNavClick('schedule')}><Calendar size={18} /> Horario</button>
@@ -188,6 +248,11 @@ export const TeacherDashboard = () => {
                                 aria-label={`Curso ${assignment.level_name}, Asignatura ${assignment.subject_name}`}
                                 style={{ textAlign: 'left', width: '100%', border: 'none', cursor: 'pointer' }}
                             >
+                                <img 
+                                    src={getSubjectImageUrl(assignment.subject_name)} 
+                                    alt="" 
+                                    className="assignment-card-bg" 
+                                />
                                 <div className="card-icon"><Book size={24} /></div>
                                 <h3>{assignment.level_name}</h3>
                                 <p>{assignment.subject_name}</p>
@@ -209,9 +274,15 @@ export const TeacherDashboard = () => {
                                         aria-label={`Libro de vida de ${assignment.level_name}`}
                                         style={{ textAlign: 'left', width: '100%', border: 'none', cursor: 'pointer' }}
                                     >
+                                        <img 
+                                            src={getSubjectImageUrl(assignment.subject_name)} 
+                                            alt="" 
+                                            className="assignment-card-bg" 
+                                        />
                                         <div className="card-icon"><Book size={24} /></div>
                                         <h3>{assignment.level_name}</h3>
-                                        <p>Ver Estudiantes</p>
+                                        <p>{assignment.subject_name}</p>
+                                        <p className="academic-year">Ver Estudiantes</p>
                                     </button>
                                 ))}
                             </div>
@@ -302,7 +373,12 @@ export const TeacherDashboard = () => {
                 {activeView === 'homeroom' && (
                     <div>
                         {homeroomData.isHomeroomTeacher ? (
-                            !selectedHomeroomStudent ? (
+                            !homeroomData.level?.report_template_id ? (
+                                <div className="card">
+                                    <h3>Jefatura y Reportes</h3>
+                                    <p style={{ color: '#64748b' }}>No hay una plantilla de informe de personalidad asignada para este curso en este momento.</p>
+                                </div>
+                            ) : !selectedHomeroomStudent ? (
                                 <div className="card">
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                                         <h3 style={{ margin: 0 }}>Mi Jefatura: {homeroomData.level?.name}</h3>

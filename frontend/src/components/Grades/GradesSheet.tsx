@@ -701,8 +701,12 @@ export const GradesSheet: React.FC<GradesSheetProps> = ({ initialLevelId, initia
                                             }}
                                             className={`grade-input-cell ${
                                                 isQualitative 
-                                                    ? (formatGrade(grades[`${s.id}_${c.position}`]) === 'I' ? 'grade-fail' : 'grade-pass')
-                                                    : (Number(grades[`${s.id}_${c.position}`] || 0) < 4 ? 'grade-fail' : 'grade-pass')
+                                                     ? (formatGrade(grades[`${s.id}_${c.position}`]) === 'I' ? 'grade-fail' : 'grade-pass')
+                                                     : (() => {
+                                                         const val = grades[`${s.id}_${c.position}`];
+                                                         if (val === undefined || val === null || val === '') return '';
+                                                         return Number(val) < 4.0 ? 'grade-fail' : 'grade-pass';
+                                                     })()
                                             }`}
                                             value={focusedCell === `${s.id}_${c.position}` ? localValue : formatGrade(grades[`${s.id}_${c.position}`])}
                                             onChange={e => handleGradeChange(s.id, c.position, e.target.value)}
@@ -723,7 +727,17 @@ export const GradesSheet: React.FC<GradesSheetProps> = ({ initialLevelId, initia
                                         />
                                     </td>
                                 ))}
-                                <td className="calculated-col" style={s.status === 'RETIRADO' ? { color: '#ef4444', textDecoration: 'line-through' } : {}}>
+                                <td 
+                                     className={`calculated-col ${
+                                         !isQualitative && (() => {
+                                             const avg = calculatePP(s.id);
+                                             if (avg === '-') return '';
+                                             const avgNum = parseFloat(avg.replace(',', '.'));
+                                             return avgNum < 4.0 ? 'grade-fail' : 'grade-pass';
+                                         })()
+                                     }`}
+                                     style={s.status === 'RETIRADO' ? { color: '#ef4444', textDecoration: 'line-through' } : {}}
+                                 >
                                     {isQualitative ? (
                                         <input
                                             id={`grade-input-${idx}-11`}

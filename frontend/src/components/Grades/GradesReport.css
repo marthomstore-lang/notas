@@ -320,3 +320,7 @@
 
     .report-paper::before { opacity: 0.05 !important; }
 }
+
+.grade-fail {
+    color: #ef4444 !important;
+}

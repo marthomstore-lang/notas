@@ -218,6 +218,28 @@
     display: block;
     text-decoration: none;
     font-family: inherit;
+    position: relative;
+    overflow: hidden;
+}
+
+.assignment-card-bg {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 130px;
+    height: 100%;
+    opacity: 0.35;
+    pointer-events: none;
+    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.4s ease;
+    object-fit: cover;
+    mask-image: linear-gradient(to left, rgba(0,0,0,1) 15%, rgba(0,0,0,0) 100%);
+    -webkit-mask-image: linear-gradient(to left, rgba(0,0,0,1) 15%, rgba(0,0,0,0) 100%);
+}
+
+.assignment-card:hover .assignment-card-bg {
+    transform: scale(1.08);
+    opacity: 0.55;
 }
 
 .assignment-card:focus {

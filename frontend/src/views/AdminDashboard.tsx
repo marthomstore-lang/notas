@@ -1726,7 +1726,7 @@ export const AdminDashboard = () => {
                                         onChange={(e) => setReportsLevelId(e.target.value)}
                                     >
                                         <option value="">-- Seleccionar Nivel --</option>
-                                        {levels.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                                        {levels.filter(l => l.report_template_id).map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
                                     </select>
                                 </div>
                                 {reportsLevelId && (() => {

@@ -145,6 +145,14 @@
     width: 50px;
 }
 
+.calculated-col.grade-fail {
+    color: #ef4444;
+}
+
+.calculated-col.grade-pass {
+    color: #1e40af;
+}
+
 .header-actions-right {
     display: flex;
     gap: 10px;

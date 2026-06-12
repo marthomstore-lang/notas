@@ -14,6 +14,12 @@ export const formatName = (name: string | undefined | null): string => {
     return toCamelCase(name);
 };
 
+export const isFailingGrade = (val: any): boolean => {
+    if (val === undefined || val === null || val === '' || val === '-') return false;
+    if (val === 'I') return true;
+    const num = parseFloat(String(val).replace(',', '.'));
+    return !isNaN(num) && num < 4.0;
+};
 
 interface Props {
     data: any[]; 
@@ -186,17 +192,17 @@ export const GradesReport: React.FC<Props> = ({ data, period, year, onClose }) =
                                                         <tr>
                                                             <td className="subject-name" style={{ borderBottom: 'none' }}>{row.subjectName}</td>
                                                             {row.s1 && row.s1.map((g: any, i: number) => (
-                                                                <td key={i} className="grade-cell">{g || ''}</td>
+                                                                <td key={i} className={`grade-cell ${isFailingGrade(g) ? 'grade-fail' : ''}`}>{g || ''}</td>
                                                             ))}
-                                                            <td className="average-cell">{row.avgS1}</td>
-                                                            <td className="average-cell" rowSpan={2} style={{ verticalAlign: 'middle', fontSize: '1.2rem' }}>{row.average}</td>
+                                                            <td className={`average-cell ${isFailingGrade(row.avgS1) ? 'grade-fail' : ''}`}>{row.avgS1}</td>
+                                                            <td className={`average-cell ${isFailingGrade(row.average) ? 'grade-fail' : ''}`} rowSpan={2} style={{ verticalAlign: 'middle', fontSize: '1.2rem' }}>{row.average}</td>
                                                         </tr>
                                                         <tr>
                                                             <td className="subject-name" style={{ fontSize: '0.7rem', color: '#64748b', paddingTop: 0 }}>2DO SEMESTRE</td>
                                                             {row.s2 && row.s2.map((g: any, i: number) => (
-                                                                <td key={i} className="grade-cell">{g || ''}</td>
+                                                                <td key={i} className={`grade-cell ${isFailingGrade(g) ? 'grade-fail' : ''}`}>{g || ''}</td>
                                                             ))}
-                                                            <td className="average-cell">{row.avgS2}</td>
+                                                            <td className={`average-cell ${isFailingGrade(row.avgS2) ? 'grade-fail' : ''}`}>{row.avgS2}</td>
                                                         </tr>
                                                         <tr className="subject-divider"><td colSpan={13}></td></tr>
                                                     </>
@@ -204,11 +210,11 @@ export const GradesReport: React.FC<Props> = ({ data, period, year, onClose }) =
                                                     <tr>
                                                         <td className="subject-name">{row.subjectName}</td>
                                                         {Array.from({ length: 10 }).map((_, i) => (
-                                                            <td key={i} className="grade-cell">
+                                                            <td key={i} className={`grade-cell ${isFailingGrade(row.grades && row.grades[i]) ? 'grade-fail' : ''}`}>
                                                                 {row.grades && row.grades[i] || ''}
                                                             </td>
                                                         ))}
-                                                        <td className="average-cell">{row.average}</td>
+                                                        <td className={`average-cell ${isFailingGrade(row.average) ? 'grade-fail' : ''}`}>{row.average}</td>
                                                     </tr>
                                                 )}
                                             </Fragment>
@@ -220,15 +226,15 @@ export const GradesReport: React.FC<Props> = ({ data, period, year, onClose }) =
                                                     {Array.from({ length: 10 }).map((_, i) => (
                                                         <td key={i} className="grade-cell" style={{ background: '#f8fafc' }}></td>
                                                     ))}
-                                                    <td className="average-cell" style={{ fontWeight: 'bold' }}>{generalAvgS1}</td>
-                                                    <td className="average-cell" rowSpan={2} style={{ verticalAlign: 'middle', fontSize: '1.1rem', fontWeight: 'bold', background: '#f1f5f9' }}>{generalAvgFinal}</td>
+                                                    <td className={`average-cell ${isFailingGrade(generalAvgS1) ? 'grade-fail' : ''}`} style={{ fontWeight: 'bold' }}>{generalAvgS1}</td>
+                                                    <td className={`average-cell ${isFailingGrade(generalAvgFinal) ? 'grade-fail' : ''}`} rowSpan={2} style={{ verticalAlign: 'middle', fontSize: '1.1rem', fontWeight: 'bold', background: '#f1f5f9' }}>{generalAvgFinal}</td>
                                                 </tr>
                                                 <tr className="general-average-row" style={{ background: '#f8fafc' }}>
                                                     <td className="subject-name" style={{ fontSize: '0.7rem', color: '#64748b', paddingTop: 0, fontWeight: 'bold' }}>2DO SEMESTRE</td>
                                                     {Array.from({ length: 10 }).map((_, i) => (
                                                         <td key={i} className="grade-cell" style={{ background: '#f8fafc' }}></td>
                                                     ))}
-                                                    <td className="average-cell" style={{ fontWeight: 'bold' }}>{generalAvgS2}</td>
+                                                    <td className={`average-cell ${isFailingGrade(generalAvgS2) ? 'grade-fail' : ''}`} style={{ fontWeight: 'bold' }}>{generalAvgS2}</td>
                                                 </tr>
                                             </>
                                         ) : (
@@ -237,7 +243,7 @@ export const GradesReport: React.FC<Props> = ({ data, period, year, onClose }) =
                                                 {Array.from({ length: 10 }).map((_, i) => (
                                                     <td key={i} className="grade-cell" style={{ background: '#f8fafc' }}></td>
                                                 ))}
-                                                <td className="average-cell" style={{ fontWeight: 'bold', fontSize: '1.1rem', background: '#f1f5f9' }}>{generalAverage}</td>
+                                                <td className={`average-cell ${isFailingGrade(generalAverage) ? 'grade-fail' : ''}`} style={{ fontWeight: 'bold', fontSize: '1.1rem', background: '#f1f5f9' }}>{generalAverage}</td>
                                             </tr>
                                         )}
                                     </tbody>
