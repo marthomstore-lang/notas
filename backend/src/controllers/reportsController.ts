@@ -256,11 +256,9 @@ export const getLevelGradesReport = async (req: Request, res: Response) => {
             ORDER BY COALESCE(e.list_number, 999999) ASC, s.full_name ASC
         `, [levelId, yearStr]);
 
-        const reports = [];
-        for (const s of students) {
-            const data = await generateStudentReport(db, s.student_id, yearStr, periodStr);
-            if (data) reports.push(data);
-        }
+        const reportsPromises = students.map(s => generateStudentReport(db, s.student_id, yearStr, periodStr));
+        const reportsResults = await Promise.all(reportsPromises);
+        const reports = reportsResults.filter(Boolean);
 
         res.json(reports);
     } catch (error: any) {
