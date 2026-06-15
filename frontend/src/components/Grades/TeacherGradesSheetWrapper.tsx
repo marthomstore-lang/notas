@@ -36,8 +36,8 @@ export const TeacherGradesSheetWrapper: React.FC = () => {
     if (!assignment) return <div style={{ padding: '40px', textAlign: 'center', color: 'red' }}>Error: No se encontró la asignación.</div>;
 
     return (
-        <div style={{ padding: '20px', fontFamily: 'Inter, sans-serif' }}>
-            <div style={{ marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '15px' }}>
+        <div className="teacher-grades-wrapper" style={{ padding: '20px', fontFamily: 'Inter, sans-serif' }}>
+            <div className="no-print" style={{ marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '15px' }}>
                 <button 
                     onClick={() => navigate('/teacher')} 
                     style={{ 

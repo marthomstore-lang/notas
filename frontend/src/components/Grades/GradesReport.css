@@ -299,10 +299,20 @@
     .sidebar-toggle-btn,
     .sidebar-close-btn,
     .content-header,
+    .grades-header,
+    .filters-bar,
+    .grades-table-container,
+    .teacher-grades-wrapper > .no-print,
+    .teacher-grades-wrapper > :not(.grades-sheet-container),
     .no-print,
     .no-print * {
         display: none !important;
         visibility: hidden !important;
+    }
+
+    .teacher-grades-wrapper {
+        padding: 0 !important;
+        margin: 0 !important;
     }
 
     .report-overlay {
