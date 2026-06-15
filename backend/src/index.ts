@@ -9,7 +9,7 @@ import { registerEnrollment } from './controllers/enrollmentController';
 import { getReportTemplates, createReportTemplate, updateReportTemplate, deleteReportTemplate, assignTemplateToLevel } from './controllers/reportTemplatesController';
 import { getTeachers, createTeacher, updateTeacher, deleteTeacher, getSubjects, createSubject, updateSubject, deleteSubject, checkSubjectGrades, getLevels, updateLevelCapacity, getAssignmentsAdmin, createAssignment, updateAssignment, deleteAssignment, getStudents, getStudentById, updateStudent, deleteStudent, reincorporateStudent, getStudentObservations, addObservation, exportData, importDataWeb, changeStudentLevel } from './controllers/adminController';
 import { getFiltersData, getGradesSheet, saveGradesSheet, updateStudentPosition, bulkUpdateStudentPositions, toggleLockAssignment, getAuditLogs, getGradesOverview } from './controllers/gradesController';
-import { getStudentGradesReport, getLevelGradesReport, updateInstitutionalSettings, setHomeroomTeacher, getSubjectOrder, updateSubjectOrder, getHomeroomData, getPersonalityReport, savePersonalityReport } from './controllers/reportsController';
+import { getStudentGradesReport, getLevelGradesReport, updateInstitutionalSettings, setHomeroomTeacher, getSubjectOrder, updateSubjectOrder, getHomeroomData, getPersonalityReport, savePersonalityReport, getPersonalityReportsByLevel } from './controllers/reportsController';
 import multer from 'multer';
 import db from './config/db';
 
@@ -115,6 +115,7 @@ router.post('/teacher/grades/save', authMiddleware, saveGrade);
 router.get('/teacher/homeroom', authMiddleware, getHomeroomData);
 router.get('/teacher/reports/personality/:studentId/:semester', authMiddleware, getPersonalityReport);
 router.post('/teacher/reports/personality', authMiddleware, savePersonalityReport);
+router.get('/reports/personality/level/:levelId/:semester', authMiddleware, getPersonalityReportsByLevel);
 
 
 router.get('/debug/db', async (req, res) => {

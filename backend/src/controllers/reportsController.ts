@@ -394,3 +394,26 @@ export const savePersonalityReport = async (req: Request, res: Response) => {
         res.status(500).json({ error: error.message });
     }
 };
+
+export const getPersonalityReportsByLevel = async (req: Request, res: Response) => {
+    const { levelId, semester } = req.params;
+    const year = req.query.year || new Date().getFullYear();
+    try {
+        const level = await db.get(`SELECT report_template_id FROM levels WHERE id = ?`, [levelId]);
+        let template = null;
+        if (level && level.report_template_id) {
+            template = await db.get(`SELECT id, name, structure_json FROM report_templates WHERE id = ?`, [level.report_template_id]);
+        }
+
+        const reports = await db.all(`
+            SELECT student_id, evaluation_data 
+            FROM personality_reports 
+            WHERE level_id = ? AND semester = ? AND academic_year = ?
+        `, [levelId, semester, year]);
+
+        res.json({ reports: reports || [], template: template || null });
+    } catch (error: any) {
+        console.error("Error in getPersonalityReportsByLevel", error);
+        res.status(500).json({ error: error.message });
+    }
+};

@@ -120,6 +120,59 @@ export const TeacherDashboard = () => {
     
     const [homeroomData, setHomeroomData] = useState<{ isHomeroomTeacher: boolean, level?: any, students?: any[] }>({ isHomeroomTeacher: false });
     const [selectedHomeroomStudent, setSelectedHomeroomStudent] = useState<any>(null);
+    const [homeroomSemester, setHomeroomSemester] = useState(1);
+    const [levelReports, setLevelReports] = useState<any[]>([]);
+    const [levelTemplate, setLevelTemplate] = useState<any>(null);
+
+    const fetchLevelReports = async (levelId: number | string, sem: number) => {
+        try {
+            const res = await fetch(`/_/backend/api/reports/personality/level/${levelId}/${sem}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setLevelReports(data.reports || []);
+                setLevelTemplate(data.template || null);
+            }
+        } catch (err) {
+            console.error("Error fetching level reports:", err);
+        }
+    };
+
+    useEffect(() => {
+        if (token && homeroomData.isHomeroomTeacher && homeroomData.level?.id) {
+            fetchLevelReports(homeroomData.level.id, homeroomSemester);
+        }
+    }, [token, homeroomData.isHomeroomTeacher, homeroomData.level?.id, homeroomSemester]);
+
+    const getStudentProgress = (studentId: string) => {
+        if (!levelTemplate) return 0;
+        const report = levelReports.find(r => r.student_id === studentId);
+        if (!report) return 0;
+        
+        const evaluationData = typeof report.evaluation_data === 'string' ? JSON.parse(report.evaluation_data) : (report.evaluation_data || {});
+        let totalOAs = 0;
+        let filledOAs = 0;
+        
+        const structure = typeof levelTemplate.structure_json === 'string' ? JSON.parse(levelTemplate.structure_json) : levelTemplate.structure_json;
+        if (structure && Array.isArray(structure)) {
+            structure.forEach(ambito => {
+                if (ambito.nucleos && Array.isArray(ambito.nucleos)) {
+                    ambito.nucleos.forEach((nucleo: any) => {
+                        if (nucleo.oas && Array.isArray(nucleo.oas)) {
+                            totalOAs += nucleo.oas.length;
+                            nucleo.oas.forEach((oa: any) => {
+                                if (evaluationData[oa.id]) {
+                                    filledOAs += 1;
+                                }
+                            });
+                        }
+                    });
+                }
+            });
+        }
+        return totalOAs > 0 ? Math.round((filledOAs / totalOAs) * 100) : 0;
+    };
 
     useEffect(() => {
         if (token) {
@@ -385,32 +438,73 @@ export const TeacherDashboard = () => {
                                 </div>
                             ) : !selectedHomeroomStudent ? (
                                 <div className="card">
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '15px' }}>
                                         <h3 style={{ margin: 0 }}>Mi Jefatura: {homeroomData.level?.name}</h3>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                            <label style={{ fontWeight: 'bold', fontSize: '14px' }}>Semestre:</label>
+                                            <select 
+                                                value={homeroomSemester} 
+                                                onChange={e => setHomeroomSemester(Number(e.target.value))} 
+                                                style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '14px', background: '#fff' }}
+                                            >
+                                                <option value={1}>1er Semestre</option>
+                                                <option value={2}>2do Semestre</option>
+                                            </select>
+                                        </div>
                                     </div>
                                     <p style={{ color: '#64748b', marginBottom: '20px' }}>Seleccione un estudiante para generar o editar su Informe al Hogar.</p>
                                     <table className="data-table">
-                                        <thead><tr><th>RUN</th><th>Nombre Alumno</th><th>Estado</th><th>Acción</th></tr></thead>
+                                        <thead>
+                                            <tr>
+                                                <th>RUN</th>
+                                                <th>Nombre Alumno</th>
+                                                <th>Estado</th>
+                                                <th>Estado de Avance</th>
+                                                <th>Acción</th>
+                                            </tr>
+                                        </thead>
                                         <tbody>
-                                            {homeroomData.students?.map(s => (
-                                                <tr key={s.id} style={s.status === 'RETIRADO' ? { color: '#ef4444', textDecoration: 'line-through', fontWeight: '500' } : {}}>
-                                                    <td>{s.run}</td>
-                                                    <td>{formatName(s.full_name)}</td>
-                                                    <td>{s.status}</td>
-                                                    <td>
-                                                        <button className="primary-btn" onClick={() => setSelectedHomeroomStudent(s)}>Informe al Hogar ({homeroomData.level?.name || ''})</button>
-                                                    </td>
-                                                </tr>
-                                            ))}
+                                            {homeroomData.students?.map(s => {
+                                                const progress = getStudentProgress(s.id);
+                                                return (
+                                                    <tr key={s.id} style={s.status === 'RETIRADO' ? { color: '#ef4444', textDecoration: 'line-through', fontWeight: '500' } : {}}>
+                                                        <td>{s.run}</td>
+                                                        <td>{formatName(s.full_name)}</td>
+                                                        <td>{s.status}</td>
+                                                        <td>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: '150px' }}>
+                                                                <div style={{ flex: 1, height: '8px', background: '#e2e8f0', borderRadius: '4px', overflow: 'hidden' }}>
+                                                                    <div style={{ width: `${progress}%`, height: '100%', background: 'linear-gradient(90deg, #3b82f6 0%, #8b5cf6 100%)', borderRadius: '4px' }} />
+                                                                </div>
+                                                                <span style={{ fontSize: '12px', fontWeight: '600', color: '#475569', minWidth: '35px', textAlign: 'right' }}>{progress}%</span>
+                                                            </div>
+                                                        </td>
+                                                        <td>
+                                                            <button className="primary-btn" onClick={() => setSelectedHomeroomStudent(s)}>Informe al Hogar ({homeroomData.level?.name || ''})</button>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
                                             {(!homeroomData.students || homeroomData.students.length === 0) && (
-                                                <tr><td colSpan={4} style={{ textAlign: 'center' }}>No hay estudiantes registrados.</td></tr>
+                                                <tr><td colSpan={5} style={{ textAlign: 'center' }}>No hay estudiantes registrados.</td></tr>
                                             )}
                                         </tbody>
                                     </table>
                                 </div>
                             ) : (
                                 <div>
-                                    <button onClick={() => setSelectedHomeroomStudent(null)} className="secondary-btn" style={{ marginBottom: '20px' }}>Volver a Jefatura</button>
+                                    <button 
+                                        onClick={() => {
+                                            setSelectedHomeroomStudent(null);
+                                            if (homeroomData.level?.id) {
+                                                fetchLevelReports(homeroomData.level.id, homeroomSemester);
+                                            }
+                                        }} 
+                                        className="secondary-btn" 
+                                        style={{ marginBottom: '20px' }}
+                                    >
+                                        Volver a Jefatura
+                                    </button>
                                     <KinderReportForm 
                                         studentId={selectedHomeroomStudent.id} 
                                         studentName={formatName(selectedHomeroomStudent.full_name)} 

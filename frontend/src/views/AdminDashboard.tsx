@@ -87,6 +87,59 @@ export const AdminDashboard = () => {
     const [reportTemplates, setReportTemplates] = useState<any[]>([]);
     const [selectedStudentReport, setSelectedStudentReport] = useState<string | null>(null);
     const [reportsLevelId, setReportsLevelId] = useState<string>('');
+    const [reportsSemester, setReportsSemester] = useState(1);
+    const [levelReports, setLevelReports] = useState<any[]>([]);
+    const [levelTemplate, setLevelTemplate] = useState<any>(null);
+
+    const fetchLevelReports = async (levelId: number | string, sem: number) => {
+        try {
+            const res = await fetch(`/_/backend/api/reports/personality/level/${levelId}/${sem}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setLevelReports(data.reports || []);
+                setLevelTemplate(data.template || null);
+            }
+        } catch (err) {
+            console.error("Error fetching level reports:", err);
+        }
+    };
+
+    useEffect(() => {
+        if (token && reportsLevelId) {
+            fetchLevelReports(reportsLevelId, reportsSemester);
+        }
+    }, [token, reportsLevelId, reportsSemester]);
+
+    const getStudentProgress = (studentId: string) => {
+        if (!levelTemplate) return 0;
+        const report = levelReports.find(r => r.student_id === studentId);
+        if (!report) return 0;
+        
+        const evaluationData = typeof report.evaluation_data === 'string' ? JSON.parse(report.evaluation_data) : (report.evaluation_data || {});
+        let totalOAs = 0;
+        let filledOAs = 0;
+        
+        const structure = typeof levelTemplate.structure_json === 'string' ? JSON.parse(levelTemplate.structure_json) : levelTemplate.structure_json;
+        if (structure && Array.isArray(structure)) {
+            structure.forEach(ambito => {
+                if (ambito.nucleos && Array.isArray(ambito.nucleos)) {
+                    ambito.nucleos.forEach((nucleo: any) => {
+                        if (nucleo.oas && Array.isArray(nucleo.oas)) {
+                            totalOAs += nucleo.oas.length;
+                            nucleo.oas.forEach((oa: any) => {
+                                if (evaluationData[oa.id]) {
+                                    filledOAs += 1;
+                                }
+                            });
+                        }
+                    });
+                }
+            });
+        }
+        return totalOAs > 0 ? Math.round((filledOAs / totalOAs) * 100) : 0;
+    };
     // Subject ordering states
     const [selectedLevelIdOrder, setSelectedLevelIdOrder] = useState<string>('');
     const [orderedSubjects, setOrderedSubjects] = useState<any[]>([]);
@@ -1704,7 +1757,16 @@ export const AdminDashboard = () => {
                     <div className="card">
                         {selectedStudentReport ? (
                             <div style={{ padding: '20px' }}>
-                                <button className="secondary-btn" onClick={() => setSelectedStudentReport(null)} style={{ marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <button 
+                                    className="secondary-btn" 
+                                    onClick={() => {
+                                        setSelectedStudentReport(null);
+                                        if (reportsLevelId) {
+                                            fetchLevelReports(reportsLevelId, reportsSemester);
+                                        }
+                                    }} 
+                                    style={{ marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}
+                                >
                                     <X size={18} /> Volver a la Lista de Estudiantes
                                 </button>
                                 <KinderReportForm 
@@ -1717,17 +1779,31 @@ export const AdminDashboard = () => {
                         ) : (
                             <div style={{ padding: '20px' }}>
                                 <h3 style={{ marginTop: 0, marginBottom: '20px' }}>Generación de Informes al Hogar</h3>
-                                <div style={{ marginBottom: '20px' }}>
-                                    <label style={{ fontWeight: 'bold' }}>Seleccione Curso:</label>
-                                    <select 
-                                        className="swal2-input" 
-                                        style={{ maxWidth: '300px', display: 'inline-block', margin: '0 0 0 10px' }}
-                                        value={reportsLevelId}
-                                        onChange={(e) => setReportsLevelId(e.target.value)}
-                                    >
-                                        <option value="">-- Seleccionar Nivel --</option>
-                                        {levels.filter(l => l.report_template_id).map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
-                                    </select>
+                                <div style={{ marginBottom: '20px', display: 'flex', gap: '20px', alignItems: 'center' }}>
+                                    <div>
+                                        <label style={{ fontWeight: 'bold' }}>Seleccione Curso:</label>
+                                        <select 
+                                            className="swal2-input" 
+                                            style={{ maxWidth: '250px', display: 'inline-block', margin: '0 0 0 10px' }}
+                                            value={reportsLevelId}
+                                            onChange={(e) => setReportsLevelId(e.target.value)}
+                                        >
+                                            <option value="">-- Seleccionar Nivel --</option>
+                                            {levels.filter(l => l.report_template_id).map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label style={{ fontWeight: 'bold' }}>Semestre:</label>
+                                        <select 
+                                            className="swal2-input" 
+                                            style={{ maxWidth: '150px', display: 'inline-block', margin: '0 0 0 10px' }}
+                                            value={reportsSemester}
+                                            onChange={(e) => setReportsSemester(Number(e.target.value))}
+                                        >
+                                            <option value={1}>1er Semestre</option>
+                                            <option value={2}>2do Semestre</option>
+                                        </select>
+                                    </div>
                                 </div>
                                 {reportsLevelId && (() => {
                                     const lvlStudents = students.filter(s => String(s.level_id) === reportsLevelId && !s.withdrawal_date);
@@ -1738,29 +1814,41 @@ export const AdminDashboard = () => {
                                                     <tr>
                                                         <th>N° Lista</th>
                                                         <th>Estudiante</th>
+                                                        <th>Estado de Avance</th>
                                                         <th style={{ textAlign: 'center' }}>Acciones</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
                                                     {lvlStudents.length === 0 ? (
-                                                        <tr><td colSpan={3} style={{ textAlign: 'center', padding: '20px' }}>No hay estudiantes activos en este curso.</td></tr>
+                                                        <tr><td colSpan={4} style={{ textAlign: 'center', padding: '20px' }}>No hay estudiantes activos en este curso.</td></tr>
                                                     ) : (
-                                                        lvlStudents.map(s => (
-                                                            <tr key={s.id}>
-                                                                <td style={{ fontWeight: 'bold', color: '#64748b' }}>{s.list_number || '-'}</td>
-                                                                <td style={{ fontWeight: '500' }}>{formatName(s.full_name)}</td>
-                                                                <td style={{ textAlign: 'center' }}>
-                                                                    <button 
-                                                                        className="primary-btn" 
-                                                                        style={{ padding: '6px 12px', fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center' }}
-                                                                        onClick={() => setSelectedStudentReport(s.id)}
-                                                                    >
-                                                                        <FileText size={14} style={{ marginRight: '5px' }} />
-                                                                        Generar Informe
-                                                                    </button>
-                                                                </td>
-                                                            </tr>
-                                                        ))
+                                                        lvlStudents.map(s => {
+                                                            const progress = getStudentProgress(s.id);
+                                                            return (
+                                                                <tr key={s.id}>
+                                                                    <td style={{ fontWeight: 'bold', color: '#64748b' }}>{s.list_number || '-'}</td>
+                                                                    <td style={{ fontWeight: '500' }}>{formatName(s.full_name)}</td>
+                                                                    <td>
+                                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: '150px' }}>
+                                                                            <div style={{ flex: 1, height: '8px', background: '#e2e8f0', borderRadius: '4px', overflow: 'hidden' }}>
+                                                                                <div style={{ width: `${progress}%`, height: '100%', background: 'linear-gradient(90deg, #3b82f6 0%, #8b5cf6 100%)', borderRadius: '4px' }} />
+                                                                            </div>
+                                                                            <span style={{ fontSize: '12px', fontWeight: '600', color: '#475569', minWidth: '35px', textAlign: 'right' }}>{progress}%</span>
+                                                                        </div>
+                                                                    </td>
+                                                                    <td style={{ textAlign: 'center' }}>
+                                                                        <button 
+                                                                            className="primary-btn" 
+                                                                            style={{ padding: '6px 12px', fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center' }}
+                                                                            onClick={() => setSelectedStudentReport(s.id)}
+                                                                        >
+                                                                            <FileText size={14} style={{ marginRight: '5px' }} />
+                                                                            Generar Informe
+                                                                        </button>
+                                                                    </td>
+                                                                </tr>
+                                                            );
+                                                        })
                                                     )}
                                                 </tbody>
                                             </table>

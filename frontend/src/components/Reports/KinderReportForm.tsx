@@ -45,7 +45,7 @@ export const KinderReportForm: React.FC<KinderReportFormProps> = ({ studentId, s
                 }
 
                 if (data.report) {
-                    setEvaluationData(data.report.evaluation_data ? JSON.parse(data.report.evaluation_data) : {});
+                    setEvaluationData(typeof data.report.evaluation_data === 'string' ? JSON.parse(data.report.evaluation_data) : (data.report.evaluation_data || {}));
                     setObservations(data.report.observations || '');
                 } else {
                     setEvaluationData({});
@@ -107,6 +107,27 @@ export const KinderReportForm: React.FC<KinderReportFormProps> = ({ studentId, s
 
     if (isLoading) return <p>Cargando informe...</p>;
 
+    // Calculate total OAs and filled OAs for progress tracking
+    let totalOAs = 0;
+    let filledOAs = 0;
+    if (reportStructure && Array.isArray(reportStructure)) {
+        reportStructure.forEach(ambito => {
+            if (ambito.nucleos && Array.isArray(ambito.nucleos)) {
+                ambito.nucleos.forEach((nucleo: any) => {
+                    if (nucleo.oas && Array.isArray(nucleo.oas)) {
+                        totalOAs += nucleo.oas.length;
+                        nucleo.oas.forEach((oa: any) => {
+                            if (evaluationData[oa.id]) {
+                                filledOAs += 1;
+                            }
+                        });
+                    }
+                });
+            }
+        });
+    }
+    const progressPercent = totalOAs > 0 ? Math.round((filledOAs / totalOAs) * 100) : 0;
+
     return (
         <div className="report-container">
             <style>{`
@@ -161,6 +182,64 @@ export const KinderReportForm: React.FC<KinderReportFormProps> = ({ studentId, s
                 </div>
 
                 <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+                    {/* Progress Tracker */}
+                    <div style={{ 
+                        marginBottom: '20px', 
+                        padding: '15px', 
+                        background: '#f8fafc', 
+                        borderRadius: '8px', 
+                        border: '1px solid #e2e8f0',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '10px'
+                    }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontSize: '14px', fontWeight: '600', color: '#1e293b' }}>
+                                Estado de Avance: {progressPercent}% ({filledOAs} de {totalOAs} evaluados)
+                            </span>
+                            {progressPercent === 100 ? (
+                                <span style={{ 
+                                    background: '#ecfdf5', 
+                                    color: '#059669', 
+                                    padding: '4px 10px', 
+                                    borderRadius: '9999px', 
+                                    fontSize: '12px', 
+                                    fontWeight: 'bold',
+                                    border: '1px solid #10b981'
+                                }}>
+                                    ✓ Completado
+                                </span>
+                            ) : (
+                                <span style={{ 
+                                    background: '#fff7ed', 
+                                    color: '#ea580c', 
+                                    padding: '4px 10px', 
+                                    borderRadius: '9999px', 
+                                    fontSize: '12px', 
+                                    fontWeight: 'bold',
+                                    border: '1px solid #f97316'
+                                }}>
+                                    En Progreso
+                                </span>
+                            )}
+                        </div>
+                        <div style={{ 
+                            width: '100%', 
+                            height: '10px', 
+                            background: '#e2e8f0', 
+                            borderRadius: '5px',
+                            overflow: 'hidden'
+                        }}>
+                            <div style={{ 
+                                width: `${progressPercent}%`, 
+                                height: '100%', 
+                                background: 'linear-gradient(90deg, #3b82f6 0%, #8b5cf6 100%)', 
+                                borderRadius: '5px',
+                                transition: 'width 0.4s ease-out'
+                            }} />
+                        </div>
+                    </div>
+
                     <div style={{ marginBottom: '20px', padding: '10px', background: '#eff6ff', borderRadius: '6px', fontSize: '14px' }}>
                         <strong>Calificadores:</strong> L = Logrado | M/L = Medianamente Logrado | P/L = Por Lograr | N/E = No Evaluado
                     </div>
