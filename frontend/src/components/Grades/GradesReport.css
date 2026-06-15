@@ -352,10 +352,11 @@
     .report-paper { 
         box-shadow: none !important; 
         margin: 0 auto !important; 
-        width: 215.9mm !important; 
-        min-height: 266mm !important;
-        height: 266mm !important; 
-        padding: 12mm 15mm !important; 
+        width: 100% !important; 
+        max-width: 210mm !important;
+        min-height: 250mm !important;
+        height: 250mm !important; 
+        padding: 10mm 15mm !important; 
         border: none !important; 
         page-break-inside: avoid !important;
         break-inside: avoid !important;
@@ -367,6 +368,24 @@
     }
 
     .report-paper::before { opacity: 0.05 !important; }
+
+    /* Override margins to ensure report fits completely within 250mm height */
+    .report-title-centered {
+        margin-bottom: 15px !important;
+    }
+
+    .student-info-section {
+        margin-bottom: 15px !important;
+    }
+
+    .report-table {
+        margin-bottom: 15px !important;
+    }
+
+    .signatures {
+        margin-top: 25px !important;
+        margin-bottom: 10px !important;
+    }
 }
 
 .grade-fail {
