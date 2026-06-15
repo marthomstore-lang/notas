@@ -684,6 +684,7 @@ export const getGradesOverview = async (req: Request, res: Response) => {
                 run: stu.run,
                 name: stu.full_name,
                 listNumber: stu.list_number,
+                levelId: stu.level_id,
                 gpa: studentGpa !== null ? (Math.round((studentGpa + 1e-9) * 10) / 10).toFixed(1).replace('.', ',') : '-',
                 gpaNum: studentGpa !== null ? Math.round((studentGpa + 1e-9) * 10) / 10 : null,
                 redCount,

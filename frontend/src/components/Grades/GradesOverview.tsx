@@ -510,7 +510,10 @@ export const GradesOverview: React.FC = () => {
                             <div>
                                 <h2>Panorama de Promedios</h2>
                                 <p className="student-name">{formatName(selectedStudentDetail.name)}</p>
-                                <p className="student-run">RUN: {selectedStudentDetail.run || 'N/A'}</p>
+                                <p className="student-run">
+                                    RUN: {selectedStudentDetail.run || 'N/A'}
+                                    {levels.find(l => String(l.id) === String(selectedStudentDetail.levelId)) ? ` | Curso: ${levels.find(l => String(l.id) === String(selectedStudentDetail.levelId))?.name}` : ''}
+                                </p>
                             </div>
                             <button className="close-modal-btn" onClick={() => setSelectedStudentDetail(null)}>&times;</button>
                         </header>
