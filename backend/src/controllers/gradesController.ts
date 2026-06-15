@@ -370,9 +370,20 @@ export const getGradesOverview = async (req: Request, res: Response) => {
     const { levelId, period, year } = req.query;
     const user = (req as any).user;
 
-    // Security check: Only Admin role can access
-    if (user.role !== 'Admin') {
-        return res.status(403).json({ error: 'Solo los administradores pueden ver el panorama general de calificaciones' });
+    // Security check: Only Admin, Visita, or Homeroom Teacher of the level can access
+    if (user.role !== 'Admin' && user.role !== 'Visita') {
+        if (user.role === 'Docente') {
+            const levelIdNum = levelId && levelId !== 'all' ? parseInt(String(levelId), 10) : 0;
+            if (!levelIdNum) {
+                return res.status(403).json({ error: 'No tienes permiso para ver el panorama general de calificaciones global' });
+            }
+            const isHomeroomTeacher = await db.get('SELECT id FROM levels WHERE id = ? AND homeroom_teacher_id = ?', [levelIdNum, user.id]);
+            if (!isHomeroomTeacher) {
+                return res.status(403).json({ error: 'Solo puedes ver el panorama de notas de tu curso asignado como Profesor Jefe' });
+            }
+        } else {
+            return res.status(403).json({ error: 'Solo los administradores pueden ver el panorama general de calificaciones' });
+        }
     }
 
     try {

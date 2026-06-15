@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { LogOut, Book, Calendar, Menu, X, ClipboardCheck, User, LayoutGrid, LayoutList, ListOrdered, Users } from 'lucide-react';
+import { LogOut, Book, Calendar, Menu, X, ClipboardCheck, User, LayoutGrid, LayoutList, ListOrdered, Users, BarChart3 } from 'lucide-react';
 import { StudentWindow } from '../components/StudentWindow';
 import { ReorderStudentsModal } from '../components/ReorderStudentsModal';
 import { KinderReportForm } from '../components/Reports/KinderReportForm';
+import { GradesOverview } from '../components/Grades/GradesOverview';
 import Swal from 'sweetalert2';
 import './Dashboard.css';
 
@@ -94,7 +95,7 @@ export const TeacherDashboard = () => {
     const navigate = useNavigate();
     const [assignments, setAssignments] = useState<Assignment[]>([]);
     const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth >= 768);
-    const [activeView, setActiveView] = useState<'courses' | 'observations' | 'schedule' | 'profile' | 'homeroom'>('courses');
+    const [activeView, setActiveView] = useState<'courses' | 'observations' | 'schedule' | 'profile' | 'homeroom' | 'overview'>('courses');
     const [viewMode, setViewMode] = useState<'list' | 'grid'>(() => (localStorage.getItem('teacherViewMode') as 'list' | 'grid') || 'list');
 
     const toggleViewMode = (mode: 'list' | 'grid') => {
@@ -102,7 +103,7 @@ export const TeacherDashboard = () => {
         localStorage.setItem('teacherViewMode', mode);
     };
 
-    const handleNavClick = (view: 'courses' | 'observations' | 'schedule' | 'profile' | 'homeroom') => {
+    const handleNavClick = (view: 'courses' | 'observations' | 'schedule' | 'profile' | 'homeroom' | 'overview') => {
         setActiveView(view);
         if (window.innerWidth < 768) {
             setIsSidebarOpen(false);
@@ -195,6 +196,9 @@ export const TeacherDashboard = () => {
                     {homeroomData.isHomeroomTeacher && homeroomData.level?.report_template_id && (
                         <button className={activeView === 'homeroom' ? 'active' : ''} onClick={() => handleNavClick('homeroom')}><Users size={18} /> Jefatura</button>
                     )}
+                    {homeroomData.isHomeroomTeacher && (
+                        <button className={activeView === 'overview' ? 'active' : ''} onClick={() => handleNavClick('overview')}><BarChart3 size={18} /> Panorama de Notas</button>
+                    )}
                     <button className={activeView === 'schedule' ? 'active' : ''} onClick={() => handleNavClick('schedule')}><Calendar size={18} /> Horario</button>
                     <button className={activeView === 'profile' ? 'active' : ''} onClick={() => handleNavClick('profile')}><User size={18} /> Mi Cuenta</button>
                 </nav>
@@ -216,6 +220,7 @@ export const TeacherDashboard = () => {
                             {activeView === 'schedule' && 'Mi Horario Semanal'}
                             {activeView === 'profile' && 'Configuración de Mi Cuenta'}
                             {activeView === 'homeroom' && 'Jefatura y Reportes'}
+                            {activeView === 'overview' && 'Panorama de Calificaciones'}
                         </h1>
                     </div>
                     {((activeView === 'courses') || (activeView === 'observations' && !selectedLevelId)) && (
@@ -496,6 +501,10 @@ export const TeacherDashboard = () => {
                             </button>
                         </form>
                     </div>
+                )}
+
+                {activeView === 'overview' && (
+                    <GradesOverview restrictToLevelId={homeroomData.level?.id} />
                 )}
             </main>
 

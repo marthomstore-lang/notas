@@ -20,7 +20,11 @@ export const formatName = (name: string | undefined | null): string => {
     return toCamelCase(name);
 };
 
-export const GradesOverview: React.FC = () => {
+interface GradesOverviewProps {
+    restrictToLevelId?: number | string;
+}
+
+export const GradesOverview: React.FC<GradesOverviewProps> = ({ restrictToLevelId }) => {
     const { token } = useAuth();
     const [showOnlyFailing, setShowOnlyFailing] = useState(false);
     const [levels, setLevels] = useState<any[]>([]);
@@ -30,7 +34,7 @@ export const GradesOverview: React.FC = () => {
         const parsed = saved ? JSON.parse(saved) : null;
         return {
             year: parsed?.year || '2026',
-            levelId: parsed?.levelId || '',
+            levelId: restrictToLevelId ? String(restrictToLevelId) : (parsed?.levelId || ''),
             period: parsed?.period || '1er Semestre'
         };
     });
@@ -48,6 +52,12 @@ export const GradesOverview: React.FC = () => {
     useEffect(() => {
         localStorage.setItem('overviewFilters', JSON.stringify(filters));
     }, [filters]);
+
+    useEffect(() => {
+        if (restrictToLevelId) {
+            setFilters(f => ({ ...f, levelId: String(restrictToLevelId) }));
+        }
+    }, [restrictToLevelId]);
 
     // Fetch levels for filter
     useEffect(() => {
@@ -73,7 +83,7 @@ export const GradesOverview: React.FC = () => {
 
             setLevels(sortedLevels);
             if (sortedLevels.length > 0 && !filters.levelId) {
-                setFilters(f => ({ ...f, levelId: sortedLevels[0].id }));
+                setFilters(f => ({ ...f, levelId: restrictToLevelId ? String(restrictToLevelId) : sortedLevels[0].id }));
             }
         })
         .catch(err => console.error("Error fetching levels:", err));
@@ -198,9 +208,13 @@ export const GradesOverview: React.FC = () => {
                         </div>
                         <div className="filter-item">
                             <label>Curso:</label>
-                             <select value={filters.levelId} onChange={e => setFilters({...filters, levelId: e.target.value})}>
+                             <select 
+                                 value={filters.levelId} 
+                                 onChange={e => setFilters({...filters, levelId: e.target.value})}
+                                 disabled={!!restrictToLevelId}
+                             >
                                  <option value="">Seleccione Curso</option>
-                                 <option value="all">TODOS</option>
+                                 {!restrictToLevelId && <option value="all">TODOS</option>}
                                  {levels.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
                              </select>
                         </div>
