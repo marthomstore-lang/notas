@@ -405,21 +405,25 @@ export const getGradesOverview = async (req: Request, res: Response) => {
             `, [levelIdNum, yearNum]);
         }
 
-        // 2. Get all subjects assigned to that level or whole school
+        // 2. Get all subjects assigned to that level or whole school, including their teachers
         let subjects;
         if (isAll) {
             subjects = await db.all(`
-                SELECT DISTINCT sub.id, sub.name
+                SELECT sub.id, sub.name, string_agg(DISTINCT u.name, ', ') as teacher_name
                 FROM teacher_assignments ta
                 JOIN subjects sub ON ta.subject_id = sub.id
+                LEFT JOIN users u ON ta.teacher_id = u.id
                 WHERE ta.academic_year = ?
+                GROUP BY sub.id, sub.name
             `, [yearNum]);
         } else {
             subjects = await db.all(`
-                SELECT DISTINCT sub.id, sub.name
+                SELECT sub.id, sub.name, string_agg(DISTINCT u.name, ', ') as teacher_name
                 FROM teacher_assignments ta
                 JOIN subjects sub ON ta.subject_id = sub.id
+                LEFT JOIN users u ON ta.teacher_id = u.id
                 WHERE ta.level_id = ? AND ta.academic_year = ?
+                GROUP BY sub.id, sub.name
             `, [levelIdNum, yearNum]);
         }
 
@@ -548,6 +552,7 @@ export const getGradesOverview = async (req: Request, res: Response) => {
             subjectsData.push({
                 id: sub.id,
                 name: sub.name,
+                teacherName: sub.teacher_name || 'No asignado',
                 hasGrades,
                 gradesCount,
                 average: subjectAverage !== null ? (Math.round((subjectAverage + 1e-9) * 10) / 10).toFixed(1).replace('.', ',') : '-',

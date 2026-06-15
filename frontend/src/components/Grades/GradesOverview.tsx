@@ -417,9 +417,14 @@ export const GradesOverview: React.FC = () => {
                                             }
                                         }}
                                     >
-                                        <div className="subject-grade-info">
-                                            <span className="subject-grade-name">{sub.name}</span>
-                                            <span className="subject-grade-count-text">
+                                        <div className="subject-grade-info" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', maxWidth: '70%' }}>
+                                                <span className="subject-grade-name" style={{ lineHeight: '1.2' }}>{sub.name}</span>
+                                                <span className="subject-grade-teacher" style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: '500' }}>
+                                                    Docente: {formatName(sub.teacherName)}
+                                                </span>
+                                            </div>
+                                            <span className="subject-grade-count-text" style={{ flexShrink: 0 }}>
                                                 <strong>{sub.gradesCount}</strong> / {maxGrades} ({completionPercentage}%)
                                             </span>
                                         </div>
@@ -675,7 +680,10 @@ export const GradesOverview: React.FC = () => {
                         <header className="overview-modal-header">
                             <div>
                                 <h2>Detalle de Calificaciones</h2>
-                                <p className="student-name">{selectedSubjectDetailModal.name}</p>
+                                <p className="student-name" style={{ marginBottom: '2px' }}>{selectedSubjectDetailModal.name}</p>
+                                <p className="student-run" style={{ fontSize: '0.9rem', color: '#4f46e5', fontWeight: '600', marginBottom: '8px' }}>
+                                    Docente: {formatName(selectedSubjectDetailModal.teacherName)}
+                                </p>
                                 <p className="student-run">
                                     Curso: {levels.find(l => String(l.id) === String(filters.levelId))?.name || 'N/A'} | Período: {filters.period} | Año: {filters.year}
                                 </p>
