@@ -966,3 +966,73 @@
     padding-bottom: 4px;
 }
 
+/* Cantidad de Notas por Asignatura section styles */
+.subjects-grades-count-card {
+    padding: 24px !important;
+    margin-bottom: 0 !important;
+}
+
+.subjects-grades-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 20px;
+    margin-top: 15px;
+}
+
+.subject-grade-progress-card {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 16px;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.subject-grade-progress-card.clickable {
+    cursor: pointer;
+}
+
+.subject-grade-progress-card.clickable:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+    border-color: #cbd5e1;
+    background: #f1f5f9;
+}
+
+.subject-grade-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.subject-grade-name {
+    font-weight: 700;
+    color: #1e293b;
+    font-size: 0.95rem;
+}
+
+.subject-grade-count-text {
+    font-size: 0.85rem;
+    color: #64748b;
+}
+
+.subject-progress-bar-bg {
+    width: 100%;
+    height: 8px;
+    background-color: #e2e8f0;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.subject-progress-bar-fill {
+    height: 100%;
+    border-radius: 4px;
+    background: linear-gradient(90deg, #6366f1, #4f46e5);
+    transition: width 0.5s ease-out;
+}
+
+.overview-modal-card.subject-detail-modal {
+    max-width: 1000px;
+}
+
+

@@ -41,6 +41,9 @@ export const GradesOverview: React.FC = () => {
     const [studentGradesData, setStudentGradesData] = useState<any | null>(null);
     const [loadingGrades, setLoadingGrades] = useState(false);
     const [expandedSubjectId, setExpandedSubjectId] = useState<number | null>(null);
+    const [selectedSubjectDetailModal, setSelectedSubjectDetailModal] = useState<any | null>(null);
+    const [subjectGradesData, setSubjectGradesData] = useState<any | null>(null);
+    const [loadingSubjectGrades, setLoadingSubjectGrades] = useState(false);
 
     useEffect(() => {
         localStorage.setItem('overviewFilters', JSON.stringify(filters));
@@ -131,6 +134,32 @@ export const GradesOverview: React.FC = () => {
             setLoadingGrades(false);
         });
     }, [selectedStudentDetail, token, filters.year, filters.period]);
+
+    useEffect(() => {
+        if (!selectedSubjectDetailModal || !token || !filters.levelId || filters.levelId === 'all') {
+            setSubjectGradesData(null);
+            return;
+        }
+
+        setLoadingSubjectGrades(true);
+        fetch(`/_/backend/api/admin/grades/sheet?levelId=${filters.levelId}&subjectId=${selectedSubjectDetailModal.id}&year=${filters.year}&period=${filters.period}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        })
+        .then(res => {
+            if (!res.ok) throw new Error("No se pudieron cargar las calificaciones");
+            return res.json();
+        })
+        .then(data => {
+            setSubjectGradesData(data);
+        })
+        .catch(err => {
+            console.error("Error fetching subject report grades:", err);
+            MySwal.fire('Error', 'No se pudieron cargar las calificaciones de la asignatura', 'error');
+        })
+        .finally(() => {
+            setLoadingSubjectGrades(false);
+        });
+    }, [selectedSubjectDetailModal, token, filters.levelId, filters.year, filters.period]);
 
     const isGpaRed = (gpaStr: string) => {
         const val = parseFloat(gpaStr.replace(',', '.'));
@@ -363,6 +392,51 @@ export const GradesOverview: React.FC = () => {
 
                     </div>
 
+                    {/* Cantidad de Notas por Asignatura Section */}
+                    <div className="card subjects-grades-count-card no-print">
+                        <h3 style={{ borderBottom: '1px solid #f1f5f9', paddingBottom: '12px', marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <BookOpen size={20} style={{ color: '#6366f1' }} /> Cantidad de Notas por Asignatura
+                        </h3>
+                        <div className="subjects-grades-grid">
+                            {data.subjects.map((sub: any) => {
+                                const maxGrades = data.students.length * 10;
+                                const completionPercentage = maxGrades > 0 ? Math.min(Math.round((sub.gradesCount / maxGrades) * 100), 100) : 0;
+                                const isClickable = filters.levelId && filters.levelId !== 'all';
+                                const cardTitle = isClickable
+                                    ? `Haz clic para ver las calificaciones de ${sub.name}`
+                                    : "Selecciona un curso específico arriba para poder revisar las calificaciones";
+                                    
+                                return (
+                                    <div 
+                                        key={sub.id} 
+                                        className={`subject-grade-progress-card ${isClickable ? 'clickable' : ''}`}
+                                        title={cardTitle}
+                                        onClick={() => {
+                                            if (isClickable) {
+                                                setSelectedSubjectDetailModal(sub);
+                                            }
+                                        }}
+                                    >
+                                        <div className="subject-grade-info">
+                                            <span className="subject-grade-name">{sub.name}</span>
+                                            <span className="subject-grade-count-text">
+                                                <strong>{sub.gradesCount}</strong> / {maxGrades} ({completionPercentage}%)
+                                            </span>
+                                        </div>
+                                        <div className="subject-progress-bar-bg">
+                                            <div 
+                                                className="subject-progress-bar-fill" 
+                                                style={{ 
+                                                    width: `${completionPercentage}%`
+                                                }}
+                                            />
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+
                     {/* General Grade Matrix (Cuadro de Rendimiento) */}
                     <div className="card general-grades-matrix-card no-print">
                         <h3 style={{ borderBottom: '1px solid #f1f5f9', paddingBottom: '12px', marginBottom: '15px' }}>Planilla General de Calificaciones (Matriz de Notas)</h3>
@@ -590,6 +664,151 @@ export const GradesOverview: React.FC = () => {
                         
                         <footer className="overview-modal-footer">
                             <button className="primary-btn" onClick={() => setSelectedStudentDetail(null)}>Cerrar</button>
+                        </footer>
+                    </div>
+                </div>
+            )}
+            {/* Modal: Detalle de Calificaciones de la Asignatura */}
+            {selectedSubjectDetailModal && (
+                <div className="overview-modal-overlay no-print" onClick={() => setSelectedSubjectDetailModal(null)}>
+                    <div className="overview-modal-card subject-detail-modal" onClick={(e) => e.stopPropagation()}>
+                        <header className="overview-modal-header">
+                            <div>
+                                <h2>Detalle de Calificaciones</h2>
+                                <p className="student-name">{selectedSubjectDetailModal.name}</p>
+                                <p className="student-run">
+                                    Curso: {levels.find(l => String(l.id) === String(filters.levelId))?.name || 'N/A'} | Período: {filters.period} | Año: {filters.year}
+                                </p>
+                            </div>
+                            <button className="close-modal-btn" onClick={() => setSelectedSubjectDetailModal(null)}>&times;</button>
+                        </header>
+
+                        <div className="overview-modal-body">
+                            {loadingSubjectGrades ? (
+                                <div style={{ padding: '40px', textAlign: 'center', color: '#6366f1', fontWeight: '600' }}>
+                                    Cargando calificaciones de la asignatura...
+                                </div>
+                            ) : subjectGradesData ? (
+                                <div className="modal-table-wrapper" style={{ overflowX: 'auto' }}>
+                                    <table className="data-table matrix-table">
+                                        <thead>
+                                            <tr>
+                                                <th style={{ width: '50px', textAlign: 'center' }}>N°</th>
+                                                <th style={{ minWidth: '220px', textAlign: 'left' }}>Estudiante</th>
+                                                {/* Columns 1 to 10 */}
+                                                {Array.from({ length: 10 }, (_, i) => i + 1).map(pos => {
+                                                    const col = subjectGradesData.columns.find((c: any) => c.position === pos);
+                                                    const weightText = col && col.weighting && parseFloat(col.weighting) > 0 ? ` (${col.weighting}%)` : '';
+                                                    return (
+                                                        <th key={pos} style={{ minWidth: '70px', textAlign: 'center' }} title={col?.title || `Nota ${pos}`}>
+                                                            {col?.title || `N${pos}`}{weightText}
+                                                        </th>
+                                                    );
+                                                })}
+                                                <th style={{ minWidth: '90px', textAlign: 'center', fontWeight: 'bold' }}>Promedio</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {subjectGradesData.students.map((student: any) => {
+                                                const isQual = selectedSubjectDetailModal.isQualitative;
+                                                
+                                                // Get grade for each column
+                                                const getGradeText = (pos: number) => {
+                                                    const col = subjectGradesData.columns.find((c: any) => c.position === pos);
+                                                    if (!col) return '-';
+                                                    const grade = subjectGradesData.grades.find((g: any) => 
+                                                        String(g.student_id) === String(student.id) && String(g.grade_column_id) === String(col.id)
+                                                    );
+                                                    return grade ? grade.grade_value : '-';
+                                                };
+
+                                                // Calculate student average
+                                                const calculateAvg = () => {
+                                                    let sum = 0;
+                                                    let totalWeight = 0;
+                                                    let simpleSum = 0;
+                                                    let simpleCount = 0;
+
+                                                    subjectGradesData.columns.forEach((col: any) => {
+                                                        const gradeVal = getGradeText(col.position);
+                                                        if (gradeVal !== '-') {
+                                                            const val = parseFloat(gradeVal.replace(',', '.'));
+                                                            if (!isNaN(val) && val > 0) {
+                                                                const weight = parseFloat(col.weighting) || 0;
+                                                                sum += val * weight;
+                                                                totalWeight += weight;
+                                                                simpleSum += val;
+                                                                simpleCount++;
+                                                            }
+                                                        }
+                                                    });
+
+                                                    let finalAvg = 0;
+                                                    if (totalWeight > 0) {
+                                                        finalAvg = sum / totalWeight;
+                                                    } else if (simpleCount > 0) {
+                                                        finalAvg = simpleSum / simpleCount;
+                                                    }
+
+                                                    if (isQual) {
+                                                        if (finalAvg >= 6.0) return 'MB';
+                                                        if (finalAvg >= 5.0) return 'B';
+                                                        if (finalAvg >= 4.0) return 'S';
+                                                        return finalAvg > 0 ? 'I' : '-';
+                                                    }
+
+                                                    return finalAvg > 0 ? (Math.round((finalAvg + 1e-9) * 10) / 10).toFixed(1).replace('.', ',') : '-';
+                                                };
+
+                                                const avg = calculateAvg();
+                                                const isRed = !isQual && avg !== '-' && parseFloat(avg.replace(',', '.')) < 4.0;
+                                                const isQualRed = isQual && avg === 'I';
+                                                const isBlue = avg !== '-' && !isRed && !isQualRed;
+
+                                                return (
+                                                    <tr key={student.id} className={student.status === 'Retired' ? 'retired-row' : ''}>
+                                                        <td style={{ textAlign: 'center', color: '#64748b' }}>{student.list_number || '-'}</td>
+                                                        <td style={{ fontWeight: '600', textAlign: 'left' }}>
+                                                            {formatName(student.full_name)}
+                                                            {student.status === 'Retired' && <span className="retired-badge" style={{ marginLeft: '8px', fontSize: '0.7rem', backgroundColor: '#e2e8f0', color: '#64748b', padding: '2px 6px', borderRadius: '4px' }}>Retirado</span>}
+                                                        </td>
+                                                        {Array.from({ length: 10 }, (_, i) => i + 1).map(pos => {
+                                                            const gradeText = getGradeText(pos);
+                                                            const isGradeRed = gradeText !== '-' && (
+                                                                gradeText === 'I' || 
+                                                                (!isNaN(parseFloat(gradeText.replace(',', '.'))) && parseFloat(gradeText.replace(',', '.')) < 4.0)
+                                                            );
+                                                            return (
+                                                                <td 
+                                                                    key={pos} 
+                                                                    style={{ textAlign: 'center', fontWeight: '500' }}
+                                                                    className={isGradeRed ? 'text-red' : gradeText !== '-' ? 'text-blue' : ''}
+                                                                >
+                                                                    {gradeText}
+                                                                </td>
+                                                            );
+                                                        })}
+                                                        <td 
+                                                            style={{ textAlign: 'center', fontWeight: '800' }} 
+                                                            className={isRed || isQualRed ? 'text-red' : isBlue ? 'text-blue' : ''}
+                                                        >
+                                                            {avg}
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            ) : (
+                                <div className="no-partials-msg" style={{ textAlign: 'center', padding: '20px' }}>
+                                    No se pudieron obtener las calificaciones.
+                                </div>
+                            )}
+                        </div>
+
+                        <footer className="overview-modal-footer">
+                            <button className="primary-btn" onClick={() => setSelectedSubjectDetailModal(null)}>Cerrar</button>
                         </footer>
                     </div>
                 </div>
