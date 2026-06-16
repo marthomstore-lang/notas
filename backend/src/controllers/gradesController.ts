@@ -894,11 +894,12 @@ export const getLevelGradesLocksDetail = async (req: Request, res: Response) => 
 
         // Fetch all assignments for this level with subject details and teacher name
         const subjectsList = await db.all(`
-            SELECT DISTINCT s.id as subject_id, s.name as subject_name, u.name as teacher_name
+            SELECT s.id as subject_id, s.name as subject_name, string_agg(DISTINCT u.name, ', ') as teacher_name
             FROM teacher_assignments ta
             JOIN subjects s ON ta.subject_id = s.id
             LEFT JOIN users u ON ta.teacher_id = u.id
             WHERE ta.level_id = ? AND ta.academic_year = ?
+            GROUP BY s.id, s.name
             ORDER BY s.name ASC
         `, [levelId, year]);
 

@@ -394,6 +394,34 @@ export const AdminDashboard = () => {
         fetchSubjectOrder();
     }, [selectedLevelIdOrder, assignments, token]);
 
+    // Group teacher assignments by level and subject to support co-teaching (multiple teachers per subject)
+    const groupedAssignments = React.useMemo(() => {
+        const groups: any[] = [];
+        assignments.forEach((a: any) => {
+            const key = `${a.level_id}_${a.subject_id}`;
+            const existing = groups.find(g => `${g.level_id}_${g.subject_id}` === key);
+            if (existing) {
+                existing.teachers.push({ id: a.teacher_id, name: a.teacher_name });
+                existing.ids.push(a.id);
+            } else {
+                groups.push({
+                    ...a,
+                    teachers: [{ id: a.teacher_id, name: a.teacher_name }],
+                    ids: [a.id]
+                });
+            }
+        });
+        return groups;
+    }, [assignments]);
+
+    const filteredGroupedAssignments = React.useMemo(() => {
+        return groupedAssignments.filter(a => {
+            const matchLevel = !assignmentLevelFilter || String(a.level_id) === String(assignmentLevelFilter);
+            const matchTeacher = !assignmentTeacherFilter || a.teachers.some((t: any) => String(t.id) === String(assignmentTeacherFilter));
+            return matchLevel && matchTeacher;
+        });
+    }, [groupedAssignments, assignmentLevelFilter, assignmentTeacherFilter]);
+
     const handleMoveSubject = (index: number, direction: 'up' | 'down') => {
         const newSubjects = [...orderedSubjects];
         const targetIndex = direction === 'up' ? index - 1 : index + 1;
@@ -815,29 +843,59 @@ export const AdminDashboard = () => {
     const handleAssign = async (e: React.FormEvent) => {
         e.preventDefault();
         const form = e.target as HTMLFormElement;
-        const data = {
-            teacherId: form.teacherId.value,
-            levelId: form.levelId.value,
-            subjectId: form.subjectId.value,
-            academicYear: new Date().getFullYear()
-        };
-        const res = await fetch('/_/backend/api/admin/assignments', {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
-        });
-        if (res.ok) {
+        const teacherId1 = form.teacherId.value;
+        const teacherId2 = form.teacherId2.value;
+        const levelId = form.levelId.value;
+        const subjectId = form.subjectId.value;
+        const academicYear = new Date().getFullYear();
+
+        if (teacherId2 && teacherId1 === teacherId2) {
+            MySwal.fire('Error', "El Docente 1 y el Docente 2 deben ser diferentes.", 'error');
+            return;
+        }
+
+        try {
+            // Save Teacher 1
+            const res1 = await fetch('/_/backend/api/admin/assignments', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ teacherId: teacherId1, levelId, subjectId, academicYear })
+            });
+
+            if (!res1.ok) {
+                const err = await res1.json();
+                MySwal.fire('Error', err.error || "No se pudo crear la asignación para el Docente 1.", 'error');
+                return;
+            }
+
+            if (teacherId2) {
+                // Save Teacher 2
+                const res2 = await fetch('/_/backend/api/admin/assignments', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ teacherId: teacherId2, levelId, subjectId, academicYear })
+                });
+                if (!res2.ok) {
+                    const err = await res2.json();
+                    MySwal.fire('Error', err.error || "No se pudo crear la asignación para el Docente 2.", 'error');
+                    fetchData();
+                    return;
+                }
+            }
+
             fetchData();
+            form.reset();
             MySwal.fire('Éxito', "Asignación creada con éxito.", 'success');
-        } else {
-            MySwal.fire('Error', "Asignación ya existe o datos inválidos.", 'error');
+        } catch (error) {
+            console.error("Error creating assignments:", error);
+            MySwal.fire('Error', "Ocurrió un error al procesar las asignaciones.", 'error');
         }
     };
 
-    const handleDeleteAssignment = async (id: string) => {
+    const handleDeleteAssignment = async (groupedItem: any) => {
         const result = await MySwal.fire({
             title: '¿Eliminar asignación?',
-            text: "Esto quitará al profesor de la asignatura en este curso.",
+            text: `Esto quitará a los docentes de la asignatura ${groupedItem.subject_name} en este curso.`,
             icon: 'warning',
             showCancelButton: true,
             confirmButtonText: 'Sí, eliminar',
@@ -845,20 +903,29 @@ export const AdminDashboard = () => {
         });
 
         if (result.isConfirmed) {
-            const res = await fetch(`/_/backend/api/admin/assignments/${id}`, {
-                method: 'DELETE',
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            if (res.ok) {
+            try {
+                for (const id of groupedItem.ids) {
+                    await fetch(`/_/backend/api/admin/assignments/${id}`, {
+                        method: 'DELETE',
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                }
                 fetchData();
-                MySwal.fire('Eliminado', 'Asignación eliminada', 'success');
+                MySwal.fire('Eliminado', 'Asignación eliminada con éxito', 'success');
+            } catch (error) {
+                console.error("Error deleting assignment group:", error);
+                MySwal.fire('Error', 'No se pudo eliminar la asignación.', 'error');
             }
         }
     };
 
     const handleEditAssignment = async (assignment: any) => {
         const teacherOptionsHtml = teachers.map((t: any) => 
-            `<option value="${t.id}" ${t.id === assignment.teacher_id ? 'selected' : ''}>${t.name}</option>`
+            `<option value="${t.id}" ${t.id === assignment.teachers[0]?.id ? 'selected' : ''}>${t.name}</option>`
+        ).join('');
+        
+        const teacher2OptionsHtml = `<option value="">Ninguno</option>` + teachers.map((t: any) => 
+            `<option value="${t.id}" ${t.id === assignment.teachers[1]?.id ? 'selected' : ''}>${t.name}</option>`
         ).join('');
         
         const levelOptionsHtml = levels.map((l: any) => 
@@ -874,9 +941,15 @@ export const AdminDashboard = () => {
             html: `
                 <div style="text-align: left; display: flex; flex-direction: column; gap: 15px;">
                     <div>
-                        <label style="font-weight: 500; font-size: 0.9rem; color: #475569; display: block; margin-bottom: 5px;">Docente:</label>
-                        <select id="swal-teacher-select" class="swal2-select" style="width: 100%; margin: 0; box-sizing: border-box;">
+                        <label style="font-weight: 500; font-size: 0.9rem; color: #475569; display: block; margin-bottom: 5px;">Docente 1:</label>
+                        <select id="swal-teacher-select-1" class="swal2-select" style="width: 100%; margin: 0; box-sizing: border-box;">
                             ${teacherOptionsHtml}
+                        </select>
+                    </div>
+                    <div>
+                        <label style="font-weight: 500; font-size: 0.9rem; color: #475569; display: block; margin-bottom: 5px;">Docente 2 (Opcional):</label>
+                        <select id="swal-teacher-select-2" class="swal2-select" style="width: 100%; margin: 0; box-sizing: border-box;">
+                            ${teacher2OptionsHtml}
                         </select>
                     </div>
                     <div>
@@ -897,28 +970,67 @@ export const AdminDashboard = () => {
             confirmButtonText: 'Guardar',
             cancelButtonText: 'Cancelar',
             preConfirm: () => {
-                const teacherId = (document.getElementById('swal-teacher-select') as HTMLSelectElement).value;
+                const teacherId1 = (document.getElementById('swal-teacher-select-1') as HTMLSelectElement).value;
+                const teacherId2 = (document.getElementById('swal-teacher-select-2') as HTMLSelectElement).value;
                 const levelId = (document.getElementById('swal-level-select') as HTMLSelectElement).value;
                 const subjectId = (document.getElementById('swal-subject-select') as HTMLSelectElement).value;
-                return { teacherId, levelId, subjectId };
+                return { teacherId1, teacherId2, levelId, subjectId };
             }
         });
         
         if (formValues) {
-            const res = await fetch(`/_/backend/api/admin/assignments/${assignment.id}`, {
-                method: 'PUT',
-                headers: { 
-                    'Authorization': `Bearer ${token}`, 
-                    'Content-Type': 'application/json' 
-                },
-                body: JSON.stringify(formValues)
-            });
-            if (res.ok) {
+            const { teacherId1, teacherId2, levelId, subjectId } = formValues;
+
+            if (teacherId2 && teacherId1 === teacherId2) {
+                MySwal.fire('Error', "El Docente 1 y el Docente 2 deben ser diferentes.", 'error');
+                return;
+            }
+
+            try {
+                // Delete old ones first
+                for (const id of assignment.ids) {
+                    await fetch(`/_/backend/api/admin/assignments/${id}`, {
+                        method: 'DELETE',
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                }
+
+                const academicYear = assignment.academic_year || new Date().getFullYear();
+
+                // Save Teacher 1
+                const res1 = await fetch('/_/backend/api/admin/assignments', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ teacherId: teacherId1, levelId, subjectId, academicYear })
+                });
+
+                if (!res1.ok) {
+                    const err = await res1.json();
+                    MySwal.fire('Error', err.error || "No se pudo actualizar la asignación para el Docente 1.", 'error');
+                    fetchData();
+                    return;
+                }
+
+                if (teacherId2) {
+                    // Save Teacher 2
+                    const res2 = await fetch('/_/backend/api/admin/assignments', {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ teacherId: teacherId2, levelId, subjectId, academicYear })
+                    });
+                    if (!res2.ok) {
+                        const err = await res2.json();
+                        MySwal.fire('Error', err.error || "No se pudo actualizar la asignación para el Docente 2.", 'error');
+                        fetchData();
+                        return;
+                    }
+                }
+
                 fetchData();
                 MySwal.fire('Éxito', "Asignación actualizada con éxito.", 'success');
-            } else {
-                const err = await res.json();
-                MySwal.fire('Error', err.error || "No se pudo actualizar la asignación.", 'error');
+            } catch (error) {
+                console.error("Error editing assignment:", error);
+                MySwal.fire('Error', "No se pudo actualizar la asignación.", 'error');
             }
         }
     };
@@ -1643,11 +1755,18 @@ export const AdminDashboard = () => {
                                     </div>
                                     {!isVisita && (
                                         <form onSubmit={handleAssign} className="admin-form">
-                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px' }}>
+                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px' }}>
                                                 <div>
-                                                    <label>Docente:</label>
+                                                    <label>Docente 1:</label>
                                                     <select name="teacherId" required>
                                                         <option value="">Seleccione Docente...</option>
+                                                        {teachers.map(t => <option key={t.id} value={t.id}>{formatName(t.name)}</option>)}
+                                                    </select>
+                                                </div>
+                                                <div>
+                                                    <label>Docente 2 (Opcional):</label>
+                                                    <select name="teacherId2">
+                                                        <option value="">Ninguno</option>
                                                         {teachers.map(t => <option key={t.id} value={t.id}>{formatName(t.name)}</option>)}
                                                     </select>
                                                 </div>
@@ -1706,38 +1825,43 @@ export const AdminDashboard = () => {
 
                                 <div className="card-split-content">
                                     <table className="data-table" style={{ fontSize: '0.9rem' }}>
-                                        <thead><tr><th>Curso</th><th>Asignatura</th><th>Docente</th>{!isVisita && <th style={{ textAlign: 'center' }}>Acciones</th>}</tr></thead>
+                                        <thead><tr><th>Curso</th><th>Asignatura</th><th>Docentes</th>{!isVisita && <th style={{ textAlign: 'center' }}>Acciones</th>}</tr></thead>
                                         <tbody>
-                                            {assignments
-                                                .filter(a => !assignmentLevelFilter || String(a.level_id) === assignmentLevelFilter)
-                                                .filter(a => !assignmentTeacherFilter || String(a.teacher_id) === assignmentTeacherFilter)
-                                                .map(a => (
-                                                    <tr key={a.id}>
-                                                        <td>{a.level_name}</td>
-                                                        <td>{a.subject_name}</td>
-                                                        <td>{formatName(a.teacher_name)}</td>
-                                                        {!isVisita && (
-                                                            <td style={{ textAlign: 'center' }}>
-                                                                <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
-                                                                    <button 
-                                                                        onClick={() => handleEditAssignment(a)}
-                                                                        style={{ background: 'none', border: 'none', color: '#3b82f6', cursor: 'pointer' }}
-                                                                        title="Editar Asignación"
-                                                                    >
-                                                                        <Edit2 size={16} />
-                                                                    </button>
-                                                                    <button 
-                                                                        onClick={() => handleDeleteAssignment(a.id)}
-                                                                        style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}
-                                                                        title="Eliminar Asignación"
-                                                                    >
-                                                                        <Trash2 size={16} />
-                                                                    </button>
-                                                                </div>
-                                                            </td>
-                                                        )}
-                                                    </tr>
-                                                ))}
+                                            {filteredGroupedAssignments.map(a => (
+                                                <tr key={`${a.level_id}_${a.subject_id}`}>
+                                                    <td>{a.level_name}</td>
+                                                    <td>{a.subject_name}</td>
+                                                    <td>
+                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                                            {a.teachers.map((t: any, i: number) => (
+                                                                <span key={t.id} style={{ display: 'inline-block', fontSize: '0.85rem' }}>
+                                                                    <strong>{i + 1}.</strong> {formatName(t.name)}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    </td>
+                                                    {!isVisita && (
+                                                        <td style={{ textAlign: 'center' }}>
+                                                            <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+                                                                <button 
+                                                                    onClick={() => handleEditAssignment(a)}
+                                                                    style={{ background: 'none', border: 'none', color: '#3b82f6', cursor: 'pointer' }}
+                                                                    title="Editar Asignación"
+                                                                >
+                                                                    <Edit2 size={16} />
+                                                                </button>
+                                                                <button 
+                                                                    onClick={() => handleDeleteAssignment(a)}
+                                                                    style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}
+                                                                    title="Eliminar Asignación"
+                                                                >
+                                                                    <Trash2 size={16} />
+                                                                </button>
+                                                            </div>
+                                                        </td>
+                                                    )}
+                                                </tr>
+                                            ))}
                                         </tbody>
                                     </table>
                                 </div>
