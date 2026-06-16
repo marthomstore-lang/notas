@@ -107,9 +107,14 @@ export const KinderReportForm: React.FC<KinderReportFormProps> = ({ studentId, s
 
     if (isLoading) return <p>Cargando informe...</p>;
 
-    // Calculate total OAs and filled OAs for progress tracking
+    // Calculate total OAs and filled OAs for progress and achievement stats
     let totalOAs = 0;
     let filledOAs = 0;
+    let countL = 0;
+    let countML = 0;
+    let countPL = 0;
+    let countNE = 0;
+
     if (reportStructure && Array.isArray(reportStructure)) {
         reportStructure.forEach(ambito => {
             if (ambito.nucleos && Array.isArray(ambito.nucleos)) {
@@ -117,8 +122,13 @@ export const KinderReportForm: React.FC<KinderReportFormProps> = ({ studentId, s
                     if (nucleo.oas && Array.isArray(nucleo.oas)) {
                         totalOAs += nucleo.oas.length;
                         nucleo.oas.forEach((oa: any) => {
-                            if (evaluationData[oa.id]) {
+                            const val = evaluationData[oa.id];
+                            if (val) {
                                 filledOAs += 1;
+                                if (val === 'L') countL += 1;
+                                else if (val === 'M/L') countML += 1;
+                                else if (val === 'P/L') countPL += 1;
+                                else if (val === 'N/E') countNE += 1;
                             }
                         });
                     }
@@ -127,6 +137,13 @@ export const KinderReportForm: React.FC<KinderReportFormProps> = ({ studentId, s
         });
     }
     const progressPercent = totalOAs > 0 ? Math.round((filledOAs / totalOAs) * 100) : 0;
+    const totalEvaluated = countL + countML + countPL;
+    const globalAchievementPercent = totalEvaluated > 0 ? Math.round(((countL + 0.5 * countML) / totalEvaluated) * 100) : 0;
+    const pctL = totalEvaluated > 0 ? Math.round((countL / totalEvaluated) * 100) : 0;
+    const pctML = totalEvaluated > 0 ? Math.round((countML / totalEvaluated) * 100) : 0;
+    const pctPL = totalEvaluated > 0 ? Math.round((countPL / totalEvaluated) * 100) : 0;
+    // Unevaluated or pending items (everything else in the structure)
+    const countNEPlusPending = totalOAs - totalEvaluated;
 
     return (
         <div className="report-container">
@@ -237,6 +254,46 @@ export const KinderReportForm: React.FC<KinderReportFormProps> = ({ studentId, s
                                 borderRadius: '5px',
                                 transition: 'width 0.4s ease-out'
                             }} />
+                        </div>
+                    </div>
+
+                    {/* Resumen de Logros / Calificaciones (Dashboard) */}
+                    <div style={{
+                        marginBottom: '25px',
+                        padding: '20px',
+                        background: '#f0fdf4',
+                        borderRadius: '8px',
+                        border: '1px solid #bbf7d0',
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
+                        gap: '15px',
+                        textAlign: 'center',
+                        fontFamily: 'Inter, sans-serif',
+                        boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                    }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderRight: '1px solid #dcfce7', paddingRight: '10px' }}>
+                            <span style={{ fontSize: '28px', fontWeight: 'bold', color: '#16a34a', lineHeight: 1 }}>{globalAchievementPercent}%</span>
+                            <span style={{ fontSize: '12px', color: '#15803d', fontWeight: '600', marginTop: '6px' }}>Logro Global</span>
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#fff', padding: '10px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                            <span style={{ fontSize: '20px', fontWeight: 'bold', color: '#2563eb', lineHeight: 1 }}>{countL}</span>
+                            <span style={{ fontSize: '11px', color: '#475569', fontWeight: '500', marginTop: '4px' }}>Logrado (L)</span>
+                            <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#2563eb', marginTop: '4px' }}>{pctL}%</span>
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#fff', padding: '10px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                            <span style={{ fontSize: '20px', fontWeight: 'bold', color: '#d97706', lineHeight: 1 }}>{countML}</span>
+                            <span style={{ fontSize: '11px', color: '#475569', fontWeight: '500', marginTop: '4px' }}>Med. Logrado (M/L)</span>
+                            <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#d97706', marginTop: '4px' }}>{pctML}%</span>
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#fff', padding: '10px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                            <span style={{ fontSize: '20px', fontWeight: 'bold', color: '#dc2626', lineHeight: 1 }}>{countPL}</span>
+                            <span style={{ fontSize: '11px', color: '#475569', fontWeight: '500', marginTop: '4px' }}>Por Lograr (P/L)</span>
+                            <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#dc2626', marginTop: '4px' }}>{pctPL}%</span>
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#f8fafc', padding: '10px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                            <span style={{ fontSize: '20px', fontWeight: 'bold', color: '#64748b', lineHeight: 1 }}>{countNEPlusPending}</span>
+                            <span style={{ fontSize: '11px', color: '#475569', fontWeight: '500', marginTop: '4px' }}>No Evaluado / Pend.</span>
+                            <span style={{ fontSize: '11px', color: '#94a3b8', marginTop: '4px' }}>(N/E o Vacío)</span>
                         </div>
                     </div>
 

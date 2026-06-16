@@ -14,6 +14,43 @@ interface PrintableKinderReportProps {
 export const PrintableKinderReport: React.FC<PrintableKinderReportProps> = ({
     studentName, semester, year, evaluationData, observations, teacherName, reportStructure
 }) => {
+    // Calculate stats
+    let totalOAs = 0;
+    let countL = 0;
+    let countML = 0;
+    let countPL = 0;
+    let countNE = 0;
+
+    const structure = reportStructure || KINDER_REPORT_STRUCTURE;
+
+    if (structure && Array.isArray(structure)) {
+        structure.forEach(ambito => {
+            if (ambito.nucleos && Array.isArray(ambito.nucleos)) {
+                ambito.nucleos.forEach((nucleo: any) => {
+                    if (nucleo.oas && Array.isArray(nucleo.oas)) {
+                        totalOAs += nucleo.oas.length;
+                        nucleo.oas.forEach((oa: any) => {
+                            const val = evaluationData[oa.id];
+                            if (val) {
+                                if (val === 'L') countL += 1;
+                                else if (val === 'M/L') countML += 1;
+                                else if (val === 'P/L') countPL += 1;
+                                else if (val === 'N/E') countNE += 1;
+                            }
+                        });
+                    }
+                });
+            }
+        });
+    }
+
+    const totalEvaluated = countL + countML + countPL;
+    const globalAchievementPercent = totalEvaluated > 0 ? Math.round(((countL + 0.5 * countML) / totalEvaluated) * 100) : 0;
+    const pctL = totalEvaluated > 0 ? Math.round((countL / totalEvaluated) * 100) : 0;
+    const pctML = totalEvaluated > 0 ? Math.round((countML / totalEvaluated) * 100) : 0;
+    const pctPL = totalEvaluated > 0 ? Math.round((countPL / totalEvaluated) * 100) : 0;
+    const countNEPlusPending = totalOAs - totalEvaluated;
+
     return (
         <div style={{ padding: '40px', fontFamily: '"Arial", sans-serif', color: '#000', backgroundColor: '#fff', maxWidth: '800px', margin: '0 auto', fontSize: '12px' }}>
             <div style={{ display: 'flex', alignItems: 'center', marginBottom: '20px' }}>
@@ -79,6 +116,45 @@ export const PrintableKinderReport: React.FC<PrintableKinderReportProps> = ({
                     </table>
                 </div>
             ))}
+
+            {/* Tabla Resumen de Logros */}
+            <div style={{ marginTop: '20px', marginBottom: '20px' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #000' }}>
+                    <thead>
+                        <tr>
+                            <th colSpan={5} style={{ border: '1px solid #000', padding: '5px', backgroundColor: '#1e293b', color: 'white', textAlign: 'center', fontSize: '11px', fontWeight: 'bold' }}>
+                                RESUMEN ESTADÍSTICO DE LOGROS
+                            </th>
+                        </tr>
+                        <tr style={{ backgroundColor: '#fafafa', fontSize: '10px' }}>
+                            <th style={{ border: '1px solid #000', padding: '5px', textAlign: 'center', fontWeight: 'bold', width: '20%' }}>Logrado (L)</th>
+                            <th style={{ border: '1px solid #000', padding: '5px', textAlign: 'center', fontWeight: 'bold', width: '20%' }}>Medianamente Logrado (M/L)</th>
+                            <th style={{ border: '1px solid #000', padding: '5px', textAlign: 'center', fontWeight: 'bold', width: '20%' }}>Por Lograr (P/L)</th>
+                            <th style={{ border: '1px solid #000', padding: '5px', textAlign: 'center', fontWeight: 'bold', width: '20%' }}>No Evaluado / Pendiente</th>
+                            <th style={{ border: '1px solid #000', padding: '5px', textAlign: 'center', fontWeight: 'bold', width: '20%', backgroundColor: '#f0fdf4' }}>Porcentaje de Logro Global</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr style={{ fontSize: '11px' }}>
+                            <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'center' }}>
+                                <strong>{countL}</strong> ({pctL}%)
+                            </td>
+                            <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'center' }}>
+                                <strong>{countML}</strong> ({pctML}%)
+                            </td>
+                            <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'center' }}>
+                                <strong>{countPL}</strong> ({pctPL}%)
+                            </td>
+                            <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'center' }}>
+                                <strong>{countNEPlusPending}</strong>
+                            </td>
+                            <td style={{ border: '1px solid #000', padding: '6px', textAlign: 'center', fontWeight: 'bold', backgroundColor: '#f0fdf4', fontSize: '12px', color: '#16a34a' }}>
+                                {globalAchievementPercent}%
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
 
             <div style={{ marginTop: '30px' }}>
                 <p style={{ fontWeight: 'bold', marginBottom: '10px' }}>OBSERVACIONES:</p>
