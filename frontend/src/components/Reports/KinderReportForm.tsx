@@ -105,6 +105,10 @@ export const KinderReportForm: React.FC<KinderReportFormProps> = ({ studentId, s
         setEvaluationData(prev => ({ ...prev, [oaId]: value }));
     };
 
+    const handleObservationChange = (key: string, value: string) => {
+        setEvaluationData(prev => ({ ...prev, [key]: value }));
+    };
+
     if (isLoading) return <p>Cargando informe...</p>;
 
     // Calculate total OAs and filled OAs for progress and achievement stats
@@ -344,8 +348,109 @@ export const KinderReportForm: React.FC<KinderReportFormProps> = ({ studentId, s
                         </div>
                     ))}
 
+                    {/* Cuadro de Rendimiento por Núcleo (Editable en Dashboard) */}
+                    <div style={{ marginTop: '30px', marginBottom: '25px' }}>
+                        <h4 style={{ marginBottom: '15px', color: '#1e293b', fontWeight: 'bold' }}>Cuadro de Rendimiento por Núcleo</h4>
+                        <div style={{ overflowX: 'auto' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #cbd5e1', fontSize: '13px' }}>
+                                <thead>
+                                    <tr>
+                                        <th rowSpan={2} style={{ position: 'relative', border: '1px solid #cbd5e1', height: '60px', width: '150px', padding: 0, backgroundColor: '#f8fafc' }}>
+                                            <div style={{ position: 'absolute', top: '5px', right: '5px', textAlign: 'right', fontWeight: 'bold', fontSize: '10px', color: '#475569' }}>NÚCLEOS</div>
+                                            <div style={{ position: 'absolute', bottom: '5px', left: '5px', textAlign: 'left', fontWeight: 'bold', fontSize: '10px', color: '#475569' }}>ÁMBITOS</div>
+                                            <svg style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
+                                                <line x1="0" y1="0" x2="100%" y2="100%" style={{ stroke: '#cbd5e1', strokeWidth: 1.5 }} />
+                                            </svg>
+                                        </th>
+                                        <th rowSpan={2} style={{ border: '1px solid #cbd5e1', padding: '8px', fontWeight: 'bold', textAlign: 'center', verticalAlign: 'middle', backgroundColor: '#f8fafc', color: '#475569' }}>NÚCLEOS</th>
+                                        <th colSpan={2} style={{ border: '1px solid #cbd5e1', padding: '8px', fontWeight: 'bold', textAlign: 'center', backgroundColor: '#f8fafc', color: '#475569' }}>LOGRADO</th>
+                                        <th colSpan={2} style={{ border: '1px solid #cbd5e1', padding: '8px', fontWeight: 'bold', textAlign: 'center', backgroundColor: '#f8fafc', color: '#475569' }}>MEDIANAMENTE LOGRADO</th>
+                                        <th colSpan={2} style={{ border: '1px solid #cbd5e1', padding: '8px', fontWeight: 'bold', textAlign: 'center', backgroundColor: '#f8fafc', color: '#475569' }}>POR LOGRAR</th>
+                                        <th colSpan={2} style={{ border: '1px solid #cbd5e1', padding: '8px', fontWeight: 'bold', textAlign: 'center', backgroundColor: '#f8fafc', color: '#475569' }}>NO EVALUADO</th>
+                                        <th rowSpan={2} style={{ border: '1px solid #cbd5e1', padding: '8px', fontWeight: 'bold', textAlign: 'center', verticalAlign: 'middle', backgroundColor: '#f8fafc', color: '#1e3a8a', width: '30%' }}>OBSERVACIONES POR NÚCLEO</th>
+                                    </tr>
+                                    <tr style={{ backgroundColor: '#f8fafc' }}>
+                                        <th style={{ border: '1px solid #cbd5e1', padding: '4px', fontSize: '11px', fontWeight: 'bold', textAlign: 'center', width: '45px' }}>Cant.</th>
+                                        <th style={{ border: '1px solid #cbd5e1', padding: '4px', fontSize: '11px', fontWeight: 'bold', textAlign: 'center', width: '45px', backgroundColor: '#dbeafe' }}>%</th>
+                                        <th style={{ border: '1px solid #cbd5e1', padding: '4px', fontSize: '11px', fontWeight: 'bold', textAlign: 'center', width: '45px' }}>Cant.</th>
+                                        <th style={{ border: '1px solid #cbd5e1', padding: '4px', fontSize: '11px', fontWeight: 'bold', textAlign: 'center', width: '45px', backgroundColor: '#dbeafe' }}>%</th>
+                                        <th style={{ border: '1px solid #cbd5e1', padding: '4px', fontSize: '11px', fontWeight: 'bold', textAlign: 'center', width: '45px' }}>Cant.</th>
+                                        <th style={{ border: '1px solid #cbd5e1', padding: '4px', fontSize: '11px', fontWeight: 'bold', textAlign: 'center', width: '45px', backgroundColor: '#dbeafe' }}>%</th>
+                                        <th style={{ border: '1px solid #cbd5e1', padding: '4px', fontSize: '11px', fontWeight: 'bold', textAlign: 'center', width: '45px' }}>Cant.</th>
+                                        <th style={{ border: '1px solid #cbd5e1', padding: '4px', fontSize: '11px', fontWeight: 'bold', textAlign: 'center', width: '45px', backgroundColor: '#dbeafe' }}>%</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {reportStructure.map((ambito, aIdx) => {
+                                        return ambito.nucleos.map((nucleo: any, nIdx: number) => {
+                                            const oas = nucleo.oas || [];
+                                            const totalOAs = oas.length;
+                                            let countL = 0;
+                                            let countML = 0;
+                                            let countPL = 0;
+                                            
+                                            oas.forEach((oa: any) => {
+                                                const val = evaluationData[oa.id];
+                                                if (val === 'L') countL++;
+                                                else if (val === 'M/L') countML++;
+                                                else if (val === 'P/L') countPL++;
+                                            });
+                                            
+                                            const countNE = totalOAs - (countL + countML + countPL);
+                                            
+                                            const pctL = totalOAs > 0 ? Math.round((countL / totalOAs) * 100) : 0;
+                                            const pctML = totalOAs > 0 ? Math.round((countML / totalOAs) * 100) : 0;
+                                            const pctPL = totalOAs > 0 ? Math.round((countPL / totalOAs) * 100) : 0;
+                                            const pctNE = totalOAs > 0 ? Math.round((countNE / totalOAs) * 100) : 0;
+                                            
+                                            const obsKey = `obs_${ambito.ambito}_${nucleo.name}`;
+                                            const obsValue = evaluationData[obsKey] || '';
+                                            
+                                            return (
+                                                <tr key={`${aIdx}_${nIdx}`} style={{ borderBottom: '1px solid #cbd5e1' }}>
+                                                    {nIdx === 0 && (
+                                                        <td 
+                                                            rowSpan={ambito.nucleos.length} 
+                                                            style={{ border: '1px solid #cbd5e1', padding: '8px', fontWeight: 'bold', textTransform: 'uppercase', verticalAlign: 'middle', backgroundColor: '#f8fafc', width: '130px' }}
+                                                        >
+                                                            {ambito.ambito}
+                                                        </td>
+                                                    )}
+                                                    <td style={{ border: '1px solid #cbd5e1', padding: '8px', fontWeight: '500', textTransform: 'uppercase' }}>
+                                                        {nucleo.name}
+                                                    </td>
+                                                    {/* LOGRADO */}
+                                                    <td style={{ border: '1px solid #cbd5e1', padding: '8px', textAlign: 'center' }}>{countL}</td>
+                                                    <td style={{ border: '1px solid #cbd5e1', padding: '8px', textAlign: 'center', backgroundColor: '#eff6ff', fontWeight: 'bold' }}>{pctL}%</td>
+                                                    {/* MED. LOGRADO */}
+                                                    <td style={{ border: '1px solid #cbd5e1', padding: '8px', textAlign: 'center' }}>{countML}</td>
+                                                    <td style={{ border: '1px solid #cbd5e1', padding: '8px', textAlign: 'center', backgroundColor: '#eff6ff', fontWeight: 'bold' }}>{pctML}%</td>
+                                                    {/* POR LOGRAR */}
+                                                    <td style={{ border: '1px solid #cbd5e1', padding: '8px', textAlign: 'center' }}>{countPL}</td>
+                                                    <td style={{ border: '1px solid #cbd5e1', padding: '8px', textAlign: 'center', backgroundColor: '#eff6ff', fontWeight: 'bold' }}>{pctPL}%</td>
+                                                    {/* NO EVALUADO */}
+                                                    <td style={{ border: '1px solid #cbd5e1', padding: '8px', textAlign: 'center' }}>{countNE}</td>
+                                                    <td style={{ border: '1px solid #cbd5e1', padding: '8px', textAlign: 'center', backgroundColor: '#eff6ff', fontWeight: 'bold' }}>{pctNE}%</td>
+                                                    {/* OBSERVACIONES */}
+                                                    <td style={{ border: '1px solid #cbd5e1', padding: '4px' }}>
+                                                        <textarea 
+                                                            value={obsValue}
+                                                            onChange={(e) => handleObservationChange(obsKey, e.target.value)}
+                                                            style={{ width: '100%', border: 'none', background: 'transparent', resize: 'vertical', minHeight: '40px', fontSize: '12px', outline: 'none', padding: '4px', boxSizing: 'border-box' }}
+                                                            placeholder="Escriba observaciones por núcleo aquí..."
+                                                        />
+                                                    </td>
+                                                </tr>
+                                            );
+                                        });
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
                     <div style={{ marginTop: '20px' }}>
-                        <h4 style={{ marginBottom: '10px' }}>Observaciones</h4>
+                        <h4 style={{ marginBottom: '10px' }}>Observaciones Generales</h4>
                         <textarea 
                             value={observations}
                             onChange={e => setObservations(e.target.value)}
