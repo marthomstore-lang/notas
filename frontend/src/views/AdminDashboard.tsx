@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { LogOut, Plus, Users, BookOpen, GraduationCap, Menu, X, Printer, User, Upload, Edit2, Trash2, BarChart3, Settings, ListOrdered, PieChart, FileText } from 'lucide-react';
+import { LogOut, Plus, Users, BookOpen, GraduationCap, Menu, X, Printer, User, Upload, Edit2, Trash2, BarChart3, Settings, ListOrdered, PieChart, FileText, Lock, Unlock } from 'lucide-react';
 import { EnrollmentForm } from '../components/OfficialForm/EnrollmentForm';
 import { OfficialEnrollmentForm } from '../components/OfficialForm/OfficialEnrollmentForm';
 import { StudentWindow } from '../components/StudentWindow';
@@ -34,15 +34,15 @@ export const AdminDashboard = () => {
         const saved = localStorage.getItem('adminActiveTab');
         return (['config', 'students', 'grades', 'overview', 'audit', 'profile', 'reports'].includes(saved as string)) ? (saved as any) : 'grades';
     });
-    const [configSubTab, setConfigSubTab] = useState<'teachers' | 'courses' | 'subjects' | 'assignments' | 'homeroom' | 'subject_order' | 'templates'>(() => {
+    const [configSubTab, setConfigSubTab] = useState<'teachers' | 'courses' | 'subjects' | 'assignments' | 'homeroom' | 'subject_order' | 'templates' | 'grades_lock'>(() => {
         const saved = localStorage.getItem('adminConfigSubTab');
-        return (['teachers', 'courses', 'subjects', 'assignments', 'homeroom', 'subject_order', 'templates'].includes(saved as string)) ? (saved as any) : 'teachers';
+        return (['teachers', 'courses', 'subjects', 'assignments', 'homeroom', 'subject_order', 'templates', 'grades_lock'].includes(saved as string)) ? (saved as any) : 'teachers';
     });
     const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth >= 768);
 
     const handleNavClick = (
         tab: 'config' | 'students' | 'grades' | 'overview' | 'audit' | 'profile' | 'reports', 
-        subTab?: 'teachers' | 'courses' | 'subjects' | 'assignments' | 'homeroom' | 'subject_order' | 'templates'
+        subTab?: 'teachers' | 'courses' | 'subjects' | 'assignments' | 'homeroom' | 'subject_order' | 'templates' | 'grades_lock'
     ) => {
         setActiveTab(tab);
         if (subTab) setConfigSubTab(subTab);
@@ -90,6 +90,211 @@ export const AdminDashboard = () => {
     const [reportsSemester, setReportsSemester] = useState(1);
     const [levelReports, setLevelReports] = useState<any[]>([]);
     const [levelTemplate, setLevelTemplate] = useState<any>(null);
+
+    // States for Grades Locks
+    const [globalLock, setGlobalLock] = useState<boolean>(false);
+    const [levelsLocksStatus, setLevelsLocksStatus] = useState<any[]>([]);
+    const [locksPeriod, setLocksPeriod] = useState<string>('1er Semestre');
+    const [locksYear, setLocksYear] = useState<number>(2026);
+    const [locksLoading, setLocksLoading] = useState<boolean>(false);
+
+    // States and handlers for detailed subjects lock modal
+    const [selectedLevelForLocksDetail, setSelectedLevelForLocksDetail] = useState<{ id: number, name: string } | null>(null);
+    const [levelLocksDetail, setLevelLocksDetail] = useState<any[]>([]);
+    const [locksDetailLoading, setLocksDetailLoading] = useState<boolean>(false);
+
+    const fetchLevelLocksDetail = async (levelId: number) => {
+        if (!token) return;
+        setLocksDetailLoading(true);
+        try {
+            const res = await fetch(`/_/backend/api/admin/grades/locks/level/${levelId}?period=${encodeURIComponent(locksPeriod)}&year=${locksYear}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setLevelLocksDetail(data);
+            }
+        } catch (err) {
+            console.error("Error fetching level locks detail:", err);
+        } finally {
+            setLocksDetailLoading(false);
+        }
+    };
+
+    const handleViewLevelSubjectsLocks = (levelId: number, levelName: string) => {
+        setSelectedLevelForLocksDetail({ id: levelId, name: levelName });
+        fetchLevelLocksDetail(levelId);
+    };
+
+    const handleToggleSubjectLock = async (subjectId: number, currentLocked: boolean) => {
+        if (isVisita || !selectedLevelForLocksDetail) return;
+        const shouldLock = !currentLocked;
+        
+        try {
+            const res = await fetch('/_/backend/api/admin/grades/toggle-lock', {
+                method: 'POST',
+                headers: { 
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ 
+                    levelId: selectedLevelForLocksDetail.id, 
+                    subjectId, 
+                    academicYear: locksYear, 
+                    period: locksPeriod, 
+                    lock: shouldLock 
+                })
+            });
+            if (res.ok) {
+                MySwal.fire({
+                    icon: 'success',
+                    title: shouldLock ? 'Asignatura Bloqueada' : 'Asignatura Desbloqueada',
+                    text: `Se actualizó el estado de la asignatura correctamente.`,
+                    timer: 1500,
+                    showConfirmButton: false
+                });
+                fetchLevelLocksDetail(selectedLevelForLocksDetail.id);
+                fetchLocksStatus();
+            } else {
+                const err = await res.json();
+                MySwal.fire('Error', err.error || 'No se pudo actualizar el bloqueo', 'error');
+            }
+        } catch (err) {
+            MySwal.fire('Error', 'Error de conexión', 'error');
+        }
+    };
+
+    const fetchLocksStatus = async () => {
+        if (!token) return;
+        setLocksLoading(true);
+        try {
+            const res = await fetch(`/_/backend/api/admin/grades/locks/status?period=${encodeURIComponent(locksPeriod)}&year=${locksYear}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setGlobalLock(data.globalLock);
+                const levelOrder = [
+                    'Pre-Kinder', 'Kínder', 
+                    '1° Básico', '2° Básico', '3° Básico', '4° Básico', 
+                    '5° Básico', '6° Básico', '7° Básico', '8° Básico',
+                    '1° Medio', '2° Medio A', '2° Medio B',
+                    '3° Mecánica', '3° Medio Párvulo', 
+                    '4° Mecánica', '4° Medio Párvulo',
+                    'Taller Laboral'
+                ];
+                const sortedLevelsLocks = (data.levelsStatus || [])
+                    .filter((l: any) => levelOrder.includes(l.name))
+                    .sort((a: any, b: any) => levelOrder.indexOf(a.name) - levelOrder.indexOf(b.name));
+                setLevelsLocksStatus(sortedLevelsLocks);
+            }
+        } catch (err) {
+            console.error("Error fetching locks status:", err);
+        } finally {
+            setLocksLoading(false);
+        }
+    };
+
+    const handleToggleGlobalLock = async () => {
+        if (isVisita) return;
+        const actionText = globalLock ? 'desbloquear' : 'bloquear';
+        const confirmText = globalLock ? 'Esto permitirá el ingreso de notas de forma predeterminada.' : 'Esto bloqueará el ingreso de notas para todos los cursos del liceo.';
+        
+        const result = await MySwal.fire({
+            title: `¿Confirmas ${actionText} todas las notas?`,
+            text: confirmText,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: globalLock ? '#10b981' : '#ef4444',
+            cancelButtonColor: '#64748b',
+            confirmButtonText: globalLock ? 'Sí, desbloquear todo' : 'Sí, bloquear todo',
+            cancelButtonText: 'Cancelar'
+        });
+
+        if (result.isConfirmed) {
+            try {
+                const res = await fetch('/_/backend/api/admin/grades/locks/global', {
+                    method: 'POST',
+                    headers: { 
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ lock: !globalLock })
+                });
+                if (res.ok) {
+                    MySwal.fire({
+                        icon: 'success',
+                        title: globalLock ? 'Notas Desbloqueadas' : 'Notas Bloqueadas',
+                        text: `Se ha realizado el cambio de bloqueo global correctamente.`,
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
+                    fetchLocksStatus();
+                } else {
+                    const err = await res.json();
+                    MySwal.fire('Error', err.error || 'No se pudo actualizar el bloqueo', 'error');
+                }
+            } catch (err) {
+                MySwal.fire('Error', 'Error de conexión', 'error');
+            }
+        }
+    };
+
+    const handleToggleLevelLock = async (levelId: number, currentStatus: string) => {
+        if (isVisita) return;
+        const shouldLock = !(currentStatus === 'Locked' || currentStatus === 'Partially Locked');
+        const actionText = shouldLock ? 'bloquear' : 'desbloquear';
+        
+        const result = await MySwal.fire({
+            title: `¿Confirmas ${actionText} el curso?`,
+            text: `Esto aplicará el estado de ${actionText} a todas las asignaturas de este curso.`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: shouldLock ? '#ef4444' : '#10b981',
+            cancelButtonColor: '#64748b',
+            confirmButtonText: shouldLock ? 'Sí, bloquear curso' : 'Sí, desbloquear curso',
+            cancelButtonText: 'Cancelar'
+        });
+
+        if (result.isConfirmed) {
+            try {
+                const res = await fetch('/_/backend/api/admin/grades/locks/level', {
+                    method: 'POST',
+                    headers: { 
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ 
+                        levelId, 
+                        lock: shouldLock, 
+                        period: locksPeriod, 
+                        year: locksYear 
+                    })
+                });
+                if (res.ok) {
+                    MySwal.fire({
+                        icon: 'success',
+                        title: shouldLock ? 'Curso Bloqueado' : 'Curso Desbloqueado',
+                        text: `Se actualizó el estado del curso correctamente.`,
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
+                    fetchLocksStatus();
+                } else {
+                    const err = await res.json();
+                    MySwal.fire('Error', err.error || 'No se pudo actualizar el bloqueo del curso', 'error');
+                }
+            } catch (err) {
+                MySwal.fire('Error', 'Error de conexión', 'error');
+            }
+        }
+    };
+
+    useEffect(() => {
+        if (token && activeTab === 'config' && configSubTab === 'grades_lock') {
+            fetchLocksStatus();
+        }
+    }, [token, activeTab, configSubTab, locksPeriod, locksYear]);
 
     const fetchLevelReports = async (levelId: number | string, sem: number) => {
         try {
@@ -1114,6 +1319,9 @@ export const AdminDashboard = () => {
                     <button className={activeTab === 'config' && configSubTab === 'templates' ? 'active' : ''} onClick={() => handleNavClick('config', 'templates')}>
                         <FileText size={16} /> Plantillas Informes
                     </button>
+                    <button className={activeTab === 'config' && configSubTab === 'grades_lock' ? 'active' : ''} onClick={() => handleNavClick('config', 'grades_lock')}>
+                        <Lock size={16} /> Bloqueo de Notas
+                    </button>
                 </nav>
                 <div className="sidebar-footer">
                     <button onClick={logout} className="logout-btn">
@@ -1137,7 +1345,8 @@ export const AdminDashboard = () => {
                                         configSubTab === 'assignments' ? 'Asignaciones' :
                                         configSubTab === 'homeroom' ? 'Profesores Jefe' :
                                         configSubTab === 'subject_order' ? 'Orden de Asignaturas en Informes' : 
-                                        configSubTab === 'templates' ? 'Plantillas de Informes al Hogar' : ''
+                                        configSubTab === 'templates' ? 'Plantillas de Informes al Hogar' : 
+                                        configSubTab === 'grades_lock' ? 'Bloqueo General y por Curso' : ''
                                     }
                                 </>
                             )}
@@ -1750,6 +1959,339 @@ export const AdminDashboard = () => {
                                 </div>
                             </div>
                         )}
+
+                        {configSubTab === 'grades_lock' && (
+                            <div className="card card-split-layout">
+                                <div className="card-split-header">
+                                    <h3 style={{ margin: 0, marginBottom: '20px' }}>Bloqueo de Calificaciones</h3>
+                                    
+                                    <div style={{ display: 'flex', gap: '15px', marginBottom: '25px', flexWrap: 'wrap' }}>
+                                        <div>
+                                            <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', color: '#64748b', marginBottom: '5px' }}>Semestre:</label>
+                                            <select 
+                                                value={locksPeriod} 
+                                                onChange={e => setLocksPeriod(e.target.value)} 
+                                                style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '14px', background: '#fff' }}
+                                            >
+                                                <option value="1er Semestre">1er Semestre</option>
+                                                <option value="2do Semestre">2do Semestre</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', color: '#64748b', marginBottom: '5px' }}>Año:</label>
+                                            <select 
+                                                value={locksYear} 
+                                                onChange={e => setLocksYear(Number(e.target.value))} 
+                                                style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '14px', background: '#fff' }}
+                                            >
+                                                <option value="2026">2026</option>
+                                                <option value="2025">2025</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    {/* Global Lock Card Banner */}
+                                    <div style={{ 
+                                        padding: '20px', 
+                                        borderRadius: '8px', 
+                                        background: globalLock ? '#fef2f2' : '#f0fdf4',
+                                        border: `1px solid ${globalLock ? '#fee2e2' : '#dcfce7'}`,
+                                        marginBottom: '20px',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        gap: '12px'
+                                    }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                                <span style={{ fontSize: '16px', fontWeight: 'bold', color: globalLock ? '#991b1b' : '#166534' }}>
+                                                    Estado de Bloqueo General: {globalLock ? 'ACTIVADO' : 'DESACTIVADO'}
+                                                </span>
+                                                <span style={{ fontSize: '12px', color: globalLock ? '#b91c1c' : '#15803d', marginTop: '2px' }}>
+                                                    {globalLock 
+                                                        ? 'Todas las planillas de notas del liceo están bloqueadas para los docentes, excepto los cursos desbloqueados individualmente.'
+                                                        : 'Las planillas están habilitadas para ingreso por defecto, a menos que existan bloqueos particulares por curso.'
+                                                    }
+                                                </span>
+                                            </div>
+                                            {!isVisita && (
+                                                <button 
+                                                    onClick={handleToggleGlobalLock}
+                                                    className="primary-btn" 
+                                                    style={{ 
+                                                        background: globalLock ? '#10b981' : '#ef4444',
+                                                        padding: '10px 16px',
+                                                        fontWeight: 'bold',
+                                                        border: 'none'
+                                                    }}
+                                                >
+                                                    {globalLock ? 'Desbloquear Todo' : 'Bloquear Todo'}
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="card-split-content">
+                                    {locksLoading ? (
+                                        <p>Cargando información de bloqueos...</p>
+                                    ) : (
+                                        <div>
+                                            <h4 style={{ margin: '0 0 15px 0', color: '#1e293b' }}>Control Parcial de Bloqueos por Curso</h4>
+                                            <table className="data-table">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Curso</th>
+                                                        <th>Asignaturas</th>
+                                                        <th>Estado</th>
+                                                        {!isVisita && <th style={{ textAlign: 'center' }}>Acciones</th>}
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {levelsLocksStatus.map(lvl => (
+                                                        <tr key={lvl.id}>
+                                                            <td style={{ fontWeight: '600' }}>{lvl.name}</td>
+                                                            <td>
+                                                                <span 
+                                                                    className="badge secondary" 
+                                                                    style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px', transition: 'all 0.2s' }}
+                                                                    onClick={() => handleViewLevelSubjectsLocks(lvl.id, lvl.name)}
+                                                                    title="Ver desglose y bloquear por asignatura"
+                                                                >
+                                                                    {lvl.subjectCount} asignaturas <BookOpen size={12} />
+                                                                </span>
+                                                            </td>
+                                                            <td>
+                                                                {lvl.status === 'Locked' && (
+                                                                    <span style={{ background: '#fef2f2', color: '#ef4444', border: '1px solid #fee2e2', padding: '4px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold' }}>Bloqueado</span>
+                                                                )}
+                                                                {lvl.status === 'Unlocked' && (
+                                                                    <span style={{ background: '#f0fdf4', color: '#10b981', border: '1px solid #dcfce7', padding: '4px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold' }}>Desbloqueado</span>
+                                                                )}
+                                                                {lvl.status === 'Partially Unlocked' && (
+                                                                    <span style={{ background: '#eff6ff', color: '#3b82f6', border: '1px solid #dbeafe', padding: '4px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold' }}>Desbloqueado Parcial</span>
+                                                                )}
+                                                                {lvl.status === 'Partially Locked' && (
+                                                                    <span style={{ background: '#fff7ed', color: '#f97316', border: '1px solid #ffedd5', padding: '4px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold' }}>Bloqueado Parcial</span>
+                                                                )}
+                                                            </td>
+                                                            {!isVisita && (
+                                                                <td style={{ textAlign: 'center' }}>
+                                                                    <button 
+                                                                        className={lvl.status === 'Locked' || lvl.status === 'Partially Locked' ? 'primary-btn' : 'secondary-btn'}
+                                                                        style={{ 
+                                                                            padding: '6px 12px', 
+                                                                            fontSize: '0.8rem',
+                                                                            background: lvl.status === 'Locked' || lvl.status === 'Partially Locked' ? '#10b981' : '#64748b',
+                                                                            color: '#fff',
+                                                                            border: 'none'
+                                                                        }}
+                                                                        onClick={() => handleToggleLevelLock(lvl.id, lvl.status)}
+                                                                    >
+                                                                        {lvl.status === 'Locked' || lvl.status === 'Partially Locked' ? 'Desbloquear Curso' : 'Bloquear Curso'}
+                                                                    </button>
+                                                                </td>
+                                                            )}
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {selectedLevelForLocksDetail && (
+                            <div className="modal-overlay" style={{
+                                position: 'fixed',
+                                top: 0,
+                                left: 0,
+                                right: 0,
+                                bottom: 0,
+                                backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                                display: 'flex',
+                                justifyContent: 'center',
+                                alignItems: 'center',
+                                zIndex: 9999,
+                                padding: '20px'
+                            }}>
+                                <div className="modal-content" style={{
+                                    background: '#fff',
+                                    borderRadius: '12px',
+                                    width: '100%',
+                                    maxWidth: '650px',
+                                    maxHeight: '85vh',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+                                    overflow: 'hidden'
+                                }}>
+                                    {/* Header */}
+                                    <div style={{
+                                        padding: '20px',
+                                        borderBottom: '1px solid #e2e8f0',
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'center',
+                                        background: '#f8fafc'
+                                    }}>
+                                        <h3 style={{ margin: 0, fontSize: '18px', color: '#1e293b' }}>
+                                            Bloqueo por Asignatura: {selectedLevelForLocksDetail.name}
+                                        </h3>
+                                        <button 
+                                            onClick={() => setSelectedLevelForLocksDetail(null)}
+                                            style={{
+                                                border: 'none',
+                                                background: 'none',
+                                                cursor: 'pointer',
+                                                color: '#64748b',
+                                                padding: '4px',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center'
+                                            }}
+                                        >
+                                            <X size={24} />
+                                        </button>
+                                    </div>
+
+                                    {/* Subtitle / Period info */}
+                                    <div style={{
+                                        padding: '12px 20px',
+                                        background: '#f1f5f9',
+                                        borderBottom: '1px solid #e2e8f0',
+                                        fontSize: '13px',
+                                        color: '#475569',
+                                        display: 'flex',
+                                        gap: '15px'
+                                    }}>
+                                        <span><strong>Semestre:</strong> {locksPeriod}</span>
+                                        <span><strong>Año:</strong> {locksYear}</span>
+                                        <span>
+                                            <strong>Bloqueo Global:</strong> {globalLock ? (
+                                                <span style={{ color: '#ef4444', fontWeight: 'bold' }}>Activo</span>
+                                            ) : (
+                                                <span style={{ color: '#10b981', fontWeight: 'bold' }}>Inactivo</span>
+                                            )}
+                                        </span>
+                                    </div>
+
+                                    {/* Body / Table */}
+                                    <div style={{
+                                        padding: '20px',
+                                        overflowY: 'auto',
+                                        flex: 1
+                                    }}>
+                                        {locksDetailLoading ? (
+                                            <div style={{ textAlign: 'center', padding: '40px 0', color: '#64748b' }}>
+                                                <p>Cargando asignaturas...</p>
+                                            </div>
+                                        ) : levelLocksDetail.length === 0 ? (
+                                            <div style={{ textAlign: 'center', padding: '40px 0', color: '#64748b' }}>
+                                                <p>No hay asignaturas registradas para este curso en el año seleccionado.</p>
+                                            </div>
+                                        ) : (
+                                            <table className="data-table" style={{ width: '100%' }}>
+                                                <thead>
+                                                    <tr>
+                                                        <th>Asignatura</th>
+                                                        <th>Docente</th>
+                                                        <th>Estado</th>
+                                                        {!isVisita && <th style={{ textAlign: 'center', width: '120px' }}>Acción</th>}
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {levelLocksDetail.map((sub: any) => (
+                                                        <tr key={sub.subjectId}>
+                                                            <td style={{ fontWeight: '500' }}>{sub.subjectName}</td>
+                                                            <td style={{ fontSize: '13px', color: '#475569' }}>{formatName(sub.teacherName)}</td>
+                                                            <td>
+                                                                {sub.isLocked ? (
+                                                                    <span style={{
+                                                                        background: '#fef2f2',
+                                                                        color: '#ef4444',
+                                                                        border: '1px solid #fee2e2',
+                                                                        padding: '3px 6px',
+                                                                        borderRadius: '4px',
+                                                                        fontSize: '11px',
+                                                                        fontWeight: 'bold',
+                                                                        display: 'inline-flex',
+                                                                        alignItems: 'center',
+                                                                        gap: '4px'
+                                                                    }}>
+                                                                        <Lock size={10} /> Bloqueado
+                                                                        {sub.hasOverride && globalLock === false && (
+                                                                            <span style={{ fontSize: '9px', fontWeight: 'normal', color: '#b91c1c' }}>(Manual)</span>
+                                                                        )}
+                                                                    </span>
+                                                                ) : (
+                                                                    <span style={{
+                                                                        background: '#f0fdf4',
+                                                                        color: '#10b981',
+                                                                        border: '1px solid #dcfce7',
+                                                                        padding: '3px 6px',
+                                                                        borderRadius: '4px',
+                                                                        fontSize: '11px',
+                                                                        fontWeight: 'bold',
+                                                                        display: 'inline-flex',
+                                                                        alignItems: 'center',
+                                                                        gap: '4px'
+                                                                    }}>
+                                                                        <Unlock size={10} /> Abierto
+                                                                        {sub.hasOverride && globalLock === true && (
+                                                                            <span style={{ fontSize: '9px', fontWeight: 'normal', color: '#15803d' }}>(Manual)</span>
+                                                                        )}
+                                                                    </span>
+                                                                )}
+                                                            </td>
+                                                            {!isVisita && (
+                                                                <td style={{ textAlign: 'center' }}>
+                                                                    <button
+                                                                        onClick={() => handleToggleSubjectLock(sub.subjectId, sub.isLocked)}
+                                                                        className={sub.isLocked ? 'primary-btn' : 'secondary-btn'}
+                                                                        style={{
+                                                                            padding: '4px 10px',
+                                                                            fontSize: '11px',
+                                                                            background: sub.isLocked ? '#10b981' : '#ef4444',
+                                                                            color: '#fff',
+                                                                            border: 'none',
+                                                                            borderRadius: '4px',
+                                                                            fontWeight: 'bold',
+                                                                            cursor: 'pointer'
+                                                                        }}
+                                                                    >
+                                                                        {sub.isLocked ? 'Desbloquear' : 'Bloquear'}
+                                                                    </button>
+                                                                </td>
+                                                            )}
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        )}
+                                    </div>
+
+                                    {/* Footer */}
+                                    <div style={{
+                                        padding: '15px 20px',
+                                        borderTop: '1px solid #e2e8f0',
+                                        display: 'flex',
+                                        justifyContent: 'flex-end',
+                                        background: '#f8fafc'
+                                    }}>
+                                        <button 
+                                            className="secondary-btn"
+                                            onClick={() => setSelectedLevelForLocksDetail(null)}
+                                            style={{ padding: '8px 16px' }}
+                                        >
+                                            Cerrar
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                        
+                        {/* Closing configSubTab === 'grades_lock' */}
+                        
                     </div>
                 )}
 

@@ -55,13 +55,25 @@ export const getGradesSheet = async (req: Request, res: Response) => {
             `, [...columnIds]);
         }
 
-        // 4. Get Lock Status
+        // 4. Get Lock Status (Global + Local override logic)
+        const globalLockSetting = await db.get("SELECT value FROM institutional_settings WHERE key = 'global_grades_lock'");
+        const isGloballyLocked = globalLockSetting ? globalLockSetting.value === '1' : false;
+
         const lockInfo = await db.get(`
             SELECT is_locked FROM grades_locks 
             WHERE level_id = ? AND subject_id = ? AND academic_year = ? AND period = ?
         `, [levelIdNum, subjectIdNum, yearNum, periodStr]);
 
-        res.json({ students, columns, grades, isLocked: !!(lockInfo?.is_locked) });
+        let isLocked = false;
+        if (isGloballyLocked) {
+            // Locked by default, unless explicitly unlocked locally (is_locked = 0)
+            isLocked = lockInfo ? lockInfo.is_locked !== 0 : true;
+        } else {
+            // Unlocked by default, unless explicitly locked locally (is_locked = 1)
+            isLocked = lockInfo ? lockInfo.is_locked === 1 : false;
+        }
+
+        res.json({ students, columns, grades, isLocked });
     } catch (error: any) {
         console.error("Error in getGradesSheet", error);
         res.status(500).json({ error: error.message });
@@ -729,3 +741,203 @@ export const getGradesOverview = async (req: Request, res: Response) => {
         res.status(500).json({ error: error.message });
     }
 };
+
+export const getGradesLocksStatus = async (req: Request, res: Response) => {
+    const period = req.query.period ? String(req.query.period) : '1er Semestre';
+    const year = req.query.year ? parseInt(String(req.query.year), 10) : new Date().getFullYear();
+    try {
+        const globalLockSetting = await db.get("SELECT value FROM institutional_settings WHERE key = 'global_grades_lock'");
+        const globalLock = globalLockSetting ? globalLockSetting.value === '1' : false;
+
+        const levels = await db.all("SELECT id, name FROM levels ORDER BY name ASC");
+        const locks = await db.all("SELECT level_id, subject_id, is_locked FROM grades_locks WHERE academic_year = ? AND period = ?", [year, period]);
+
+        // Fetch assignments to know which subjects are associated with which levels
+        const assignments = await db.all("SELECT level_id, subject_id FROM teacher_assignments WHERE academic_year = ?", [year]);
+
+        // Group locks and assignments by level_id
+        const locksMap = new Map<number, any[]>();
+        locks.forEach(l => {
+            if (!locksMap.has(l.level_id)) locksMap.set(l.level_id, []);
+            locksMap.get(l.level_id)!.push(l);
+        });
+
+        const assignmentsMap = new Map<number, Set<number>>();
+        assignments.forEach(a => {
+            if (!assignmentsMap.has(a.level_id)) assignmentsMap.set(a.level_id, new Set());
+            assignmentsMap.get(a.level_id)!.add(a.subject_id);
+        });
+
+        const levelsStatus = levels.map(lvl => {
+            const lvlLocks = locksMap.get(lvl.id) || [];
+            const lvlSubjects = assignmentsMap.get(lvl.id) || new Set<number>();
+            const subjectCount = lvlSubjects.size;
+
+            let status = 'Unlocked';
+            if (globalLock) {
+                const unlockedCount = lvlLocks.filter(l => lvlSubjects.has(l.subject_id) && l.is_locked === 0).length;
+                if (unlockedCount === 0) {
+                    status = 'Locked';
+                } else if (unlockedCount === subjectCount && subjectCount > 0) {
+                    status = 'Unlocked';
+                } else {
+                    status = 'Partially Unlocked';
+                }
+            } else {
+                const lockedCount = lvlLocks.filter(l => lvlSubjects.has(l.subject_id) && l.is_locked === 1).length;
+                if (lockedCount === 0) {
+                    status = 'Unlocked';
+                } else if (lockedCount === subjectCount && subjectCount > 0) {
+                    status = 'Locked';
+                } else {
+                    status = 'Partially Locked';
+                }
+            }
+
+            return {
+                id: lvl.id,
+                name: lvl.name,
+                subjectCount,
+                status
+            };
+        });
+
+        res.json({ globalLock, levelsStatus });
+    } catch (error: any) {
+        console.error("Error in getGradesLocksStatus", error);
+        res.status(500).json({ error: error.message });
+    }
+};
+
+export const toggleGlobalGradesLock = async (req: Request, res: Response) => {
+    const { lock } = req.body;
+    try {
+        await db.run(`
+            INSERT INTO institutional_settings (key, value)
+            VALUES ('global_grades_lock', ?)
+            ON CONFLICT(key) DO UPDATE SET value = EXCLUDED.value
+        `, [lock ? '1' : '0']);
+
+        // Log audit
+        const user = (req as any).user;
+        try {
+            await db.run(`
+                INSERT INTO audit_logs (id, user_id, user_name, action, details)
+                VALUES (?, ?, ?, ?, ?)
+            `, [
+                crypto.randomUUID(), user?.id, user?.name || user?.run || 'Sistema', 
+                lock ? 'LOCK_ALL_GRADES' : 'UNLOCK_ALL_GRADES',
+                `${lock ? 'Bloqueo' : 'Desbloqueo'} general de calificaciones`
+            ]);
+        } catch (auditError) {
+            console.error("Audit log error for global lock:", auditError);
+        }
+
+        res.json({ success: true });
+    } catch (error: any) {
+        console.error("Error in toggleGlobalGradesLock", error);
+        res.status(500).json({ error: error.message });
+    }
+};
+
+export const toggleLevelGradesLock = async (req: Request, res: Response) => {
+    const { levelId, lock, period, year } = req.body;
+    try {
+        const levelIdNum = levelId ? parseInt(String(levelId), 10) : 0;
+        const yearNum = year ? parseInt(String(year), 10) : new Date().getFullYear();
+        const periodStr = String(period || '1er Semestre');
+
+        // Fetch all subjects assigned to this level
+        const assignments = await db.all("SELECT DISTINCT subject_id FROM teacher_assignments WHERE level_id = ? AND academic_year = ?", [levelIdNum, yearNum]);
+
+        for (const a of assignments) {
+            await db.run(`
+                INSERT INTO grades_locks (level_id, subject_id, academic_year, period, is_locked)
+                VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(level_id, subject_id, academic_year, period) 
+                DO UPDATE SET is_locked = EXCLUDED.is_locked
+            `, [levelIdNum, a.subject_id, yearNum, periodStr, lock ? 1 : 0]);
+        }
+
+        // Log audit
+        const user = (req as any).user;
+        const levelName = await db.get("SELECT name FROM levels WHERE id = ?", [levelIdNum]);
+        try {
+            await db.run(`
+                INSERT INTO audit_logs (id, user_id, user_name, action, details, level_id)
+                VALUES (?, ?, ?, ?, ?, ?)
+            `, [
+                crypto.randomUUID(), user?.id, user?.name || user?.run || 'Sistema', 
+                lock ? 'LOCK_LEVEL_GRADES' : 'UNLOCK_LEVEL_GRADES',
+                `${lock ? 'Bloqueo' : 'Desbloqueo'} de notas para el curso: ${levelName?.name || levelIdNum}`,
+                String(levelIdNum)
+            ]);
+        } catch (auditError) {
+            console.error("Audit log error for level lock:", auditError);
+        }
+
+        res.json({ success: true });
+    } catch (error: any) {
+        console.error("Error in toggleLevelGradesLock", error);
+        res.status(500).json({ error: error.message });
+    }
+};
+
+export const getLevelGradesLocksDetail = async (req: Request, res: Response) => {
+    const levelId = parseInt(String(req.params.levelId), 10);
+    const period = req.query.period ? String(req.query.period) : '1er Semestre';
+    const year = req.query.year ? parseInt(String(req.query.year), 10) : new Date().getFullYear();
+
+    try {
+        const globalLockSetting = await db.get("SELECT value FROM institutional_settings WHERE key = 'global_grades_lock'");
+        const globalLock = globalLockSetting ? globalLockSetting.value === '1' : false;
+
+        // Fetch all assignments for this level with subject details and teacher name
+        const subjectsList = await db.all(`
+            SELECT DISTINCT s.id as subject_id, s.name as subject_name, u.name as teacher_name
+            FROM teacher_assignments ta
+            JOIN subjects s ON ta.subject_id = s.id
+            LEFT JOIN users u ON ta.teacher_id = u.id
+            WHERE ta.level_id = ? AND ta.academic_year = ?
+            ORDER BY s.name ASC
+        `, [levelId, year]);
+
+        // Fetch locks for this level, period, and year
+        const locks = await db.all(`
+            SELECT subject_id, is_locked FROM grades_locks 
+            WHERE level_id = ? AND academic_year = ? AND period = ?
+        `, [levelId, year, period]);
+
+        const locksMap = new Map<number, number>();
+        locks.forEach(l => {
+            locksMap.set(l.subject_id, l.is_locked);
+        });
+
+        const details = subjectsList.map(sub => {
+            const overrideVal = locksMap.get(sub.subject_id);
+            let isLocked = false;
+            let hasOverride = false;
+
+            if (overrideVal !== undefined) {
+                hasOverride = true;
+                isLocked = overrideVal === 1;
+            } else {
+                isLocked = globalLock;
+            }
+
+            return {
+                subjectId: sub.subject_id,
+                subjectName: sub.subject_name,
+                teacherName: sub.teacher_name || 'No asignado',
+                isLocked,
+                hasOverride
+            };
+        });
+
+        res.json(details);
+    } catch (error: any) {
+        console.error("Error in getLevelGradesLocksDetail", error);
+        res.status(500).json({ error: error.message });
+    }
+};
+

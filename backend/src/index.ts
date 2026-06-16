@@ -8,7 +8,7 @@ import { getAssignments, getGrades, addColumn, saveGrade } from './controllers/t
 import { registerEnrollment } from './controllers/enrollmentController';
 import { getReportTemplates, createReportTemplate, updateReportTemplate, deleteReportTemplate, assignTemplateToLevel } from './controllers/reportTemplatesController';
 import { getTeachers, createTeacher, updateTeacher, deleteTeacher, getSubjects, createSubject, updateSubject, deleteSubject, checkSubjectGrades, getLevels, updateLevelCapacity, getAssignmentsAdmin, createAssignment, updateAssignment, deleteAssignment, getStudents, getStudentById, updateStudent, deleteStudent, reincorporateStudent, getStudentObservations, addObservation, exportData, importDataWeb, changeStudentLevel } from './controllers/adminController';
-import { getFiltersData, getGradesSheet, saveGradesSheet, updateStudentPosition, bulkUpdateStudentPositions, toggleLockAssignment, getAuditLogs, getGradesOverview } from './controllers/gradesController';
+import { getFiltersData, getGradesSheet, saveGradesSheet, updateStudentPosition, bulkUpdateStudentPositions, toggleLockAssignment, getAuditLogs, getGradesOverview, getGradesLocksStatus, toggleGlobalGradesLock, toggleLevelGradesLock, getLevelGradesLocksDetail } from './controllers/gradesController';
 import { getStudentGradesReport, getLevelGradesReport, updateInstitutionalSettings, setHomeroomTeacher, getSubjectOrder, updateSubjectOrder, getHomeroomData, getPersonalityReport, savePersonalityReport, getPersonalityReportsByLevel } from './controllers/reportsController';
 import multer from 'multer';
 import db from './config/db';
@@ -95,6 +95,10 @@ router.post('/admin/grades/sheet', authMiddleware, saveGradesSheet);
 router.post('/admin/grades/student-position', authMiddleware, updateStudentPosition);
 router.post('/admin/grades/bulk-position', authMiddleware, bulkUpdateStudentPositions);
 router.post('/admin/grades/toggle-lock', authMiddleware, toggleLockAssignment);
+router.get('/admin/grades/locks/status', authMiddleware, getGradesLocksStatus);
+router.post('/admin/grades/locks/global', authMiddleware, toggleGlobalGradesLock);
+router.post('/admin/grades/locks/level', authMiddleware, toggleLevelGradesLock);
+router.get('/admin/grades/locks/level/:levelId', authMiddleware, getLevelGradesLocksDetail);
 router.get('/admin/system/audit-logs', authMiddleware, getAuditLogs);
 
 // Rutas Reportes y Configuración
