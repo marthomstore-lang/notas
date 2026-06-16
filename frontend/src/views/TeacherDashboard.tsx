@@ -5,6 +5,7 @@ import { LogOut, Book, Calendar, Menu, X, ClipboardCheck, User, LayoutGrid, Layo
 import { StudentWindow } from '../components/StudentWindow';
 import { ReorderStudentsModal } from '../components/ReorderStudentsModal';
 import { KinderReportForm } from '../components/Reports/KinderReportForm';
+import { CoursePerformanceTable } from '../components/Reports/CoursePerformanceTable';
 import { GradesOverview } from '../components/Grades/GradesOverview';
 import Swal from 'sweetalert2';
 import './Dashboard.css';
@@ -453,6 +454,13 @@ export const TeacherDashboard = () => {
                                         </div>
                                     </div>
                                     <p style={{ color: '#64748b', marginBottom: '20px' }}>Seleccione un estudiante para generar o editar su Informe al Hogar.</p>
+                                    {homeroomData.level && homeroomData.level.report_template_id && (
+                                        <CoursePerformanceTable 
+                                            levelReports={levelReports}
+                                            levelTemplate={levelTemplate}
+                                            levelName={homeroomData.level.name}
+                                        />
+                                    )}
                                     <table className="data-table">
                                         <thead>
                                             <tr>

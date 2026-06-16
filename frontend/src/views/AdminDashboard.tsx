@@ -5,6 +5,7 @@ import { EnrollmentForm } from '../components/OfficialForm/EnrollmentForm';
 import { OfficialEnrollmentForm } from '../components/OfficialForm/OfficialEnrollmentForm';
 import { StudentWindow } from '../components/StudentWindow';
 import { KinderReportForm } from '../components/Reports/KinderReportForm';
+import { CoursePerformanceTable } from '../components/Reports/CoursePerformanceTable';
 import { ReorderStudentsModal } from '../components/ReorderStudentsModal';
 import { GradesSheet } from '../components/Grades/GradesSheet';
 import { GradesOverview } from '../components/Grades/GradesOverview';
@@ -2473,8 +2474,16 @@ export const AdminDashboard = () => {
                                 </div>
                                 {reportsLevelId && (() => {
                                     const lvlStudents = students.filter(s => String(s.level_id) === reportsLevelId && !s.withdrawal_date);
+                                    const selectedLvl = levels.find(l => String(l.id) === String(reportsLevelId));
                                     return (
                                         <div>
+                                            {selectedLvl && selectedLvl.report_template_id && (
+                                                <CoursePerformanceTable 
+                                                    levelReports={levelReports}
+                                                    levelTemplate={levelTemplate}
+                                                    levelName={selectedLvl.name}
+                                                />
+                                            )}
                                             <table className="data-table">
                                                 <thead>
                                                     <tr>
