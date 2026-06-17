@@ -14,6 +14,34 @@ export const formatName = (name: string | undefined | null): string => {
     return toCamelCase(name);
 };
 
+export const swapSurnamesAndNames = (name: string | undefined | null): string => {
+    if (!name || name === 'No asignado' || name === '________________________') return name || '';
+    
+    const cleanName = name.replace(/\s+/g, ' ').trim();
+    const words = cleanName.split(' ');
+    
+    if (words.length >= 3) {
+        const surnames = words.slice(0, 2).join(' ');
+        const firstNames = words.slice(2).join(' ');
+        return formatName(`${firstNames} ${surnames}`);
+    } else if (words.length === 2) {
+        return formatName(`${words[1]} ${words[0]}`);
+    }
+    
+    return formatName(cleanName);
+};
+
+export const formatPrintName = (student: any): string => {
+    if (!student) return '';
+    if (student.first_name) {
+        const first = student.first_name.trim();
+        const paternal = student.paternal_surname ? student.paternal_surname.trim() : '';
+        const maternal = student.maternal_surname ? student.maternal_surname.trim() : '';
+        return formatName(`${first} ${paternal} ${maternal}`.replace(/\s+/g, ' ').trim());
+    }
+    return swapSurnamesAndNames(student.full_name);
+};
+
 export const isFailingGrade = (val: any): boolean => {
     if (val === undefined || val === null || val === '' || val === '-') return false;
     if (val === 'I') return true;
@@ -148,7 +176,7 @@ export const GradesReport: React.FC<Props> = ({ data, period, year, onClose }) =
                                     <div className="info-grid">
                                         <div className="info-item">
                                             <label>ESTUDIANTE :</label>
-                                            <span className="info-value">{formatName(student?.full_name) || 'N/A'}</span>
+                                            <span className="info-value">{formatPrintName(student) || 'N/A'}</span>
                                         </div>
                                         <div className="info-item">
                                             <label>RUT :</label>
@@ -256,7 +284,7 @@ export const GradesReport: React.FC<Props> = ({ data, period, year, onClose }) =
                                             <p className="name">
                                                 {(!homeroomTeacherName || homeroomTeacherName === 'No asignado') 
                                                     ? '________________________' 
-                                                    : formatName(homeroomTeacherName)}
+                                                    : swapSurnamesAndNames(homeroomTeacherName)}
                                             </p>
                                             <p className="title">Profesor(a) Jefe</p>
                                         </div>

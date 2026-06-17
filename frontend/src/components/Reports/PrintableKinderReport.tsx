@@ -1,6 +1,23 @@
 import React from 'react';
 import { KINDER_REPORT_STRUCTURE } from './kinderReportData';
 
+const swapSurnamesAndNames = (name: string | undefined | null): string => {
+    if (!name || name === 'No asignado' || name === '________________________') return name || '';
+    
+    const cleanName = name.replace(/\s+/g, ' ').trim();
+    const words = cleanName.split(' ');
+    
+    if (words.length >= 3) {
+        const surnames = words.slice(0, 2).join(' ');
+        const firstNames = words.slice(2).join(' ');
+        return `${firstNames} ${surnames}`;
+    } else if (words.length === 2) {
+        return `${words[1]} ${words[0]}`;
+    }
+    
+    return cleanName;
+};
+
 interface PrintableKinderReportProps {
     studentName: string;
     semester: number;
@@ -32,7 +49,7 @@ export const PrintableKinderReport: React.FC<PrintableKinderReportProps> = ({
             </div>
             
             <div style={{ marginBottom: '10px', display: 'flex', alignItems: 'center' }}>
-                <p style={{ margin: 0, fontSize: '14px' }}><strong>NOMBRE:</strong> {studentName}</p>
+                <p style={{ margin: 0, fontSize: '14px' }}><strong>NOMBRE:</strong> {swapSurnamesAndNames(studentName)}</p>
             </div>
             <div style={{ marginBottom: '20px', fontSize: '11px', fontWeight: 'bold' }}>
                 <p style={{ margin: 0 }}>
@@ -95,7 +112,7 @@ export const PrintableKinderReport: React.FC<PrintableKinderReportProps> = ({
                 <div style={{ width: '30%' }}>
                     <div style={{ borderBottom: '1px solid #000', marginBottom: '5px' }}></div>
                     <p style={{ margin: 0 }}>Firma educadora de párvulos</p>
-                    <p style={{ margin: 0, fontSize: '12px' }}>{teacherName}</p>
+                    <p style={{ margin: 0, fontSize: '12px' }}>{swapSurnamesAndNames(teacherName)}</p>
                 </div>
                 <div style={{ width: '30%' }}>
                     <div style={{ borderBottom: '1px solid #000', marginBottom: '5px' }}></div>
