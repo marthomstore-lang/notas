@@ -2451,6 +2451,7 @@ export const AdminDashboard = () => {
                                     studentName={formatName(students.find(s => s.id === selectedStudentReport)?.full_name)}
                                     token={token || ''}
                                     teacherName={user?.name || ''}
+                                    levelName={levels.find(l => String(l.id) === String(reportsLevelId))?.name}
                                 />
                             </div>
                         ) : (
@@ -2595,6 +2596,7 @@ export const AdminDashboard = () => {
                                                 observations={obs}
                                                 teacherName={teacherName}
                                                 reportStructure={struct}
+                                                levelName={selectedLvl?.name}
                                             />
                                         </div>
                                     );

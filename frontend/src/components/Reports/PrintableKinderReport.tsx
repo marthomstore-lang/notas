@@ -26,12 +26,15 @@ interface PrintableKinderReportProps {
     observations: string;
     teacherName: string;
     reportStructure: any[];
+    levelName?: string;
 }
 
 export const PrintableKinderReport: React.FC<PrintableKinderReportProps> = ({
-    studentName, semester, year, evaluationData, observations, teacherName, reportStructure
+    studentName, semester, year, evaluationData, observations, teacherName, reportStructure, levelName
 }) => {
     const structure = reportStructure || KINDER_REPORT_STRUCTURE;
+    const isPreKinder = (levelName || '').toLowerCase().includes('pre');
+    const levelTitle = isPreKinder ? 'PRIMER NIVEL TRANSICIÓN' : 'SEGUNDO NIVEL TRANSICIÓN';
 
     return (
         <div style={{ padding: '40px', fontFamily: '"Arial", sans-serif', color: '#000', backgroundColor: '#fff', maxWidth: '800px', margin: '0 auto', fontSize: '12px' }}>
@@ -45,7 +48,7 @@ export const PrintableKinderReport: React.FC<PrintableKinderReportProps> = ({
 
             <div style={{ textAlign: 'center', marginBottom: '20px' }}>
                 <h2 style={{ fontSize: '16px', margin: '0 0 5px 0' }}>INFORME AL HOGAR {semester === 1 ? 'PRIMER' : 'SEGUNDO'} SEMESTRE {year}</h2>
-                <h3 style={{ fontSize: '14px', margin: '0 0 20px 0' }}>SEGUNDO NIVEL TRANSICIÓN</h3>
+                <h3 style={{ fontSize: '14px', margin: '0 0 20px 0' }}>{levelTitle}</h3>
             </div>
             
             <div style={{ marginBottom: '10px', display: 'flex', alignItems: 'center' }}>

@@ -461,7 +461,6 @@ export const KinderReportForm: React.FC<KinderReportFormProps> = ({ studentId, s
                 </div>
             </div>
 
-            {/* Hidden printable section */}
             <div className="printable-section" style={{ display: isPrinting ? 'block' : 'none' }}>
                 <PrintableKinderReport 
                     studentName={studentName}
@@ -471,6 +470,7 @@ export const KinderReportForm: React.FC<KinderReportFormProps> = ({ studentId, s
                     observations={observations}
                     teacherName={teacherName}
                     reportStructure={reportStructure}
+                    levelName={levelName}
                 />
             </div>
         </div>
