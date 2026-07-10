@@ -9,6 +9,7 @@ import { CoursePerformanceTable } from '../components/Reports/CoursePerformanceT
 import { ReorderStudentsModal } from '../components/ReorderStudentsModal';
 import { GradesSheet } from '../components/Grades/GradesSheet';
 import { GradesOverview } from '../components/Grades/GradesOverview';
+import { PrintableKinderReport } from '../components/Reports/PrintableKinderReport';
 import Swal from 'sweetalert2';
 import withReactContent from 'sweetalert2-react-content';
 import './Dashboard.css';
@@ -91,6 +92,7 @@ export const AdminDashboard = () => {
     const [reportsSemester, setReportsSemester] = useState(1);
     const [levelReports, setLevelReports] = useState<any[]>([]);
     const [levelTemplate, setLevelTemplate] = useState<any>(null);
+    const [isPrintingAll, setIsPrintingAll] = useState(false);
 
     // States for Grades Locks
     const [globalLock, setGlobalLock] = useState<boolean>(false);
@@ -310,6 +312,14 @@ export const AdminDashboard = () => {
         } catch (err) {
             console.error("Error fetching level reports:", err);
         }
+    };
+
+    const handlePrintAll = () => {
+        setIsPrintingAll(true);
+        setTimeout(() => {
+            window.print();
+            setIsPrintingAll(false);
+        }, 500);
     };
 
     useEffect(() => {
@@ -2446,31 +2456,42 @@ export const AdminDashboard = () => {
                         ) : (
                             <div style={{ padding: '20px' }}>
                                 <h3 style={{ marginTop: 0, marginBottom: '20px' }}>Generación de Informes al Hogar</h3>
-                                <div style={{ marginBottom: '20px', display: 'flex', gap: '20px', alignItems: 'center' }}>
-                                    <div>
-                                        <label style={{ fontWeight: 'bold' }}>Seleccione Curso:</label>
-                                        <select 
-                                            className="swal2-input" 
-                                            style={{ maxWidth: '250px', display: 'inline-block', margin: '0 0 0 10px' }}
-                                            value={reportsLevelId}
-                                            onChange={(e) => setReportsLevelId(e.target.value)}
-                                        >
-                                            <option value="">-- Seleccionar Nivel --</option>
-                                            {levels.filter(l => l.report_template_id).map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
-                                        </select>
+                                <div style={{ marginBottom: '20px', display: 'flex', gap: '20px', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
+                                    <div style={{ display: 'flex', gap: '20px', alignItems: 'center', flexWrap: 'wrap' }}>
+                                        <div>
+                                            <label style={{ fontWeight: 'bold' }}>Seleccione Curso:</label>
+                                            <select 
+                                                className="swal2-input" 
+                                                style={{ maxWidth: '250px', display: 'inline-block', margin: '0 0 0 10px' }}
+                                                value={reportsLevelId}
+                                                onChange={(e) => setReportsLevelId(e.target.value)}
+                                            >
+                                                <option value="">-- Seleccionar Nivel --</option>
+                                                {levels.filter(l => l.report_template_id).map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label style={{ fontWeight: 'bold' }}>Semestre:</label>
+                                            <select 
+                                                className="swal2-input" 
+                                                style={{ maxWidth: '150px', display: 'inline-block', margin: '0 0 0 10px' }}
+                                                value={reportsSemester}
+                                                onChange={(e) => setReportsSemester(Number(e.target.value))}
+                                            >
+                                                <option value={1}>1er Semestre</option>
+                                                <option value={2}>2do Semestre</option>
+                                            </select>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <label style={{ fontWeight: 'bold' }}>Semestre:</label>
-                                        <select 
-                                            className="swal2-input" 
-                                            style={{ maxWidth: '150px', display: 'inline-block', margin: '0 0 0 10px' }}
-                                            value={reportsSemester}
-                                            onChange={(e) => setReportsSemester(Number(e.target.value))}
+                                    {reportsLevelId && (
+                                        <button 
+                                            className="primary-btn" 
+                                            onClick={handlePrintAll}
+                                            style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#f97316' }}
                                         >
-                                            <option value={1}>1er Semestre</option>
-                                            <option value={2}>2do Semestre</option>
-                                        </select>
-                                    </div>
+                                            <Printer size={18} /> Imprimir Todos los Informes
+                                        </button>
+                                    )}
                                 </div>
                                 {reportsLevelId && (() => {
                                     const lvlStudents = students.filter(s => String(s.level_id) === reportsLevelId && !s.withdrawal_date);
@@ -2532,6 +2553,54 @@ export const AdminDashboard = () => {
                                 })()}
                             </div>
                         )}
+                        {/* Hidden printable section for all reports */}
+                        {isPrintingAll && (
+                            <style>{`
+                                @media print {
+                                    body * {
+                                        visibility: hidden;
+                                    }
+                                    .printable-section, .printable-section * {
+                                        visibility: visible;
+                                    }
+                                    .printable-section {
+                                        position: absolute;
+                                        left: 0;
+                                        top: 0;
+                                        width: 100%;
+                                    }
+                                    .no-print {
+                                        display: none !important;
+                                    }
+                                }
+                            `}</style>
+                        )}
+                        <div className="printable-section" style={{ display: isPrintingAll ? 'block' : 'none' }}>
+                            {(() => {
+                                const lvlStudents = students.filter(s => String(s.level_id) === reportsLevelId && !s.withdrawal_date);
+                                const selectedLvl = levels.find(l => String(l.id) === String(reportsLevelId));
+                                const teacherName = selectedLvl?.homeroom_teacher_name || user?.name || '';
+                                const struct = levelTemplate ? (typeof levelTemplate.structure_json === 'string' ? JSON.parse(levelTemplate.structure_json) : levelTemplate.structure_json) : [];
+                                return lvlStudents.map((s, sIdx) => {
+                                    const report = levelReports.find(r => r.student_id === s.id);
+                                    const evalData = report ? (typeof report.evaluation_data === 'string' ? JSON.parse(report.evaluation_data) : report.evaluation_data) : {};
+                                    const obs = report ? (report.observations || '') : '';
+                                    return (
+                                        <div key={s.id} style={{ pageBreakAfter: sIdx === lvlStudents.length - 1 ? 'auto' : 'always' }}>
+                                            <PrintableKinderReport 
+                                                studentName={s.full_name}
+                                                semester={reportsSemester}
+                                                year={new Date().getFullYear()}
+                                                evaluationData={evalData}
+                                                observations={obs}
+                                                teacherName={teacherName}
+                                                reportStructure={struct}
+                                            />
+                                        </div>
+                                    );
+                                });
+                            })()}
+                        </div>
                     </div>
                 )}
 

@@ -406,7 +406,7 @@ export const getPersonalityReportsByLevel = async (req: Request, res: Response) 
         }
 
         const reports = await db.all(`
-            SELECT student_id, evaluation_data 
+            SELECT student_id, evaluation_data, observations 
             FROM personality_reports 
             WHERE level_id = ? AND semester = ? AND academic_year = ?
         `, [levelId, semester, year]);
