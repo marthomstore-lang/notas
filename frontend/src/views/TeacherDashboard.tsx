@@ -83,6 +83,48 @@ export const getSubjectImageUrl = (subjectName: string): string => {
     return 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=300&auto=format&fit=crop&q=60';
 };
 
+const footerColors = [
+    '#4c1d95', // Violeta oscuro
+    '#b45309', // Ámbar/Naranja oxidado
+    '#15803d', // Verde bosque
+    '#9f1239', // Rosa/Rojo oscuro
+    '#0369a1', // Azul océano
+    '#6b21a8', // Púrpura
+    '#1e3a8a'  // Azul marino
+];
+
+export const getLinkImageUrl = (linkName: string): string => {
+    const name = (linkName || '').toLowerCase().trim();
+    
+    // Dispositivos Móviles / Tecnología
+    if (name.includes('móvil') || name.includes('movil') || name.includes('dispositivo') || name.includes('celular') || name.includes('phone') || name.includes('tecnolog')) {
+        return 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=400&auto=format&fit=crop&q=60';
+    }
+    // Drive / Nube / Archivos / Google Drive
+    if (name.includes('drive') || name.includes('nube') || name.includes('cloud') || name.includes('archivo') || name.includes('carpeta') || name.includes('compartido')) {
+        return 'https://images.unsplash.com/photo-1544383835-bda2bc66a55d?w=400&auto=format&fit=crop&q=60';
+    }
+    // Libro / Clases / Classroom / Aula / Escuela
+    if (name.includes('libro') || name.includes('clase') || name.includes('classroom') || name.includes('aula') || name.includes('curso') || name.includes('estudiante')) {
+        return 'https://images.unsplash.com/photo-1427504494785-3a9ca7044f45?w=400&auto=format&fit=crop&q=60';
+    }
+    // Planificaciones / Agenda / Calendario / Bitácora
+    if (name.includes('planific') || name.includes('agenda') || name.includes('calendar') || name.includes('bitácora') || name.includes('bitacora') || name.includes('horario')) {
+        return 'https://images.unsplash.com/photo-1506784983877-45594efa4cbe?w=400&auto=format&fit=crop&q=60';
+    }
+    // Notas / Calificaciones / Evaluaciones / Reporte
+    if (name.includes('nota') || name.includes('calific') || name.includes('evalua') || name.includes('reporte') || name.includes('excel') || name.includes('planilla')) {
+        return 'https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=400&auto=format&fit=crop&q=60';
+    }
+    // Comunicación / Chat / Reunión / Meet / Zoom / Correo
+    if (name.includes('comunic') || name.includes('chat') || name.includes('reun') || name.includes('meet') || name.includes('zoom') || name.includes('correo') || name.includes('mail')) {
+        return 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=400&auto=format&fit=crop&q=60';
+    }
+    
+    // Default: Abstracto o Educación
+    return 'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=400&auto=format&fit=crop&q=60';
+};
+
 interface Assignment {
     assignment_id: string;
     level_id: string;
@@ -308,106 +350,138 @@ export const TeacherDashboard = () => {
                 </header>
                 
                 {activeView === 'home' && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
                         <div className="card" style={{ 
-                            background: 'linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%)', 
+                            background: 'linear-gradient(135deg, #ea580c 0%, #ca8a04 50%, #16a34a 100%)', 
                             color: 'white', 
-                            padding: '30px',
-                            borderRadius: '12px',
-                            boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
+                            padding: '50px 30px',
+                            borderRadius: '16px',
+                            textAlign: 'center',
+                            boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+                            position: 'relative',
+                            overflow: 'hidden'
                         }}>
-                            <h2 style={{ margin: '0 0 10px 0', fontSize: '1.8rem' }}>¡Hola, {formatName(user?.name)}!</h2>
-                            <p style={{ margin: 0, opacity: 0.9, fontSize: '1.1rem' }}>Bienvenido al Portal Docente de Liceo Pro.</p>
+                            <div style={{
+                                position: 'absolute',
+                                top: '-20%',
+                                right: '-10%',
+                                width: '300px',
+                                height: '300px',
+                                borderRadius: '50%',
+                                background: 'rgba(255, 255, 255, 0.1)',
+                                pointerEvents: 'none'
+                            }}></div>
+                            <h2 style={{ margin: '0 0 12px 0', fontSize: '2.5rem', fontWeight: '800', letterSpacing: '-0.025em' }}>
+                                Bienvenido al Portal Docente
+                            </h2>
+                            <p style={{ margin: 0, opacity: 0.95, fontSize: '1.25rem', fontWeight: '500' }}>
+                                {formatName(user?.name)} • Liceo Pro
+                            </p>
                         </div>
 
-                        <div className="card">
-                            <h3 style={{ margin: '0 0 15px 0', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                <Globe size={22} style={{ color: '#3b82f6' }} /> Plataformas de Interés
+                        <div className="card" style={{ border: 'none', background: 'transparent', padding: 0, boxShadow: 'none' }}>
+                            <h3 style={{ margin: '0 0 25px 0', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '1.4rem', color: '#1e293b' }}>
+                                <Globe size={24} style={{ color: '#ea580c' }} /> Plataformas de Interés
                             </h3>
-                            <p style={{ color: '#64748b', marginBottom: '20px' }}>
-                                Acceda directamente a los sitios y recursos oficiales haciendo clic en cualquiera de los enlaces a continuación:
-                            </p>
                             
                             {externalLinks.length === 0 ? (
                                 <p style={{ color: '#64748b', fontStyle: 'italic' }}>No se han configurado enlaces de interés todavía.</p>
                             ) : (
                                 <div style={{ 
                                     display: 'grid', 
-                                    gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', 
-                                    gap: '15px',
+                                    gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', 
+                                    gap: '24px',
                                     marginTop: '10px'
                                 }}>
-                                    {externalLinks.map(l => (
-                                        <a 
-                                            key={l.id}
-                                            href={l.url} 
-                                            target="_blank" 
-                                            rel="noopener noreferrer"
-                                            className="quick-link-card"
-                                            style={{
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                gap: '15px',
-                                                padding: '16px 20px',
-                                                borderRadius: '10px',
-                                                border: '1px solid #e2e8f0',
-                                                backgroundColor: '#ffffff',
-                                                color: '#1e293b',
-                                                textDecoration: 'none',
-                                                fontWeight: '600',
-                                                transition: 'all 0.2s ease-in-out',
-                                                cursor: 'pointer',
-                                                boxShadow: '0 2px 4px 0 rgba(0, 0, 0, 0.05)'
-                                            }}
-                                            onMouseEnter={(e) => {
-                                                e.currentTarget.style.borderColor = '#3b82f6';
-                                                e.currentTarget.style.backgroundColor = '#eff6ff';
-                                                e.currentTarget.style.transform = 'translateY(-3px)';
-                                                e.currentTarget.style.boxShadow = '0 10px 15px -3px rgba(59, 130, 246, 0.1), 0 4px 6px -4px rgba(59, 130, 246, 0.1)';
-                                                const title = e.currentTarget.querySelector('.link-title') as HTMLElement;
-                                                if (title) title.style.color = '#2563eb';
-                                            }}
-                                            onMouseLeave={(e) => {
-                                                e.currentTarget.style.borderColor = '#e2e8f0';
-                                                e.currentTarget.style.backgroundColor = '#ffffff';
-                                                e.currentTarget.style.transform = 'none';
-                                                e.currentTarget.style.boxShadow = '0 2px 4px 0 rgba(0, 0, 0, 0.05)';
-                                                const title = e.currentTarget.querySelector('.link-title') as HTMLElement;
-                                                if (title) title.style.color = '#1e293b';
-                                            }}
-                                        >
-                                            <div style={{
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'center',
-                                                width: '40px',
-                                                height: '40px',
-                                                borderRadius: '50%',
-                                                backgroundColor: '#dbeafe',
-                                                color: '#2563eb',
-                                                flexShrink: 0
-                                            }}>
-                                                <Globe size={20} />
-                                            </div>
-                                            <div style={{ display: 'flex', flexDirection: 'column', flexGrow: 1, minWidth: 0 }}>
-                                                <span className="link-title" style={{ 
-                                                    fontSize: '1.05rem', 
-                                                    transition: 'color 0.2s',
-                                                    whiteSpace: 'nowrap',
+                                    {externalLinks.map((l, idx) => {
+                                        const footerColor = footerColors[idx % footerColors.length];
+                                        return (
+                                            <a 
+                                                key={l.id}
+                                                href={l.url} 
+                                                target="_blank" 
+                                                rel="noopener noreferrer"
+                                                className="quick-link-card-premium"
+                                                style={{
+                                                    display: 'flex',
+                                                    flexDirection: 'column',
+                                                    borderRadius: '16px',
                                                     overflow: 'hidden',
-                                                    textOverflow: 'ellipsis'
-                                                }} title={l.name}>
-                                                    {l.name}
-                                                </span>
-                                                <span style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 'normal' }}>
-                                                    Abrir plataforma externa
-                                                </span>
-                                            </div>
-                                            <div style={{ color: '#94a3b8', flexShrink: 0, fontSize: '1.2rem', fontWeight: 'bold' }}>
-                                                &rarr;
-                                            </div>
-                                        </a>
-                                    ))}
+                                                    border: 'none',
+                                                    textDecoration: 'none',
+                                                    boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06)',
+                                                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                                                    cursor: 'pointer',
+                                                    height: '100%',
+                                                    position: 'relative'
+                                                }}
+                                                onMouseEnter={(e) => {
+                                                    e.currentTarget.style.transform = 'translateY(-8px)';
+                                                    e.currentTarget.style.boxShadow = '0 20px 25px -5px rgba(0, 0, 0, 0.15), 0 10px 10px -5px rgba(0, 0, 0, 0.1)';
+                                                    const img = e.currentTarget.querySelector('img') as HTMLImageElement;
+                                                    if (img) img.style.transform = 'scale(1.08)';
+                                                    const arrow = e.currentTarget.querySelector('.card-arrow') as HTMLElement;
+                                                    if (arrow) arrow.style.transform = 'translateX(6px)';
+                                                }}
+                                                onMouseLeave={(e) => {
+                                                    e.currentTarget.style.transform = 'none';
+                                                    e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06)';
+                                                    const img = e.currentTarget.querySelector('img') as HTMLImageElement;
+                                                    if (img) img.style.transform = 'none';
+                                                    const arrow = e.currentTarget.querySelector('.card-arrow') as HTMLElement;
+                                                    if (arrow) arrow.style.transform = 'none';
+                                                }}
+                                            >
+                                                <div style={{ width: '100%', height: '160px', overflow: 'hidden', position: 'relative' }}>
+                                                    <img 
+                                                        src={getLinkImageUrl(l.name)} 
+                                                        alt={l.name}
+                                                        style={{
+                                                            width: '100%',
+                                                            height: '100%',
+                                                            objectFit: 'cover',
+                                                            transition: 'transform 0.5s ease'
+                                                        }}
+                                                    />
+                                                </div>
+                                                <div style={{
+                                                    backgroundColor: footerColor,
+                                                    padding: '20px',
+                                                    display: 'flex',
+                                                    flexDirection: 'column',
+                                                    flexGrow: 1,
+                                                    justifyContent: 'space-between',
+                                                    gap: '15px'
+                                                }}>
+                                                    <h4 style={{ 
+                                                        color: '#ffffff', 
+                                                        fontSize: '1.2rem', 
+                                                        fontWeight: '700',
+                                                        lineHeight: '1.4',
+                                                        margin: 0,
+                                                        letterSpacing: '-0.01em'
+                                                    }}>
+                                                        {l.name}
+                                                    </h4>
+                                                    <div style={{ 
+                                                        display: 'flex', 
+                                                        alignItems: 'center', 
+                                                        color: '#ffffff', 
+                                                        fontSize: '1rem', 
+                                                        fontWeight: '600',
+                                                        gap: '8px'
+                                                    }}>
+                                                        <span>Acceder</span>
+                                                        <span className="card-arrow" style={{ 
+                                                            fontSize: '1.2rem', 
+                                                            transition: 'transform 0.3s ease',
+                                                            display: 'inline-block'
+                                                        }}>&rarr;</span>
+                                                    </div>
+                                                </div>
+                                            </a>
+                                        );
+                                    })}
                                 </div>
                             )}
                         </div>
