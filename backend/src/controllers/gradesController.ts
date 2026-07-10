@@ -288,7 +288,7 @@ export const bulkUpdateStudentPositions = async (req: Request, res: Response) =>
 export const getFiltersData = async (req: Request, res: Response) => {
     const user = (req as any).user;
     try {
-        if (user.role === 'Admin') {
+        if (user.role === 'Admin' || user.role === 'Visita') {
             const levels = await db.all('SELECT * FROM levels');
             const subjects = await db.all('SELECT * FROM subjects');
             return res.json({ levels, subjects });
