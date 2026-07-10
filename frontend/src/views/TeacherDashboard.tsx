@@ -23,6 +23,15 @@ export const formatName = (name: string | undefined | null): string => {
     return toCamelCase(name);
 };
 
+export const getDomain = (url: string): string => {
+    try {
+        const u = new URL(url);
+        return u.hostname;
+    } catch (e) {
+        return '';
+    }
+};
+
 export const getSubjectImageUrl = (subjectName: string): string => {
     const name = (subjectName || '').toLowerCase().trim();
     
@@ -418,31 +427,65 @@ export const TeacherDashboard = () => {
                                                 onMouseEnter={(e) => {
                                                     e.currentTarget.style.transform = 'translateY(-8px)';
                                                     e.currentTarget.style.boxShadow = '0 20px 25px -5px rgba(0, 0, 0, 0.15), 0 10px 10px -5px rgba(0, 0, 0, 0.1)';
-                                                    const img = e.currentTarget.querySelector('img') as HTMLImageElement;
-                                                    if (img) img.style.transform = 'scale(1.08)';
+                                                    const logo = e.currentTarget.querySelector('.logo-container') as HTMLElement;
+                                                    if (logo) logo.style.transform = 'scale(1.08)';
                                                     const arrow = e.currentTarget.querySelector('.card-arrow') as HTMLElement;
                                                     if (arrow) arrow.style.transform = 'translateX(6px)';
                                                 }}
                                                 onMouseLeave={(e) => {
                                                     e.currentTarget.style.transform = 'none';
                                                     e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06)';
-                                                    const img = e.currentTarget.querySelector('img') as HTMLImageElement;
-                                                    if (img) img.style.transform = 'none';
+                                                    const logo = e.currentTarget.querySelector('.logo-container') as HTMLElement;
+                                                    if (logo) logo.style.transform = 'none';
                                                     const arrow = e.currentTarget.querySelector('.card-arrow') as HTMLElement;
                                                     if (arrow) arrow.style.transform = 'none';
                                                 }}
                                             >
-                                                <div style={{ width: '100%', height: '160px', overflow: 'hidden', position: 'relative' }}>
-                                                    <img 
-                                                        src={getLinkImageUrl(l.name)} 
-                                                        alt={l.name}
-                                                        style={{
-                                                            width: '100%',
-                                                            height: '100%',
-                                                            objectFit: 'cover',
-                                                            transition: 'transform 0.5s ease'
-                                                        }}
-                                                    />
+                                                <div style={{ 
+                                                    width: '100%', 
+                                                    height: '140px', 
+                                                    background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)', 
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    position: 'relative'
+                                                }}>
+                                                    <div className="logo-container" style={{
+                                                        width: '72px',
+                                                        height: '72px',
+                                                        borderRadius: '16px',
+                                                        backgroundColor: '#ffffff',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06)',
+                                                        overflow: 'hidden',
+                                                        padding: '10px',
+                                                        transition: 'transform 0.3s ease'
+                                                    }}>
+                                                        <img 
+                                                            src={`https://www.google.com/s2/favicons?sz=128&domain=${getDomain(l.url)}`}
+                                                            alt=""
+                                                            style={{
+                                                                width: '100%',
+                                                                height: '100%',
+                                                                objectFit: 'contain'
+                                                            }}
+                                                            onError={(e) => {
+                                                                e.currentTarget.style.display = 'none';
+                                                                const fallback = e.currentTarget.parentElement?.querySelector('.fallback-icon') as HTMLElement;
+                                                                if (fallback) fallback.style.display = 'flex';
+                                                            }}
+                                                        />
+                                                        <div className="fallback-icon" style={{
+                                                            display: 'none',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                            color: '#64748b'
+                                                        }}>
+                                                            <Globe size={32} />
+                                                        </div>
+                                                    </div>
                                                 </div>
                                                 <div style={{
                                                     backgroundColor: footerColor,
