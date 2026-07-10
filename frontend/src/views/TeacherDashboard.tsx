@@ -102,7 +102,7 @@ const footerColors = [
     '#1e3a8a'  // Azul marino
 ];
 
-export const getLinkImageUrl = (linkName: string): string => {
+export const getLinkImageUrl = (linkName: string, index: number): string => {
     const name = (linkName || '').toLowerCase().trim();
     
     // Dispositivos Móviles / Tecnología
@@ -130,8 +130,17 @@ export const getLinkImageUrl = (linkName: string): string => {
         return 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=400&auto=format&fit=crop&q=60';
     }
     
-    // Default: Abstracto o Educación
-    return 'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=400&auto=format&fit=crop&q=60';
+    // Default: Lista de imágenes escolares aleatorias/secuenciales
+    const schoolImages = [
+        'https://images.unsplash.com/photo-1427504494785-3a9ca7044f45?w=500&auto=format&fit=crop&q=60', // Biblioteca escolar
+        'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=500&auto=format&fit=crop&q=60', // Gorros graduación
+        'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=500&auto=format&fit=crop&q=60', // Salón de clases / Pizarra
+        'https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?w=500&auto=format&fit=crop&q=60', // Libros estudiando
+        'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=500&auto=format&fit=crop&q=60', // Computador / Escuela digital
+        'https://images.unsplash.com/photo-1509062522246-3755977927d7?w=500&auto=format&fit=crop&q=60', // Profesora y alumnos
+        'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=500&auto=format&fit=crop&q=60'  // Trabajo en equipo escolar
+    ];
+    return schoolImages[index % schoolImages.length];
 };
 
 interface Assignment {
@@ -427,65 +436,31 @@ export const TeacherDashboard = () => {
                                                 onMouseEnter={(e) => {
                                                     e.currentTarget.style.transform = 'translateY(-8px)';
                                                     e.currentTarget.style.boxShadow = '0 20px 25px -5px rgba(0, 0, 0, 0.15), 0 10px 10px -5px rgba(0, 0, 0, 0.1)';
-                                                    const logo = e.currentTarget.querySelector('.logo-container') as HTMLElement;
-                                                    if (logo) logo.style.transform = 'scale(1.08)';
+                                                    const img = e.currentTarget.querySelector('img') as HTMLImageElement;
+                                                    if (img) img.style.transform = 'scale(1.08)';
                                                     const arrow = e.currentTarget.querySelector('.card-arrow') as HTMLElement;
                                                     if (arrow) arrow.style.transform = 'translateX(6px)';
                                                 }}
                                                 onMouseLeave={(e) => {
                                                     e.currentTarget.style.transform = 'none';
                                                     e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06)';
-                                                    const logo = e.currentTarget.querySelector('.logo-container') as HTMLElement;
-                                                    if (logo) logo.style.transform = 'none';
+                                                    const img = e.currentTarget.querySelector('img') as HTMLImageElement;
+                                                    if (img) img.style.transform = 'none';
                                                     const arrow = e.currentTarget.querySelector('.card-arrow') as HTMLElement;
                                                     if (arrow) arrow.style.transform = 'none';
                                                 }}
                                             >
-                                                <div style={{ 
-                                                    width: '100%', 
-                                                    height: '140px', 
-                                                    background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)', 
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                    position: 'relative'
-                                                }}>
-                                                    <div className="logo-container" style={{
-                                                        width: '72px',
-                                                        height: '72px',
-                                                        borderRadius: '16px',
-                                                        backgroundColor: '#ffffff',
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        justifyContent: 'center',
-                                                        boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06)',
-                                                        overflow: 'hidden',
-                                                        padding: '10px',
-                                                        transition: 'transform 0.3s ease'
-                                                    }}>
-                                                        <img 
-                                                            src={`https://www.google.com/s2/favicons?sz=128&domain=${getDomain(l.url)}`}
-                                                            alt=""
-                                                            style={{
-                                                                width: '100%',
-                                                                height: '100%',
-                                                                objectFit: 'contain'
-                                                            }}
-                                                            onError={(e) => {
-                                                                e.currentTarget.style.display = 'none';
-                                                                const fallback = e.currentTarget.parentElement?.querySelector('.fallback-icon') as HTMLElement;
-                                                                if (fallback) fallback.style.display = 'flex';
-                                                            }}
-                                                        />
-                                                        <div className="fallback-icon" style={{
-                                                            display: 'none',
-                                                            alignItems: 'center',
-                                                            justifyContent: 'center',
-                                                            color: '#64748b'
-                                                        }}>
-                                                            <Globe size={32} />
-                                                        </div>
-                                                    </div>
+                                                <div style={{ width: '100%', height: '160px', overflow: 'hidden', position: 'relative' }}>
+                                                    <img 
+                                                        src={getLinkImageUrl(l.name, idx)} 
+                                                        alt={l.name}
+                                                        style={{
+                                                            width: '100%',
+                                                            height: '100%',
+                                                            objectFit: 'cover',
+                                                            transition: 'transform 0.5s ease'
+                                                        }}
+                                                    />
                                                 </div>
                                                 <div style={{
                                                     backgroundColor: footerColor,
