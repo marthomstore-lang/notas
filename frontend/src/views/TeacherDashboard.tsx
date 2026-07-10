@@ -133,7 +133,7 @@ export const getLinkImageUrl = (linkName: string, index: number): string => {
     // Default: Lista de imágenes escolares aleatorias/secuenciales
     const schoolImages = [
         'https://images.unsplash.com/photo-1427504494785-3a9ca7044f45?w=500&auto=format&fit=crop&q=60', // Biblioteca escolar
-        'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=500&auto=format&fit=crop&q=60', // Gorros graduación
+        'https://images.unsplash.com/photo-1516979187457-637abb4f9353?w=500&auto=format&fit=crop&q=60', // Cuadernos / Apuntes
         'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=500&auto=format&fit=crop&q=60', // Salón de clases / Pizarra
         'https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?w=500&auto=format&fit=crop&q=60', // Libros estudiando
         'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=500&auto=format&fit=crop&q=60', // Computador / Escuela digital
@@ -450,7 +450,16 @@ export const TeacherDashboard = () => {
                                                     if (arrow) arrow.style.transform = 'none';
                                                 }}
                                             >
-                                                <div style={{ width: '100%', height: '160px', overflow: 'hidden', position: 'relative' }}>
+                                                <div style={{ 
+                                                    width: '100%', 
+                                                    height: '160px', 
+                                                    overflow: 'hidden', 
+                                                    position: 'relative',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)'
+                                                }}>
                                                     <img 
                                                         src={getLinkImageUrl(l.name, idx)} 
                                                         alt={l.name}
@@ -460,7 +469,27 @@ export const TeacherDashboard = () => {
                                                             objectFit: 'cover',
                                                             transition: 'transform 0.5s ease'
                                                         }}
+                                                        onError={(e) => {
+                                                            e.currentTarget.style.display = 'none';
+                                                            const fallback = e.currentTarget.parentElement?.querySelector('.fallback-placeholder') as HTMLElement;
+                                                            if (fallback) fallback.style.display = 'flex';
+                                                        }}
                                                     />
+                                                    <div className="fallback-placeholder" style={{
+                                                        display: 'none',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        flexDirection: 'column',
+                                                        gap: '8px',
+                                                        color: '#64748b',
+                                                        width: '100%',
+                                                        height: '100%'
+                                                    }}>
+                                                        <Globe size={40} style={{ opacity: 0.8 }} />
+                                                        <span style={{ fontSize: '0.85rem', fontWeight: '600', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                                                            Acceso Directo
+                                                        </span>
+                                                    </div>
                                                 </div>
                                                 <div style={{
                                                     backgroundColor: footerColor,
