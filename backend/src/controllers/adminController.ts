@@ -1220,3 +1220,49 @@ export const changeStudentLevel = async (req: Request, res: Response) => {
         if (client) client.release();
     }
 };
+
+export const getExternalLinks = async (req: Request, res: Response) => {
+    try {
+        const links = await db.all("SELECT id, name, url FROM external_links ORDER BY created_at ASC");
+        res.json(links);
+    } catch (error: any) {
+        res.status(500).json({ error: 'Error al obtener enlaces externos', details: error.message });
+    }
+};
+
+export const createExternalLink = async (req: Request, res: Response) => {
+    const { name, url } = req.body;
+    const user = (req as any).user;
+
+    if (user.role !== 'Admin') {
+        return res.status(403).json({ error: 'Solo administradores pueden crear enlaces externos' });
+    }
+
+    if (!name || !url) {
+        return res.status(400).json({ error: 'Faltan parámetros requeridos: name, url' });
+    }
+
+    try {
+        const id = crypto.randomUUID();
+        await db.run("INSERT INTO external_links (id, name, url) VALUES (?, ?, ?)", [id, name, url]);
+        res.status(201).json({ message: 'Enlace externo creado correctamente', link: { id, name, url } });
+    } catch (error: any) {
+        res.status(500).json({ error: 'Error al crear enlace externo', details: error.message });
+    }
+};
+
+export const deleteExternalLink = async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const user = (req as any).user;
+
+    if (user.role !== 'Admin') {
+        return res.status(403).json({ error: 'Solo administradores pueden eliminar enlaces externos' });
+    }
+
+    try {
+        await db.run("DELETE FROM external_links WHERE id = ?", [id]);
+        res.json({ message: 'Enlace externo eliminado correctamente' });
+    } catch (error: any) {
+        res.status(500).json({ error: 'Error al eliminar enlace externo', details: error.message });
+    }
+};

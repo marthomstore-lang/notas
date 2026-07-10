@@ -226,3 +226,11 @@ VALUES (
     FALSE
 ) ON CONFLICT (run) DO NOTHING;
 
+-- Enlaces Externos para Docentes
+CREATE TABLE IF NOT EXISTS external_links (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    url TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+

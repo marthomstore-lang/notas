@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { LogOut, Plus, Users, BookOpen, GraduationCap, Menu, X, Printer, User, Upload, Edit2, Trash2, BarChart3, Settings, ListOrdered, PieChart, FileText, Lock, Unlock } from 'lucide-react';
+import { LogOut, Plus, Users, BookOpen, GraduationCap, Menu, X, Printer, User, Upload, Edit2, Trash2, BarChart3, Settings, ListOrdered, PieChart, FileText, Lock, Unlock, Globe } from 'lucide-react';
 import { EnrollmentForm } from '../components/OfficialForm/EnrollmentForm';
 import { OfficialEnrollmentForm } from '../components/OfficialForm/OfficialEnrollmentForm';
 import { StudentWindow } from '../components/StudentWindow';
@@ -36,15 +36,15 @@ export const AdminDashboard = () => {
         const saved = localStorage.getItem('adminActiveTab');
         return (['config', 'students', 'grades', 'overview', 'audit', 'profile', 'reports'].includes(saved as string)) ? (saved as any) : 'grades';
     });
-    const [configSubTab, setConfigSubTab] = useState<'teachers' | 'courses' | 'subjects' | 'assignments' | 'homeroom' | 'subject_order' | 'templates' | 'grades_lock'>(() => {
+    const [configSubTab, setConfigSubTab] = useState<'teachers' | 'courses' | 'subjects' | 'assignments' | 'homeroom' | 'subject_order' | 'templates' | 'grades_lock' | 'external_links'>(() => {
         const saved = localStorage.getItem('adminConfigSubTab');
-        return (['teachers', 'courses', 'subjects', 'assignments', 'homeroom', 'subject_order', 'templates', 'grades_lock'].includes(saved as string)) ? (saved as any) : 'teachers';
+        return (['teachers', 'courses', 'subjects', 'assignments', 'homeroom', 'subject_order', 'templates', 'grades_lock', 'external_links'].includes(saved as string)) ? (saved as any) : 'teachers';
     });
     const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth >= 768);
 
     const handleNavClick = (
         tab: 'config' | 'students' | 'grades' | 'overview' | 'audit' | 'profile' | 'reports', 
-        subTab?: 'teachers' | 'courses' | 'subjects' | 'assignments' | 'homeroom' | 'subject_order' | 'templates' | 'grades_lock'
+        subTab?: 'teachers' | 'courses' | 'subjects' | 'assignments' | 'homeroom' | 'subject_order' | 'templates' | 'grades_lock' | 'external_links'
     ) => {
         setActiveTab(tab);
         if (subTab) setConfigSubTab(subTab);
@@ -93,6 +93,7 @@ export const AdminDashboard = () => {
     const [levelReports, setLevelReports] = useState<any[]>([]);
     const [levelTemplate, setLevelTemplate] = useState<any>(null);
     const [isPrintingAll, setIsPrintingAll] = useState(false);
+    const [externalLinks, setExternalLinks] = useState<any[]>([]);
 
     // States for Grades Locks
     const [globalLock, setGlobalLock] = useState<boolean>(false);
@@ -518,6 +519,15 @@ export const AdminDashboard = () => {
                 console.error("Error fetching report templates:", err);
             }
 
+            try {
+                const linksRes = await fetch('/_/backend/api/external-links', { headers });
+                if (linksRes.ok) {
+                    setExternalLinks(await linksRes.json());
+                }
+            } catch (err) {
+                console.error("Error fetching external links:", err);
+            }
+
             // Orden y Filtrado de Niveles
             const levelOrder = [
                 'Pre-Kinder', 'Kínder', 
@@ -664,6 +674,87 @@ export const AdminDashboard = () => {
                     console.error("Fetch error:", error);
                     MySwal.fire('Error', error.message, 'error');
                 }
+            }
+        }
+    };
+
+    const handleCreateExternalLink = async () => {
+        const { value: formValues } = await MySwal.fire({
+            title: 'Agregar Enlace de Interés',
+            html:
+                '<div style="text-align:left; margin-bottom:8px;"><label style="font-weight:bold;">Nombre de la Plataforma/Página:</label></div>' +
+                '<input id="link-name" class="swal2-input" placeholder="Ej. Google Classroom" style="margin: 0 0 16px 0; width: 100%;">' +
+                '<div style="text-align:left; margin-bottom:8px;"><label style="font-weight:bold;">URL / Dirección Web:</label></div>' +
+                '<input id="link-url" class="swal2-input" placeholder="Ej. https://classroom.google.com" style="margin: 0; width: 100%;">',
+            focusConfirm: false,
+            showCancelButton: true,
+            confirmButtonText: 'Guardar',
+            cancelButtonText: 'Cancelar',
+            preConfirm: () => {
+                const name = (document.getElementById('link-name') as HTMLInputElement).value.trim();
+                let url = (document.getElementById('link-url') as HTMLInputElement).value.trim();
+                
+                if (!name || !url) {
+                    Swal.showValidationMessage('Todos los campos son obligatorios');
+                    return false;
+                }
+                if (!/^https?:\/\//i.test(url)) {
+                    url = 'https://' + url;
+                }
+                return { name, url };
+            }
+        });
+
+        if (formValues) {
+            try {
+                const res = await fetch('/_/backend/api/admin/external-links', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(formValues)
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    setExternalLinks(prev => [...prev, data.link]);
+                    MySwal.fire('Guardado', 'Enlace agregado con éxito', 'success');
+                } else {
+                    const err = await res.json();
+                    MySwal.fire('Error', err.error || 'No se pudo guardar el enlace', 'error');
+                }
+            } catch (error) {
+                MySwal.fire('Error', 'Error de conexión al servidor', 'error');
+            }
+        }
+    };
+
+    const handleDeleteExternalLink = async (id: string, name: string) => {
+        const confirm = await MySwal.fire({
+            title: '¿Eliminar enlace?',
+            text: `¿Está seguro de que desea eliminar el enlace a "${name}"?`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#ef4444',
+            confirmButtonText: 'Eliminar',
+            cancelButtonText: 'Cancelar'
+        });
+
+        if (confirm.isConfirmed) {
+            try {
+                const res = await fetch(`/_/backend/api/admin/external-links/${id}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    setExternalLinks(prev => prev.filter(l => l.id !== id));
+                    MySwal.fire('Eliminado', 'Enlace eliminado correctamente', 'success');
+                } else {
+                    const err = await res.json();
+                    MySwal.fire('Error', err.error || 'No se pudo eliminar el enlace', 'error');
+                }
+            } catch (error) {
+                MySwal.fire('Error', 'Error de conexión', 'error');
             }
         }
     };
@@ -1445,6 +1536,9 @@ export const AdminDashboard = () => {
                     <button className={activeTab === 'config' && configSubTab === 'grades_lock' ? 'active' : ''} onClick={() => handleNavClick('config', 'grades_lock')}>
                         <Lock size={16} /> Bloqueo de Notas
                     </button>
+                    <button className={activeTab === 'config' && configSubTab === 'external_links' ? 'active' : ''} onClick={() => handleNavClick('config', 'external_links')}>
+                        <Globe size={16} /> Enlaces de Interés
+                    </button>
                 </nav>
                 <div className="sidebar-footer">
                     <button onClick={logout} className="logout-btn">
@@ -1469,7 +1563,8 @@ export const AdminDashboard = () => {
                                         configSubTab === 'homeroom' ? 'Profesores Jefe' :
                                         configSubTab === 'subject_order' ? 'Orden de Asignaturas en Informes' : 
                                         configSubTab === 'templates' ? 'Plantillas de Informes al Hogar' : 
-                                        configSubTab === 'grades_lock' ? 'Bloqueo General y por Curso' : ''
+                                        configSubTab === 'grades_lock' ? 'Bloqueo General y por Curso' : 
+                                        configSubTab === 'external_links' ? 'Enlaces de Interés' : ''
                                     }
                                 </>
                             )}
@@ -2426,6 +2521,64 @@ export const AdminDashboard = () => {
                         )}
                         
                         {/* Closing configSubTab === 'grades_lock' */}
+                        
+                        {configSubTab === 'external_links' && (
+                            <div className="card">
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                                    <h3 style={{ margin: 0 }}>Enlaces de Interés (Plataformas externas)</h3>
+                                    {!isVisita && (
+                                        <button className="primary-btn" onClick={handleCreateExternalLink}>
+                                            <Plus size={18} /> Nuevo Enlace
+                                        </button>
+                                    )}
+                                </div>
+                                <p style={{ color: '#64748b', fontSize: '0.9rem', marginBottom: '20px' }}>
+                                    Configure los accesos a plataformas de uso frecuente que les aparecerán a los docentes en su panel principal.
+                                </p>
+                                <div className="table-responsive">
+                                    <table className="data-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Nombre del Sitio</th>
+                                                <th>Enlace (URL)</th>
+                                                {!isVisita && <th style={{ textAlign: 'center', width: '120px' }}>Acción</th>}
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {externalLinks.length === 0 ? (
+                                                <tr>
+                                                    <td colSpan={isVisita ? 2 : 3} style={{ textAlign: 'center', padding: '20px', color: '#64748b' }}>
+                                                        No se han configurado enlaces externos de interés.
+                                                    </td>
+                                                </tr>
+                                            ) : (
+                                                externalLinks.map(l => (
+                                                    <tr key={l.id}>
+                                                        <td style={{ fontWeight: '600' }}>{l.name}</td>
+                                                        <td>
+                                                            <a href={l.url} target="_blank" rel="noopener noreferrer" style={{ color: '#3b82f6', textDecoration: 'underline', wordBreak: 'break-all' }}>
+                                                                {l.url}
+                                                            </a>
+                                                        </td>
+                                                        {!isVisita && (
+                                                            <td style={{ textAlign: 'center' }}>
+                                                                <button 
+                                                                    className="action-btn delete" 
+                                                                    onClick={() => handleDeleteExternalLink(l.id, l.name)}
+                                                                    title="Eliminar Enlace"
+                                                                >
+                                                                    <Trash2 size={16} />
+                                                                </button>
+                                                            </td>
+                                                        )}
+                                                    </tr>
+                                                ))
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        )}
                         
                     </div>
                 )}

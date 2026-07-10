@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { LogOut, Book, Calendar, Menu, X, ClipboardCheck, User, LayoutGrid, LayoutList, ListOrdered, Users, BarChart3 } from 'lucide-react';
+import { LogOut, Book, Calendar, Menu, X, ClipboardCheck, User, LayoutGrid, LayoutList, ListOrdered, Users, BarChart3, Globe } from 'lucide-react';
 import { StudentWindow } from '../components/StudentWindow';
 import { ReorderStudentsModal } from '../components/ReorderStudentsModal';
 import { KinderReportForm } from '../components/Reports/KinderReportForm';
@@ -96,15 +96,16 @@ export const TeacherDashboard = () => {
     const navigate = useNavigate();
     const [assignments, setAssignments] = useState<Assignment[]>([]);
     const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth >= 768);
-    const [activeView, setActiveView] = useState<'courses' | 'observations' | 'schedule' | 'profile' | 'homeroom' | 'overview'>('courses');
+    const [activeView, setActiveView] = useState<'home' | 'courses' | 'observations' | 'schedule' | 'profile' | 'homeroom' | 'overview'>('home');
     const [viewMode, setViewMode] = useState<'list' | 'grid'>(() => (localStorage.getItem('teacherViewMode') as 'list' | 'grid') || 'list');
+    const [externalLinks, setExternalLinks] = useState<any[]>([]);
 
     const toggleViewMode = (mode: 'list' | 'grid') => {
         setViewMode(mode);
         localStorage.setItem('teacherViewMode', mode);
     };
 
-    const handleNavClick = (view: 'courses' | 'observations' | 'schedule' | 'profile' | 'homeroom' | 'overview') => {
+    const handleNavClick = (view: 'home' | 'courses' | 'observations' | 'schedule' | 'profile' | 'homeroom' | 'overview') => {
         setActiveView(view);
         if (window.innerWidth < 768) {
             setIsSidebarOpen(false);
@@ -190,6 +191,13 @@ export const TeacherDashboard = () => {
             .then(res => res.json())
             .then(data => setHomeroomData(data))
             .catch(err => console.error("Error fetching homeroom:", err));
+
+            fetch('/_/backend/api/external-links', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            })
+            .then(res => res.json())
+            .then(data => setExternalLinks(Array.isArray(data) ? data : []))
+            .catch(err => console.error("Error fetching external links:", err));
         }
     }, [token]);
 
@@ -245,6 +253,7 @@ export const TeacherDashboard = () => {
                     <p>{formatName(user?.name)}</p>
                 </div>
                 <nav className="sidebar-nav">
+                    <button className={activeView === 'home' ? 'active' : ''} onClick={() => handleNavClick('home')}><LayoutGrid size={18} /> Inicio</button>
                     <button className={activeView === 'courses' ? 'active' : ''} onClick={() => handleNavClick('courses')}><Book size={18} /> Mis Cursos</button>
                     <button className={activeView === 'observations' ? 'active' : ''} onClick={() => { handleNavClick('observations'); setSelectedLevelId(null); setSelectedStudentId(null); }}><ClipboardCheck size={18} /> Libro de Vida</button>
                     {homeroomData.isHomeroomTeacher && homeroomData.level?.report_template_id && (
@@ -269,6 +278,7 @@ export const TeacherDashboard = () => {
                             <Menu size={24} />
                         </button>
                         <h1>
+                            {activeView === 'home' && 'Inicio'}
                             {activeView === 'courses' && 'Mis Cursos Asignados'}
                             {activeView === 'observations' && 'Anotaciones / Libro de Vida'}
                             {activeView === 'schedule' && 'Mi Horario Semanal'}
@@ -297,6 +307,82 @@ export const TeacherDashboard = () => {
                     )}
                 </header>
                 
+                {activeView === 'home' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                        <div className="card" style={{ 
+                            background: 'linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%)', 
+                            color: 'white', 
+                            padding: '30px',
+                            borderRadius: '12px',
+                            boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
+                        }}>
+                            <h2 style={{ margin: '0 0 10px 0', fontSize: '1.8rem' }}>¡Hola, {formatName(user?.name)}!</h2>
+                            <p style={{ margin: 0, opacity: 0.9, fontSize: '1.1rem' }}>Bienvenido al Portal Docente de Liceo Pro.</p>
+                        </div>
+
+                        <div className="card">
+                            <h3 style={{ margin: '0 0 15px 0', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <Globe size={22} style={{ color: '#3b82f6' }} /> Plataformas de Interés
+                            </h3>
+                            <p style={{ color: '#64748b', marginBottom: '20px' }}>
+                                Acceda directamente a los sitios y recursos oficiales haciendo clic en cualquiera de los enlaces a continuación:
+                            </p>
+                            
+                            {externalLinks.length === 0 ? (
+                                <p style={{ color: '#64748b', fontStyle: 'italic' }}>No se han configurado enlaces de interés todavía.</p>
+                            ) : (
+                                <div style={{ 
+                                    display: 'grid', 
+                                    gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', 
+                                    gap: '15px',
+                                    marginTop: '10px'
+                                }}>
+                                    {externalLinks.map(l => (
+                                        <a 
+                                            key={l.id}
+                                            href={l.url} 
+                                            target="_blank" 
+                                            rel="noopener noreferrer"
+                                            className="quick-link-card"
+                                            style={{
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                padding: '16px',
+                                                borderRadius: '8px',
+                                                border: '1px solid #e2e8f0',
+                                                backgroundColor: '#f8fafc',
+                                                color: '#1e293b',
+                                                textDecoration: 'none',
+                                                fontWeight: '600',
+                                                transition: 'all 0.2s',
+                                                cursor: 'pointer',
+                                                boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.1)'
+                                            }}
+                                            onMouseEnter={(e) => {
+                                                e.currentTarget.style.borderColor = '#3b82f6';
+                                                e.currentTarget.style.backgroundColor = '#eff6ff';
+                                                e.currentTarget.style.color = '#2563eb';
+                                                e.currentTarget.style.transform = 'translateY(-2px)';
+                                            }}
+                                            onMouseLeave={(e) => {
+                                                e.currentTarget.style.borderColor = '#e2e8f0';
+                                                e.currentTarget.style.backgroundColor = '#f8fafc';
+                                                e.currentTarget.style.color = '#1e293b';
+                                                e.currentTarget.style.transform = 'none';
+                                            }}
+                                        >
+                                            <span style={{ fontSize: '1.05rem', marginBottom: '4px' }}>{l.name}</span>
+                                            <span style={{ fontSize: '0.8rem', fontWeight: 'normal', color: '#64748b', wordBreak: 'break-all' }}>
+                                                {l.url.replace(/^https?:\/\//i, '')}
+                                            </span>
+                                        </a>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
+
                 {activeView === 'courses' && (
                     <div className={`assignments-grid view-${viewMode}`}>
                         {assignments.map(assignment => (

@@ -8,6 +8,7 @@ import { getAssignments, getGrades, addColumn, saveGrade } from './controllers/t
 import { registerEnrollment } from './controllers/enrollmentController';
 import { getReportTemplates, createReportTemplate, updateReportTemplate, deleteReportTemplate, assignTemplateToLevel } from './controllers/reportTemplatesController';
 import { getTeachers, createTeacher, updateTeacher, deleteTeacher, getSubjects, createSubject, updateSubject, deleteSubject, checkSubjectGrades, getLevels, updateLevelCapacity, getAssignmentsAdmin, createAssignment, updateAssignment, deleteAssignment, getStudents, getStudentById, updateStudent, deleteStudent, reincorporateStudent, getStudentObservations, addObservation, exportData, importDataWeb, changeStudentLevel } from './controllers/adminController';
+import { getExternalLinks, createExternalLink, deleteExternalLink } from './controllers/adminController';
 import { getFiltersData, getGradesSheet, saveGradesSheet, updateStudentPosition, bulkUpdateStudentPositions, toggleLockAssignment, getAuditLogs, getGradesOverview, getGradesLocksStatus, toggleGlobalGradesLock, toggleLevelGradesLock, getLevelGradesLocksDetail } from './controllers/gradesController';
 import { getStudentGradesReport, getLevelGradesReport, updateInstitutionalSettings, setHomeroomTeacher, getSubjectOrder, updateSubjectOrder, getHomeroomData, getPersonalityReport, savePersonalityReport, getPersonalityReportsByLevel } from './controllers/reportsController';
 import multer from 'multer';
@@ -86,6 +87,11 @@ router.post('/admin/report-templates', authMiddleware, createReportTemplate);
 router.put('/admin/report-templates/:id', authMiddleware, updateReportTemplate);
 router.delete('/admin/report-templates/:id', authMiddleware, deleteReportTemplate);
 router.put('/admin/levels/:id/template', authMiddleware, assignTemplateToLevel);
+
+// Rutas Enlaces Externos
+router.get('/external-links', authMiddleware, getExternalLinks);
+router.post('/admin/external-links', authMiddleware, createExternalLink);
+router.delete('/admin/external-links/:id', authMiddleware, deleteExternalLink);
 
 // Rutas Calificaciones (Notas)
 router.get('/admin/grades/filters', authMiddleware, getFiltersData);
@@ -467,11 +473,26 @@ router.post('/debug/migrate-data', async (req, res) => {
 app.use('/api', router);
 app.use('/_/backend/api', router);
 
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
     console.log('=========================================');
     console.log(`Liceo Pro Backend v2.1 (RESTARTED)`);
     console.log(`Running on http://localhost:${PORT}`);
     console.log('=========================================');
+
+    // Ensure external_links table exists
+    try {
+        await db.run(`
+            CREATE TABLE IF NOT EXISTS external_links (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                url TEXT NOT NULL,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+        console.log('[DB] Tabla external_links verificada/creada.');
+    } catch (err: any) {
+        console.error('[DB] Error al verificar/crear tabla external_links:', err.message);
+    }
 });
 
 export default app;
