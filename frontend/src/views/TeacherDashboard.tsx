@@ -346,35 +346,66 @@ export const TeacherDashboard = () => {
                                             className="quick-link-card"
                                             style={{
                                                 display: 'flex',
-                                                flexDirection: 'column',
-                                                padding: '16px',
-                                                borderRadius: '8px',
+                                                alignItems: 'center',
+                                                gap: '15px',
+                                                padding: '16px 20px',
+                                                borderRadius: '10px',
                                                 border: '1px solid #e2e8f0',
-                                                backgroundColor: '#f8fafc',
+                                                backgroundColor: '#ffffff',
                                                 color: '#1e293b',
                                                 textDecoration: 'none',
                                                 fontWeight: '600',
-                                                transition: 'all 0.2s',
+                                                transition: 'all 0.2s ease-in-out',
                                                 cursor: 'pointer',
-                                                boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.1)'
+                                                boxShadow: '0 2px 4px 0 rgba(0, 0, 0, 0.05)'
                                             }}
                                             onMouseEnter={(e) => {
                                                 e.currentTarget.style.borderColor = '#3b82f6';
                                                 e.currentTarget.style.backgroundColor = '#eff6ff';
-                                                e.currentTarget.style.color = '#2563eb';
-                                                e.currentTarget.style.transform = 'translateY(-2px)';
+                                                e.currentTarget.style.transform = 'translateY(-3px)';
+                                                e.currentTarget.style.boxShadow = '0 10px 15px -3px rgba(59, 130, 246, 0.1), 0 4px 6px -4px rgba(59, 130, 246, 0.1)';
+                                                const title = e.currentTarget.querySelector('.link-title') as HTMLElement;
+                                                if (title) title.style.color = '#2563eb';
                                             }}
                                             onMouseLeave={(e) => {
                                                 e.currentTarget.style.borderColor = '#e2e8f0';
-                                                e.currentTarget.style.backgroundColor = '#f8fafc';
-                                                e.currentTarget.style.color = '#1e293b';
+                                                e.currentTarget.style.backgroundColor = '#ffffff';
                                                 e.currentTarget.style.transform = 'none';
+                                                e.currentTarget.style.boxShadow = '0 2px 4px 0 rgba(0, 0, 0, 0.05)';
+                                                const title = e.currentTarget.querySelector('.link-title') as HTMLElement;
+                                                if (title) title.style.color = '#1e293b';
                                             }}
                                         >
-                                            <span style={{ fontSize: '1.05rem', marginBottom: '4px' }}>{l.name}</span>
-                                            <span style={{ fontSize: '0.8rem', fontWeight: 'normal', color: '#64748b', wordBreak: 'break-all' }}>
-                                                {l.url.replace(/^https?:\/\//i, '')}
-                                            </span>
+                                            <div style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                width: '40px',
+                                                height: '40px',
+                                                borderRadius: '50%',
+                                                backgroundColor: '#dbeafe',
+                                                color: '#2563eb',
+                                                flexShrink: 0
+                                            }}>
+                                                <Globe size={20} />
+                                            </div>
+                                            <div style={{ display: 'flex', flexDirection: 'column', flexGrow: 1, minWidth: 0 }}>
+                                                <span className="link-title" style={{ 
+                                                    fontSize: '1.05rem', 
+                                                    transition: 'color 0.2s',
+                                                    whiteSpace: 'nowrap',
+                                                    overflow: 'hidden',
+                                                    textOverflow: 'ellipsis'
+                                                }} title={l.name}>
+                                                    {l.name}
+                                                </span>
+                                                <span style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 'normal' }}>
+                                                    Abrir plataforma externa
+                                                </span>
+                                            </div>
+                                            <div style={{ color: '#94a3b8', flexShrink: 0, fontSize: '1.2rem', fontWeight: 'bold' }}>
+                                                &rarr;
+                                            </div>
                                         </a>
                                     ))}
                                 </div>
