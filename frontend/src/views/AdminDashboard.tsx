@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { LogOut, Plus, Users, BookOpen, GraduationCap, Menu, X, Printer, User, Upload, Edit2, Trash2, BarChart3, Settings, ListOrdered, PieChart, FileText, Lock, Unlock, Globe } from 'lucide-react';
+import { LogOut, Plus, Users, BookOpen, GraduationCap, Menu, X, Printer, User, Upload, Edit2, Trash2, BarChart3, Settings, ListOrdered, PieChart, FileText, Lock, Unlock, Globe, Home } from 'lucide-react';
+import { getLinkImageUrl, footerColors } from './TeacherDashboard';
 import { EnrollmentForm } from '../components/OfficialForm/EnrollmentForm';
 import { OfficialEnrollmentForm } from '../components/OfficialForm/OfficialEnrollmentForm';
 import { StudentWindow } from '../components/StudentWindow';
@@ -32,9 +33,9 @@ export const formatName = (name: string | undefined | null): string => {
 export const AdminDashboard = () => {
     const { user, logout, token } = useAuth();
     const isVisita = user?.role === 'Visita';
-    const [activeTab, setActiveTab] = useState<'config' | 'students' | 'grades' | 'overview' | 'audit' | 'profile' | 'reports'>(() => {
+    const [activeTab, setActiveTab] = useState<'home' | 'config' | 'students' | 'grades' | 'overview' | 'audit' | 'profile' | 'reports'>(() => {
         const saved = localStorage.getItem('adminActiveTab');
-        return (['config', 'students', 'grades', 'overview', 'audit', 'profile', 'reports'].includes(saved as string)) ? (saved as any) : 'grades';
+        return (['home', 'config', 'students', 'grades', 'overview', 'audit', 'profile', 'reports'].includes(saved as string)) ? (saved as any) : 'home';
     });
     const [configSubTab, setConfigSubTab] = useState<'teachers' | 'courses' | 'subjects' | 'assignments' | 'homeroom' | 'subject_order' | 'templates' | 'grades_lock' | 'external_links'>(() => {
         const saved = localStorage.getItem('adminConfigSubTab');
@@ -43,7 +44,7 @@ export const AdminDashboard = () => {
     const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth >= 768);
 
     const handleNavClick = (
-        tab: 'config' | 'students' | 'grades' | 'overview' | 'audit' | 'profile' | 'reports', 
+        tab: 'home' | 'config' | 'students' | 'grades' | 'overview' | 'audit' | 'profile' | 'reports', 
         subTab?: 'teachers' | 'courses' | 'subjects' | 'assignments' | 'homeroom' | 'subject_order' | 'templates' | 'grades_lock' | 'external_links'
     ) => {
         setActiveTab(tab);
@@ -1491,6 +1492,9 @@ export const AdminDashboard = () => {
                     <p>{formatName(user?.name)} {isVisita && <span className="badge warning" style={{ display: 'inline-block', marginLeft: '5px', fontSize: '0.7rem', padding: '2px 6px', background: '#d97706', color: 'white', borderRadius: '4px' }}>Visita</span>}</p>
                 </div>
                 <nav className="sidebar-nav">
+                    <button className={activeTab === 'home' ? 'active' : ''} onClick={() => handleNavClick('home')}>
+                        <Home size={18} /> Inicio
+                    </button>
                     <button className={activeTab === 'grades' ? 'active' : ''} onClick={() => handleNavClick('grades')}>
                         <BookOpen size={18} /> Notas (Libro de Clases)
                     </button>
@@ -1553,6 +1557,7 @@ export const AdminDashboard = () => {
                             <Menu size={24} />
                         </button>
                         <h1>
+                            {activeTab === 'home' && 'Inicio'}
                             {activeTab === 'config' && (
                                 <>
                                     Configuración de Sistema: {
@@ -1604,6 +1609,176 @@ export const AdminDashboard = () => {
                     </div>
                 </header>
                 
+                {activeTab === 'home' && (
+                    <div style={{ padding: '24px 0' }}>
+                        {/* Banner de Bienvenida */}
+                        <div style={{
+                            background: 'linear-gradient(135deg, #ea580c 0%, #ca8a04 50%, #16a34a 100%)',
+                            borderRadius: '24px',
+                            padding: '40px',
+                            color: '#ffffff',
+                            marginBottom: '40px',
+                            boxShadow: '0 10px 25px -5px rgba(234, 88, 12, 0.2), 0 8px 10px -6px rgba(22, 163, 74, 0.2)',
+                            position: 'relative',
+                            overflow: 'hidden'
+                        }}>
+                            <div style={{
+                                position: 'absolute',
+                                top: '-50%',
+                                right: '-10%',
+                                width: '400px',
+                                height: '400px',
+                                background: 'radial-gradient(circle, rgba(255,255,255,0.15) 0%, transparent 70%)',
+                                borderRadius: '50%',
+                                pointerEvents: 'none'
+                            }}></div>
+                            <h2 style={{ fontSize: '2.5rem', fontWeight: '800', margin: '0 0 10px 0', letterSpacing: '-0.02em' }}>
+                                ¡Hola, {formatName(user?.name)}!
+                            </h2>
+                            <p style={{ margin: 0, opacity: 0.95, fontSize: '1.25rem', fontWeight: '500' }}>
+                                Panel de Administración • Liceo Pro
+                            </p>
+                        </div>
+
+                        {/* Plataformas de Interés */}
+                        <div className="card" style={{ border: 'none', background: 'transparent', padding: 0, boxShadow: 'none' }}>
+                            <h3 style={{ margin: '0 0 25px 0', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '1.4rem', color: '#1e293b' }}>
+                                <Globe size={24} style={{ color: '#ea580c' }} /> Plataformas de Interés
+                            </h3>
+                            
+                            {externalLinks.length === 0 ? (
+                                <p style={{ color: '#64748b', fontStyle: 'italic' }}>No se han configurado enlaces de interés todavía.</p>
+                            ) : (
+                                <div style={{ 
+                                    display: 'grid', 
+                                    gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', 
+                                    gap: '24px',
+                                    marginTop: '10px'
+                                }}>
+                                    {externalLinks.map((l: any, idx: number) => {
+                                        const footerColor = footerColors[idx % footerColors.length];
+                                        return (
+                                            <a 
+                                                key={l.id}
+                                                href={l.url} 
+                                                target="_blank" 
+                                                rel="noopener noreferrer"
+                                                className="quick-link-card-premium"
+                                                style={{
+                                                    display: 'flex',
+                                                    flexDirection: 'column',
+                                                    borderRadius: '16px',
+                                                    overflow: 'hidden',
+                                                    border: 'none',
+                                                    textDecoration: 'none',
+                                                    boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06)',
+                                                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                                                    cursor: 'pointer',
+                                                    height: '100%',
+                                                    position: 'relative'
+                                                }}
+                                                onMouseEnter={(e) => {
+                                                    e.currentTarget.style.transform = 'translateY(-8px)';
+                                                    e.currentTarget.style.boxShadow = '0 20px 25px -5px rgba(0, 0, 0, 0.15), 0 10px 10px -5px rgba(0, 0, 0, 0.1)';
+                                                    const img = e.currentTarget.querySelector('img') as HTMLImageElement;
+                                                    if (img) img.style.transform = 'scale(1.08)';
+                                                    const arrow = e.currentTarget.querySelector('.card-arrow') as HTMLElement;
+                                                    if (arrow) arrow.style.transform = 'translateX(6px)';
+                                                }}
+                                                onMouseLeave={(e) => {
+                                                    e.currentTarget.style.transform = 'none';
+                                                    e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06)';
+                                                    const img = e.currentTarget.querySelector('img') as HTMLImageElement;
+                                                    if (img) img.style.transform = 'none';
+                                                    const arrow = e.currentTarget.querySelector('.card-arrow') as HTMLElement;
+                                                    if (arrow) arrow.style.transform = 'none';
+                                                }}
+                                            >
+                                                <div style={{ 
+                                                    width: '100%', 
+                                                    height: '160px', 
+                                                    overflow: 'hidden', 
+                                                    position: 'relative',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)'
+                                                }}>
+                                                    <img 
+                                                        src={getLinkImageUrl(l.name, idx)} 
+                                                        alt={l.name}
+                                                        style={{
+                                                            width: '100%',
+                                                            height: '100%',
+                                                            objectFit: 'cover',
+                                                            transition: 'transform 0.5s ease'
+                                                        }}
+                                                        onError={(e) => {
+                                                            e.currentTarget.style.display = 'none';
+                                                            const fallback = e.currentTarget.parentElement?.querySelector('.fallback-placeholder') as HTMLElement;
+                                                            if (fallback) fallback.style.display = 'flex';
+                                                        }}
+                                                    />
+                                                    <div className="fallback-placeholder" style={{
+                                                        display: 'none',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        flexDirection: 'column',
+                                                        gap: '8px',
+                                                        color: '#64748b',
+                                                        width: '100%',
+                                                        height: '100%'
+                                                    }}>
+                                                        <Globe size={40} style={{ opacity: 0.8 }} />
+                                                        <span style={{ fontSize: '0.85rem', fontWeight: '600', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                                                            Acceso Directo
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                <div style={{
+                                                    backgroundColor: footerColor,
+                                                    padding: '20px',
+                                                    display: 'flex',
+                                                    flexDirection: 'column',
+                                                    flexGrow: 1,
+                                                    justifyContent: 'space-between',
+                                                    gap: '15px'
+                                                }}>
+                                                    <h4 style={{ 
+                                                        color: '#ffffff', 
+                                                        fontSize: '1.2rem', 
+                                                        fontWeight: '700',
+                                                        lineHeight: '1.4',
+                                                        margin: 0,
+                                                        letterSpacing: '-0.01em'
+                                                    }}>
+                                                        {l.name}
+                                                    </h4>
+                                                    <div style={{ 
+                                                        display: 'flex', 
+                                                        alignItems: 'center', 
+                                                        color: '#ffffff', 
+                                                        fontSize: '1rem', 
+                                                        fontWeight: '600',
+                                                        gap: '8px'
+                                                    }}>
+                                                        <span>Acceder</span>
+                                                        <span className="card-arrow" style={{ 
+                                                            fontSize: '1.2rem', 
+                                                            transition: 'transform 0.3s ease',
+                                                            display: 'inline-block'
+                                                        }}>&rarr;</span>
+                                                    </div>
+                                                </div>
+                                            </a>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
+
                 {activeTab === 'grades' && <GradesSheet />}
 
                 {activeTab === 'overview' && <GradesOverview />}
