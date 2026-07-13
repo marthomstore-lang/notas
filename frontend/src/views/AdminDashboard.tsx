@@ -33,10 +33,7 @@ export const formatName = (name: string | undefined | null): string => {
 export const AdminDashboard = () => {
     const { user, logout, token } = useAuth();
     const isVisita = user?.role === 'Visita';
-    const [activeTab, setActiveTab] = useState<'home' | 'config' | 'students' | 'grades' | 'overview' | 'audit' | 'profile' | 'reports'>(() => {
-        const saved = localStorage.getItem('adminActiveTab');
-        return (['home', 'config', 'students', 'grades', 'overview', 'audit', 'profile', 'reports'].includes(saved as string)) ? (saved as any) : 'home';
-    });
+    const [activeTab, setActiveTab] = useState<'home' | 'config' | 'students' | 'grades' | 'overview' | 'audit' | 'profile' | 'reports'>('home');
     const [configSubTab, setConfigSubTab] = useState<'teachers' | 'courses' | 'subjects' | 'assignments' | 'homeroom' | 'subject_order' | 'templates' | 'grades_lock' | 'external_links'>(() => {
         const saved = localStorage.getItem('adminConfigSubTab');
         return (['teachers', 'courses', 'subjects', 'assignments', 'homeroom', 'subject_order', 'templates', 'grades_lock', 'external_links'].includes(saved as string)) ? (saved as any) : 'teachers';
@@ -53,10 +50,6 @@ export const AdminDashboard = () => {
             setIsSidebarOpen(false);
         }
     };
-
-    useEffect(() => {
-        localStorage.setItem('adminActiveTab', activeTab);
-    }, [activeTab]);
 
     useEffect(() => {
         localStorage.setItem('adminConfigSubTab', configSubTab);
