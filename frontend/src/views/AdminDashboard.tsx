@@ -753,6 +753,56 @@ export const AdminDashboard = () => {
         }
     };
 
+    const handleEditExternalLink = async (link: { id: string; name: string; url: string }) => {
+        const { value: formValues } = await MySwal.fire({
+            title: 'Editar Enlace de Interés',
+            html:
+                '<div style="text-align:left; margin-bottom:8px;"><label style="font-weight:bold;">Nombre de la Plataforma/Página:</label></div>' +
+                `<input id="link-name" class="swal2-input" placeholder="Ej. Google Classroom" value="${link.name.replace(/"/g, '&quot;')}" style="margin: 0 0 16px 0; width: 100%; font-size: 0.95rem;">` +
+                '<div style="text-align:left; margin-bottom:8px;"><label style="font-weight:bold;">URL / Dirección Web:</label></div>' +
+                `<input id="link-url" class="swal2-input" placeholder="Ej. https://classroom.google.com" value="${link.url.replace(/"/g, '&quot;')}" style="margin: 0; width: 100%; font-size: 0.95rem;">`,
+            focusConfirm: false,
+            showCancelButton: true,
+            confirmButtonText: 'Guardar Cambios',
+            cancelButtonText: 'Cancelar',
+            preConfirm: () => {
+                const name = (document.getElementById('link-name') as HTMLInputElement).value.trim();
+                let url = (document.getElementById('link-url') as HTMLInputElement).value.trim();
+                
+                if (!name || !url) {
+                    Swal.showValidationMessage('Todos los campos son obligatorios');
+                    return false;
+                }
+                if (!/^https?:\/\//i.test(url)) {
+                    url = 'https://' + url;
+                }
+                return { name, url };
+            }
+        });
+
+        if (formValues) {
+            try {
+                const res = await fetch(`/_/backend/api/admin/external-links/${link.id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(formValues)
+                });
+                if (res.ok) {
+                    setExternalLinks(prev => prev.map(l => l.id === link.id ? { ...l, name: formValues.name, url: formValues.url } : l));
+                    MySwal.fire('Guardado', 'Enlace actualizado con éxito', 'success');
+                } else {
+                    const err = await res.json();
+                    MySwal.fire('Error', err.error || 'No se pudo actualizar el enlace', 'error');
+                }
+            } catch (error) {
+                MySwal.fire('Error', 'Error de conexión al servidor', 'error');
+            }
+        }
+    };
+
     const handleEditTeacher = async (teacher: any) => {
         const { value: formValues } = await MySwal.fire({
             title: 'Editar Usuario',
@@ -2730,13 +2780,22 @@ export const AdminDashboard = () => {
                                                         </td>
                                                         {!isVisita && (
                                                             <td style={{ textAlign: 'center' }}>
-                                                                <button 
-                                                                    className="action-btn delete" 
-                                                                    onClick={() => handleDeleteExternalLink(l.id, l.name)}
-                                                                    title="Eliminar Enlace"
-                                                                >
-                                                                    <Trash2 size={16} />
-                                                                </button>
+                                                                <div style={{ display: 'flex', justifyContent: 'center', gap: '8px' }}>
+                                                                    <button 
+                                                                        className="action-btn edit" 
+                                                                        onClick={() => handleEditExternalLink(l)}
+                                                                        title="Editar Enlace"
+                                                                    >
+                                                                        <Edit2 size={16} />
+                                                                    </button>
+                                                                    <button 
+                                                                        className="action-btn delete" 
+                                                                        onClick={() => handleDeleteExternalLink(l.id, l.name)}
+                                                                        title="Eliminar Enlace"
+                                                                    >
+                                                                        <Trash2 size={16} />
+                                                                    </button>
+                                                                </div>
                                                             </td>
                                                         )}
                                                     </tr>

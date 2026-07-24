@@ -1266,3 +1266,24 @@ export const deleteExternalLink = async (req: Request, res: Response) => {
         res.status(500).json({ error: 'Error al eliminar enlace externo', details: error.message });
     }
 };
+
+export const updateExternalLink = async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { name, url } = req.body;
+    const user = (req as any).user;
+
+    if (user.role !== 'Admin') {
+        return res.status(403).json({ error: 'Solo administradores pueden editar enlaces externos' });
+    }
+
+    if (!name || !url) {
+        return res.status(400).json({ error: 'Faltan parámetros requeridos: name, url' });
+    }
+
+    try {
+        await db.run("UPDATE external_links SET name = ?, url = ? WHERE id = ?", [name, url, id]);
+        res.json({ message: 'Enlace externo actualizado correctamente', link: { id, name, url } });
+    } catch (error: any) {
+        res.status(500).json({ error: 'Error al actualizar enlace externo', details: error.message });
+    }
+};

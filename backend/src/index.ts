@@ -8,7 +8,7 @@ import { getAssignments, getGrades, addColumn, saveGrade } from './controllers/t
 import { registerEnrollment } from './controllers/enrollmentController';
 import { getReportTemplates, createReportTemplate, updateReportTemplate, deleteReportTemplate, assignTemplateToLevel } from './controllers/reportTemplatesController';
 import { getTeachers, createTeacher, updateTeacher, deleteTeacher, getSubjects, createSubject, updateSubject, deleteSubject, checkSubjectGrades, getLevels, updateLevelCapacity, getAssignmentsAdmin, createAssignment, updateAssignment, deleteAssignment, getStudents, getStudentById, updateStudent, deleteStudent, reincorporateStudent, getStudentObservations, addObservation, exportData, importDataWeb, changeStudentLevel } from './controllers/adminController';
-import { getExternalLinks, createExternalLink, deleteExternalLink } from './controllers/adminController';
+import { getExternalLinks, createExternalLink, updateExternalLink, deleteExternalLink } from './controllers/adminController';
 import { getFiltersData, getGradesSheet, saveGradesSheet, updateStudentPosition, bulkUpdateStudentPositions, toggleLockAssignment, getAuditLogs, getGradesOverview, getGradesLocksStatus, toggleGlobalGradesLock, toggleLevelGradesLock, getLevelGradesLocksDetail } from './controllers/gradesController';
 import { getStudentGradesReport, getLevelGradesReport, updateInstitutionalSettings, setHomeroomTeacher, getSubjectOrder, updateSubjectOrder, getHomeroomData, getPersonalityReport, savePersonalityReport, getPersonalityReportsByLevel } from './controllers/reportsController';
 import multer from 'multer';
@@ -91,6 +91,7 @@ router.put('/admin/levels/:id/template', authMiddleware, assignTemplateToLevel);
 // Rutas Enlaces Externos
 router.get('/external-links', authMiddleware, getExternalLinks);
 router.post('/admin/external-links', authMiddleware, createExternalLink);
+router.put('/admin/external-links/:id', authMiddleware, updateExternalLink);
 router.delete('/admin/external-links/:id', authMiddleware, deleteExternalLink);
 
 // Rutas Calificaciones (Notas)
