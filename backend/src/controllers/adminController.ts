@@ -1246,6 +1246,211 @@ export const changeStudentLevel = async (req: Request, res: Response) => {
     }
 };
 
+export const getTransferSubjects = async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { targetLevelId } = req.query;
+
+    try {
+        const currentEnrollment = await db.get(`
+            SELECT level_id FROM enrollments 
+            WHERE student_id = ? AND academic_year = 2026 AND status = 'Active'
+            ORDER BY enrollment_date DESC LIMIT 1
+        `, [id]);
+
+        if (!currentEnrollment) {
+            return res.status(404).json({ error: 'El estudiante no tiene una matrícula activa en 2026' });
+        }
+
+        const sourceLevelId = currentEnrollment.level_id;
+        const targetLevelIdNum = targetLevelId ? parseInt(String(targetLevelId), 10) : 0;
+
+        const sourceSubjects = await db.all(`
+            SELECT DISTINCT sub.id, sub.name
+            FROM teacher_assignments ta
+            JOIN subjects sub ON ta.subject_id = sub.id
+            WHERE ta.level_id = ? AND ta.academic_year = 2026
+            ORDER BY sub.name ASC
+        `, [sourceLevelId]);
+
+        let targetSubjects: any[] = [];
+        if (targetLevelIdNum > 0) {
+            targetSubjects = await db.all(`
+                SELECT DISTINCT sub.id, sub.name
+                FROM teacher_assignments ta
+                JOIN subjects sub ON ta.subject_id = sub.id
+                WHERE ta.level_id = ? AND ta.academic_year = 2026
+                ORDER BY sub.name ASC
+            `, [targetLevelIdNum]);
+        }
+
+        const sourceLevel = await db.get("SELECT id, name FROM levels WHERE id = ?", [sourceLevelId]);
+        const targetLevel = targetLevelIdNum > 0 ? await db.get("SELECT id, name FROM levels WHERE id = ?", [targetLevelIdNum]) : null;
+
+        res.json({
+            sourceLevel,
+            targetLevel,
+            sourceSubjects,
+            targetSubjects
+        });
+    } catch (error: any) {
+        console.error("Error in getTransferSubjects", error);
+        res.status(500).json({ error: error.message });
+    }
+};
+
+export const transferStudentWithMapping = async (req: Request, res: Response) => {
+    let client;
+    try {
+        const { id } = req.params;
+        const { targetLevelId, subjectMapping } = req.body;
+        const user = (req as any).user;
+
+        if (user.role !== 'Admin') {
+            return res.status(403).json({ error: 'Solo administradores pueden realizar traspasos de curso' });
+        }
+
+        const targetLevelIdNum = targetLevelId ? parseInt(String(targetLevelId), 10) : 0;
+        if (!targetLevelIdNum) {
+            return res.status(400).json({ error: 'Debe especificar el curso de destino' });
+        }
+
+        client = await db.connect();
+
+        const studentRes = await client.query("SELECT * FROM students WHERE id = ?", [id]);
+        if (studentRes.rows.length === 0) {
+            return res.status(404).json({ error: 'Estudiante no encontrado' });
+        }
+        const student = studentRes.rows[0];
+
+        const activeEnrollmentRes = await client.query(`
+            SELECT * FROM enrollments 
+            WHERE student_id = ? AND academic_year = 2026 AND status = 'Active'
+            ORDER BY enrollment_date DESC LIMIT 1
+        `, [id]);
+
+        if (activeEnrollmentRes.rows.length === 0) {
+            return res.status(400).json({ error: 'El estudiante no posee una matrícula activa para el año 2026' });
+        }
+
+        const oldEnrollment = activeEnrollmentRes.rows[0];
+        const oldLevelId = oldEnrollment.level_id;
+
+        if (oldLevelId === targetLevelIdNum) {
+            return res.status(400).json({ error: 'El estudiante ya se encuentra matriculado en ese curso' });
+        }
+
+        const targetLevelRes = await client.query("SELECT * FROM levels WHERE id = ?", [targetLevelIdNum]);
+        if (targetLevelRes.rows.length === 0) {
+            return res.status(404).json({ error: 'Curso de destino no encontrado' });
+        }
+        const targetLevel = targetLevelRes.rows[0];
+
+        const oldLevelRes = await client.query("SELECT * FROM levels WHERE id = ?", [oldLevelId]);
+        const oldLevel = oldLevelRes.rows[0];
+
+        // 1. NORMATIVA MINEDUC: Mark old enrollment as RETIRADO
+        await client.query(`
+            UPDATE enrollments 
+            SET status = 'RETIRADO', withdrawal_date = CURRENT_TIMESTAMP
+            WHERE id = ?
+        `, [oldEnrollment.id]);
+
+        // 2. NORMATIVA MINEDUC: Create NEW active enrollment in target level
+        const maxListRes = await client.query(`
+            SELECT MAX(list_number) as max_val FROM enrollments WHERE level_id = ? AND academic_year = 2026
+        `, [targetLevelIdNum]);
+        const newListNumber = (maxListRes.rows[0]?.max_val || 0) + 1;
+
+        const newEnrollmentId = crypto.randomUUID();
+        await client.query(`
+            INSERT INTO enrollments (id, student_id, level_id, academic_year, list_number, status, enrollment_date)
+            VALUES (?, ?, ?, 2026, ?, 'Active', CURRENT_TIMESTAMP)
+        `, [newEnrollmentId, id, targetLevelIdNum, newListNumber]);
+
+        // Update capacity counters
+        await client.query("UPDATE levels SET current_enrolled = current_enrolled - 1 WHERE id = ?", [oldLevelId]);
+        await client.query("UPDATE levels SET current_enrolled = current_enrolled + 1 WHERE id = ?", [targetLevelIdNum]);
+
+        // 3. GRADE MAPPING & TRANSFER
+        let gradesTransferredCount = 0;
+
+        if (subjectMapping && typeof subjectMapping === 'object') {
+            for (const [sourceSubIdStr, targetSubIdVal] of Object.entries(subjectMapping)) {
+                if (!targetSubIdVal || String(targetSubIdVal) === 'none' || String(targetSubIdVal) === '') continue;
+
+                const sourceSubId = parseInt(sourceSubIdStr, 10);
+                const targetSubId = parseInt(String(targetSubIdVal), 10);
+
+                const sourceGradesRes = await client.query(`
+                    SELECT g.id, g.grade_value, gc.period, gc.position, gc.title, gc.weighting
+                    FROM grades g
+                    JOIN grade_columns gc ON g.grade_column_id = gc.id
+                    WHERE g.student_id = ? AND gc.level_id = ? AND gc.subject_id = ? AND gc.academic_year = 2026
+                `, [id, oldLevelId, sourceSubId]);
+
+                for (const sg of sourceGradesRes.rows) {
+                    if (sg.grade_value === null || sg.grade_value === undefined || String(sg.grade_value).trim() === '') continue;
+
+                    const targetColRes = await client.query(`
+                        SELECT id FROM grade_columns
+                        WHERE level_id = ? AND subject_id = ? AND academic_year = 2026 AND period = ? AND position = ?
+                    `, [targetLevelIdNum, targetSubId, sg.period, sg.position]);
+
+                    let targetColId;
+                    if (targetColRes.rows.length > 0) {
+                        targetColId = targetColRes.rows[0].id;
+                    } else {
+                        targetColId = crypto.randomUUID();
+                        await client.query(`
+                            INSERT INTO grade_columns (id, level_id, subject_id, academic_year, period, title, position, weighting)
+                            VALUES (?, ?, ?, 2026, ?, ?, ?, ?)
+                        `, [targetColId, targetLevelIdNum, targetSubId, sg.period, sg.title, sg.position, sg.weighting]);
+                    }
+
+                    const existingTargetGrade = await client.query(`
+                        SELECT id FROM grades WHERE student_id = ? AND grade_column_id = ?
+                    `, [id, targetColId]);
+
+                    if (existingTargetGrade.rows.length > 0) {
+                        await client.query(`
+                            UPDATE grades SET grade_value = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?
+                        `, [sg.grade_value, existingTargetGrade.rows[0].id]);
+                    } else {
+                        await client.query(`
+                            INSERT INTO grades (id, student_id, grade_column_id, grade_value, created_at, updated_at)
+                            VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                        `, [crypto.randomUUID(), id, targetColId, sg.grade_value]);
+                    }
+                    gradesTransferredCount++;
+                }
+            }
+        }
+
+        // Audit log
+        await client.query(`
+            INSERT INTO audit_logs (id, user_id, user_name, action, details, level_id)
+            VALUES (?, ?, ?, ?, ?, ?)
+        `, [
+            crypto.randomUUID(),
+            user.id,
+            user.name || user.run || 'Sistema',
+            'TRANSFER_STUDENT_WITH_MAPPING',
+            `Traspaso normativo de ${student.full_name}: Retirado de ${oldLevel?.name || oldLevelId} y Matriculado Activo en ${targetLevel.name} (${gradesTransferredCount} notas traspasadas)`,
+            String(targetLevelIdNum)
+        ]);
+
+        res.json({ 
+            success: true, 
+            message: `Traspaso normativo realizado con éxito. El estudiante fue marcado RETIRADO en ${oldLevel?.name} y matriculado en ${targetLevel.name}. (${gradesTransferredCount} notas traspasadas)`
+        });
+    } catch (error: any) {
+        console.error("Error in transferStudentWithMapping", error);
+        res.status(500).json({ error: 'Error al realizar el traspaso de estudiante', details: error.message });
+    } finally {
+        if (client) client.release();
+    }
+};
+
 export const getExternalLinks = async (req: Request, res: Response) => {
     try {
         const links = await db.all("SELECT id, name, url FROM external_links ORDER BY created_at ASC");

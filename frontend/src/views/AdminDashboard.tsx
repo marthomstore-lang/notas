@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { LogOut, Plus, Users, BookOpen, GraduationCap, Menu, X, Printer, User, Upload, Edit2, Trash2, BarChart3, Settings, ListOrdered, PieChart, FileText, Lock, Unlock, Globe, Home, AlertTriangle, FileSpreadsheet, Download } from 'lucide-react';
+import { LogOut, Plus, Users, BookOpen, GraduationCap, Menu, X, Printer, User, Upload, Edit2, Trash2, BarChart3, Settings, ListOrdered, PieChart, FileText, Lock, Unlock, Globe, Home, AlertTriangle, FileSpreadsheet, Download, RefreshCw } from 'lucide-react';
 import { getLinkImageUrl, footerColors } from './TeacherDashboard';
 import { EnrollmentForm } from '../components/OfficialForm/EnrollmentForm';
 import { OfficialEnrollmentForm } from '../components/OfficialForm/OfficialEnrollmentForm';
@@ -8,6 +8,7 @@ import { StudentWindow } from '../components/StudentWindow';
 import { KinderReportForm } from '../components/Reports/KinderReportForm';
 import { CoursePerformanceTable } from '../components/Reports/CoursePerformanceTable';
 import { ReorderStudentsModal } from '../components/ReorderStudentsModal';
+import { TransferStudentModal } from '../components/TransferStudentModal';
 import { GradesSheet } from '../components/Grades/GradesSheet';
 import { GradesOverview } from '../components/Grades/GradesOverview';
 import { PrintableKinderReport } from '../components/Reports/PrintableKinderReport';
@@ -68,6 +69,7 @@ export const AdminDashboard = () => {
     const [newObs, setNewObs] = useState({ content: '', type: 'Positive' });
     const [viewingStudentId, setViewingStudentId] = useState<string | null>(null);
     const [showReorderModal, setShowReorderModal] = useState(false);
+    const [transferringStudent, setTransferringStudent] = useState<any | null>(null);
     const [selectedLevelFilter, setSelectedLevelFilter] = useState<string>(() => {
         return localStorage.getItem('adminStudentLevelFilter') || '';
     });
@@ -3648,6 +3650,11 @@ export const AdminDashboard = () => {
                                                                 </button>
                                                             )}
                                                             {!isVisita && (
+                                                                <button onClick={() => setTransferringStudent(s)} title="Traspaso Normativo de Curso y Mapeo de Calificaciones" style={{ padding: '6px', background: '#ea580c', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+                                                                    <RefreshCw size={14} />
+                                                                </button>
+                                                            )}
+                                                            {!isVisita && (
                                                                 <button onClick={() => handleDeleteStudent(s.id)} title="Dar de baja" style={{ padding: '6px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
                                                                     <X size={14} />
                                                                 </button>
@@ -3742,6 +3749,17 @@ export const AdminDashboard = () => {
                             ))}
                         </div>
                     </div>
+                )}
+                {transferringStudent && (
+                    <TransferStudentModal
+                        student={transferringStudent}
+                        levels={levels}
+                        token={token || ''}
+                        onClose={() => setTransferringStudent(null)}
+                        onSuccess={() => {
+                            fetchData();
+                        }}
+                    />
                 )}
             </main>
         </div>
