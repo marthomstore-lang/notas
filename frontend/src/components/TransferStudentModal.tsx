@@ -36,13 +36,7 @@ export const TransferStudentModal: React.FC<TransferStudentModalProps> = ({
     const availableTargetLevels = levels.filter(l => String(l.id) !== String(currentLevelId));
 
     useEffect(() => {
-        if (targetLevelId) {
-            fetchSubjects(targetLevelId);
-        } else {
-            setSourceSubjects([]);
-            setTargetSubjects([]);
-            setMapping({});
-        }
+        fetchSubjects(targetLevelId);
     }, [targetLevelId]);
 
     const fetchSubjects = async (lvlId: string) => {
@@ -245,7 +239,7 @@ export const TransferStudentModal: React.FC<TransferStudentModalProps> = ({
                             <RefreshCw size={24} className="spin" style={{ margin: '0 auto 8px' }} />
                             <p style={{ margin: 0 }}>Cargando asignaturas de origen y destino...</p>
                         </div>
-                    ) : targetLevelId && sourceSubjects.length > 0 ? (
+                    ) : sourceSubjects.length > 0 ? (
                         <div>
                             <h4 style={{ margin: '0 0 12px 0', fontSize: '1rem', color: '#1e293b', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                 2. Mapeo Seleccionable de Asignaturas y Calificaciones:
@@ -254,9 +248,9 @@ export const TransferStudentModal: React.FC<TransferStudentModalProps> = ({
                                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
                                     <thead>
                                         <tr style={{ background: '#f1f5f9', color: '#475569', textAlign: 'left' }}>
-                                            <th style={{ padding: '10px 14px', width: '45%' }}>Asignatura en {sourceLevel?.name} (Origen)</th>
+                                            <th style={{ padding: '10px 14px', width: '45%' }}>Asignatura en {sourceLevel?.name || student.level_name || 'Curso Origen'} (Origen)</th>
                                             <th style={{ padding: '10px 8px', width: '10%', textAlign: 'center' }}><ArrowRight size={16} /></th>
-                                            <th style={{ padding: '10px 14px', width: '45%' }}>Asignatura en {targetLevel?.name} (Destino)</th>
+                                            <th style={{ padding: '10px 14px', width: '45%' }}>Asignatura en {targetLevel?.name || 'Curso Destino'} (Destino)</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -270,6 +264,7 @@ export const TransferStudentModal: React.FC<TransferStudentModalProps> = ({
                                                     <select
                                                         value={mapping[src.id] || 'none'}
                                                         onChange={(e) => handleMappingChange(String(src.id), e.target.value)}
+                                                        disabled={!targetLevelId}
                                                         style={{
                                                             width: '100%',
                                                             padding: '6px 10px',
@@ -281,12 +276,18 @@ export const TransferStudentModal: React.FC<TransferStudentModalProps> = ({
                                                             fontWeight: mapping[src.id] && mapping[src.id] !== 'none' ? 600 : 400
                                                         }}
                                                     >
-                                                        <option value="none">🚫 (No traspasar notas de esta asignatura)</option>
-                                                        {targetSubjects.map(tgt => (
-                                                            <option key={tgt.id} value={tgt.id}>
-                                                                {tgt.name}
-                                                            </option>
-                                                        ))}
+                                                        {!targetLevelId ? (
+                                                            <option value="none">-- Seleccione Curso de Destino arriba --</option>
+                                                        ) : (
+                                                            <>
+                                                                <option value="none">🚫 (No traspasar notas de esta asignatura)</option>
+                                                                {targetSubjects.map(tgt => (
+                                                                    <option key={tgt.id} value={tgt.id}>
+                                                                        {tgt.name}
+                                                                    </option>
+                                                                ))}
+                                                            </>
+                                                        )}
                                                     </select>
                                                 </td>
                                             </tr>
@@ -295,11 +296,11 @@ export const TransferStudentModal: React.FC<TransferStudentModalProps> = ({
                                 </table>
                             </div>
                         </div>
-                    ) : targetLevelId && sourceSubjects.length === 0 ? (
+                    ) : (
                         <div style={{ textAlign: 'center', padding: '20px', background: '#f8fafc', borderRadius: '8px', color: '#64748b' }}>
-                            El curso de origen no posee asignaturas asignadas. Se realizará el traspaso de matrícula únicamente.
+                            Cargando asignaturas del estudiante...
                         </div>
-                    ) : null}
+                    )}
 
                 </div>
 
