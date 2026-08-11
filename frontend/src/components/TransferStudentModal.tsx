@@ -42,11 +42,32 @@ export const TransferStudentModal: React.FC<TransferStudentModalProps> = ({
     const fetchSubjects = async (lvlId: string) => {
         setLoadingSubjects(true);
         try {
-            const srcLvlId = currentLevelId || student.level_id || (student.enrollment ? student.enrollment.level_id : '');
-            const res = await fetch(`/_/backend/api/admin/students/${student.id}/transfer-subjects?targetLevelId=${lvlId}&sourceLevelId=${srcLvlId}`, {
+            const studentId = student?.id || student?.student_id;
+            const srcLvlId = currentLevelId || student?.level_id || (student?.enrollment ? student.enrollment.level_id : '');
+            
+            if (!studentId) {
+                console.error("No studentId found in student object:", student);
+                setLoadingSubjects(false);
+                return;
+            }
+
+            const url = `/_/backend/api/admin/students/${studentId}/transfer-subjects?targetLevelId=${lvlId || ''}&sourceLevelId=${srcLvlId || ''}`;
+            console.log("Fetching transfer subjects URL:", url);
+
+            const res = await fetch(url, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
-            const data = await res.json();
+
+            const contentType = res.headers.get("content-type");
+            let data: any = {};
+            if (contentType && contentType.includes("application/json")) {
+                data = await res.json();
+            } else {
+                const rawText = await res.text();
+                console.error("Non-JSON server response:", res.status, rawText);
+                throw new Error(`Servidor (${res.status}): ${rawText.slice(0, 150)}`);
+            }
+
             if (res.ok) {
                 setSourceLevel(data.sourceLevel);
                 setTargetLevel(data.targetLevel);
@@ -72,11 +93,11 @@ export const TransferStudentModal: React.FC<TransferStudentModalProps> = ({
                 });
                 setMapping(autoMap);
             } else {
-                MySwal.fire('Error', data.error || 'No se pudieron cargar las asignaturas', 'error');
+                MySwal.fire('Error', data.error || `Error ${res.status}: No se pudieron cargar las asignaturas`, 'error');
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error("Error fetching transfer subjects:", error);
-            MySwal.fire('Error', 'Error de conexión con el servidor', 'error');
+            MySwal.fire('Error', error.message || 'Error de conexión con el servidor', 'error');
         } finally {
             setLoadingSubjects(false);
         }
@@ -118,7 +139,8 @@ export const TransferStudentModal: React.FC<TransferStudentModalProps> = ({
 
         setIsSubmitting(true);
         try {
-            const res = await fetch(`/_/backend/api/admin/students/${student.id}/transfer-mapping`, {
+            const studentId = student?.id || student?.student_id;
+            const res = await fetch(`/_/backend/api/admin/students/${studentId}/transfer-mapping`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -130,7 +152,16 @@ export const TransferStudentModal: React.FC<TransferStudentModalProps> = ({
                 })
             });
 
-            const data = await res.json();
+            const contentType = res.headers.get("content-type");
+            let data: any = {};
+            if (contentType && contentType.includes("application/json")) {
+                data = await res.json();
+            } else {
+                const rawText = await res.text();
+                console.error("Non-JSON server response:", res.status, rawText);
+                throw new Error(`Servidor (${res.status}): ${rawText.slice(0, 150)}`);
+            }
+
             if (res.ok) {
                 await MySwal.fire({
                     icon: 'success',
@@ -141,11 +172,11 @@ export const TransferStudentModal: React.FC<TransferStudentModalProps> = ({
                 onSuccess();
                 onClose();
             } else {
-                MySwal.fire('Error', data.error || 'No se pudo realizar el traspaso', 'error');
+                MySwal.fire('Error', data.error || `Error ${res.status}: No se pudo realizar el traspaso`, 'error');
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error("Error transferring student:", error);
-            MySwal.fire('Error', 'Error de comunicación al traspasar estudiante', 'error');
+            MySwal.fire('Error', error.message || 'Error de comunicación al traspasar estudiante', 'error');
         } finally {
             setIsSubmitting(false);
         }
