@@ -1251,36 +1251,66 @@ export const getTransferSubjects = async (req: Request, res: Response) => {
     const { targetLevelId } = req.query;
 
     try {
-        const currentEnrollment = await db.get(`
+        let currentEnrollment = await db.get(`
             SELECT level_id FROM enrollments 
             WHERE student_id = ? AND academic_year = 2026 AND status = 'Active'
             ORDER BY enrollment_date DESC LIMIT 1
         `, [id]);
 
         if (!currentEnrollment) {
-            return res.status(404).json({ error: 'El estudiante no tiene una matrícula activa en 2026' });
+            currentEnrollment = await db.get(`
+                SELECT level_id FROM enrollments 
+                WHERE student_id = ? AND status = 'Active'
+                ORDER BY enrollment_date DESC LIMIT 1
+            `, [id]);
+        }
+
+        if (!currentEnrollment) {
+            currentEnrollment = await db.get(`
+                SELECT level_id FROM enrollments 
+                WHERE student_id = ?
+                ORDER BY enrollment_date DESC LIMIT 1
+            `, [id]);
+        }
+
+        if (!currentEnrollment) {
+            return res.status(404).json({ error: 'El estudiante no tiene una matrícula registrada' });
         }
 
         const sourceLevelId = currentEnrollment.level_id;
         const targetLevelIdNum = targetLevelId ? parseInt(String(targetLevelId), 10) : 0;
 
-        const sourceSubjects = await db.all(`
+        let sourceSubjects = await db.all(`
             SELECT DISTINCT sub.id, sub.name
-            FROM teacher_assignments ta
-            JOIN subjects sub ON ta.subject_id = sub.id
-            WHERE ta.level_id = ? AND ta.academic_year = 2026
+            FROM subjects sub
+            WHERE sub.id IN (
+                SELECT subject_id FROM teacher_assignments WHERE level_id = ?
+                UNION
+                SELECT subject_id FROM grade_columns WHERE level_id = ?
+            )
             ORDER BY sub.name ASC
-        `, [sourceLevelId]);
+        `, [sourceLevelId, sourceLevelId]);
+
+        if (!sourceSubjects || sourceSubjects.length === 0) {
+            sourceSubjects = await db.all("SELECT id, name FROM subjects ORDER BY name ASC");
+        }
 
         let targetSubjects: any[] = [];
         if (targetLevelIdNum > 0) {
             targetSubjects = await db.all(`
                 SELECT DISTINCT sub.id, sub.name
-                FROM teacher_assignments ta
-                JOIN subjects sub ON ta.subject_id = sub.id
-                WHERE ta.level_id = ? AND ta.academic_year = 2026
+                FROM subjects sub
+                WHERE sub.id IN (
+                    SELECT subject_id FROM teacher_assignments WHERE level_id = ?
+                    UNION
+                    SELECT subject_id FROM grade_columns WHERE level_id = ?
+                )
                 ORDER BY sub.name ASC
-            `, [targetLevelIdNum]);
+            `, [targetLevelIdNum, targetLevelIdNum]);
+
+            if (!targetSubjects || targetSubjects.length === 0) {
+                targetSubjects = await db.all("SELECT id, name FROM subjects ORDER BY name ASC");
+            }
         }
 
         const sourceLevel = await db.get("SELECT id, name FROM levels WHERE id = ?", [sourceLevelId]);
@@ -1322,14 +1352,30 @@ export const transferStudentWithMapping = async (req: Request, res: Response) =>
         }
         const student = studentRes.rows[0];
 
-        const activeEnrollmentRes = await client.query(`
+        let activeEnrollmentRes = await client.query(`
             SELECT * FROM enrollments 
             WHERE student_id = ? AND academic_year = 2026 AND status = 'Active'
             ORDER BY enrollment_date DESC LIMIT 1
         `, [id]);
 
         if (activeEnrollmentRes.rows.length === 0) {
-            return res.status(400).json({ error: 'El estudiante no posee una matrícula activa para el año 2026' });
+            activeEnrollmentRes = await client.query(`
+                SELECT * FROM enrollments 
+                WHERE student_id = ? AND status = 'Active'
+                ORDER BY enrollment_date DESC LIMIT 1
+            `, [id]);
+        }
+
+        if (activeEnrollmentRes.rows.length === 0) {
+            activeEnrollmentRes = await client.query(`
+                SELECT * FROM enrollments 
+                WHERE student_id = ? 
+                ORDER BY enrollment_date DESC LIMIT 1
+            `, [id]);
+        }
+
+        if (activeEnrollmentRes.rows.length === 0) {
+            return res.status(400).json({ error: 'El estudiante no posee una matrícula registrada' });
         }
 
         const oldEnrollment = activeEnrollmentRes.rows[0];
