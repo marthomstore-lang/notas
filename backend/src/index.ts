@@ -7,10 +7,10 @@ import { login, updateProfile } from './controllers/authController';
 import { getAssignments, getGrades, addColumn, saveGrade } from './controllers/teacherController';
 import { registerEnrollment } from './controllers/enrollmentController';
 import { getReportTemplates, createReportTemplate, updateReportTemplate, deleteReportTemplate, assignTemplateToLevel } from './controllers/reportTemplatesController';
-import { getTeachers, createTeacher, updateTeacher, deleteTeacher, getSubjects, createSubject, updateSubject, deleteSubject, checkSubjectGrades, getLevels, updateLevelCapacity, getAssignmentsAdmin, createAssignment, updateAssignment, deleteAssignment, getStudents, getStudentById, updateStudent, deleteStudent, reincorporateStudent, getStudentObservations, addObservation, exportData, importDataWeb, changeStudentLevel } from './controllers/adminController';
+import { getTeachers, createTeacher, updateTeacher, deleteTeacher, getSubjects, createSubject, updateSubject, deleteSubject, checkSubjectGrades, getLevels, updateLevelCapacity, getAssignmentsAdmin, createAssignment, updateAssignment, deleteAssignment, getStudents, getStudentById, updateStudent, deleteStudent, reincorporateStudent, getStudentObservations, addObservation, exportData, importDataWeb, changeStudentLevel, getLevelSubjectSettings, updateLevelSubjectSetting, getStudentExemptions, saveStudentExemption, deleteStudentExemption } from './controllers/adminController';
 import { getExternalLinks, createExternalLink, updateExternalLink, deleteExternalLink } from './controllers/adminController';
 import { getFiltersData, getGradesSheet, saveGradesSheet, updateStudentPosition, bulkUpdateStudentPositions, toggleLockAssignment, getAuditLogs, getGradesOverview, getGradesLocksStatus, toggleGlobalGradesLock, toggleLevelGradesLock, getLevelGradesLocksDetail } from './controllers/gradesController';
-import { getStudentGradesReport, getLevelGradesReport, updateInstitutionalSettings, setHomeroomTeacher, getSubjectOrder, updateSubjectOrder, getHomeroomData, getPersonalityReport, savePersonalityReport, getPersonalityReportsByLevel } from './controllers/reportsController';
+import { getStudentGradesReport, getLevelGradesReport, updateInstitutionalSettings, setHomeroomTeacher, getSubjectOrder, updateSubjectOrder, getHomeroomData, getPersonalityReport, savePersonalityReport, getPersonalityReportsByLevel, exportPendingGradesReport } from './controllers/reportsController';
 import multer from 'multer';
 import db from './config/db';
 
@@ -65,6 +65,11 @@ router.delete('/admin/subjects/:id', authMiddleware, deleteSubject);
 router.get('/admin/subjects/:id/check-delete', authMiddleware, checkSubjectGrades);
 router.get('/admin/levels', authMiddleware, getLevels);
 router.put('/admin/levels/:id/capacity', authMiddleware, updateLevelCapacity);
+router.get('/admin/levels/:levelId/subject-settings', authMiddleware, getLevelSubjectSettings);
+router.post('/admin/levels/:levelId/subject-settings', authMiddleware, updateLevelSubjectSetting);
+router.get('/admin/students/:studentId/exemptions', authMiddleware, getStudentExemptions);
+router.post('/admin/students/:studentId/exemptions', authMiddleware, saveStudentExemption);
+router.delete('/admin/students/:studentId/exemptions/:subjectId', authMiddleware, deleteStudentExemption);
 router.get('/admin/assignments', authMiddleware, getAssignmentsAdmin);
 router.post('/admin/assignments', authMiddleware, createAssignment);
 router.put('/admin/assignments/:id', authMiddleware, updateAssignment);
@@ -111,6 +116,7 @@ router.get('/admin/system/audit-logs', authMiddleware, getAuditLogs);
 // Rutas Reportes y Configuración
 router.get('/reports/grades/:studentId', authMiddleware, getStudentGradesReport);
 router.get('/reports/grades/level/:levelId', authMiddleware, getLevelGradesReport);
+router.get('/admin/reports/pending-grades/export', authMiddleware, exportPendingGradesReport);
 router.post('/admin/settings', authMiddleware, updateInstitutionalSettings);
 router.post('/admin/homeroom-teacher', authMiddleware, setHomeroomTeacher);
 router.get('/admin/settings/subject-order/:levelId', authMiddleware, getSubjectOrder);
@@ -493,6 +499,45 @@ app.listen(PORT, async () => {
         console.log('[DB] Tabla external_links verificada/creada.');
     } catch (err: any) {
         console.error('[DB] Error al verificar/crear tabla external_links:', err.message);
+    }
+
+    // Ensure subjects table columns (influences_gpa, tributes_to_subject_id, is_qualitative) exist
+    try {
+        await db.run(`ALTER TABLE subjects ADD COLUMN IF NOT EXISTS influences_gpa BOOLEAN DEFAULT TRUE`);
+        await db.run(`ALTER TABLE subjects ADD COLUMN IF NOT EXISTS tributes_to_subject_id INTEGER REFERENCES subjects(id) ON DELETE SET NULL`);
+        await db.run(`ALTER TABLE subjects ADD COLUMN IF NOT EXISTS is_qualitative BOOLEAN DEFAULT FALSE`);
+        console.log('[DB] Columnas de asignaturas (influences_gpa, tributes_to_subject_id, is_qualitative) verificadas.');
+    } catch (err: any) {
+        console.error('[DB] Error al migrar columnas de asignaturas:', err.message);
+    }
+
+    // Ensure level_subject_settings and student_subject_exemptions tables exist
+    try {
+        await db.run(`
+            CREATE TABLE IF NOT EXISTS level_subject_settings (
+                id TEXT PRIMARY KEY,
+                level_id INTEGER REFERENCES levels(id) ON DELETE CASCADE,
+                subject_id INTEGER REFERENCES subjects(id) ON DELETE CASCADE,
+                influences_gpa BOOLEAN DEFAULT TRUE,
+                tributes_to_subject_id INTEGER REFERENCES subjects(id) ON DELETE SET NULL,
+                UNIQUE(level_id, subject_id)
+            )
+        `);
+        await db.run(`
+            CREATE TABLE IF NOT EXISTS student_subject_exemptions (
+                id TEXT PRIMARY KEY,
+                student_id TEXT REFERENCES students(id) ON DELETE CASCADE,
+                subject_id INTEGER REFERENCES subjects(id) ON DELETE CASCADE,
+                academic_year INTEGER NOT NULL,
+                influences_gpa BOOLEAN DEFAULT FALSE,
+                reason TEXT,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(student_id, subject_id, academic_year)
+            )
+        `);
+        console.log('[DB] Tablas level_subject_settings y student_subject_exemptions verificadas.');
+    } catch (err: any) {
+        console.error('[DB] Error al verificar/crear tablas por curso/alumno:', err.message);
     }
 });
 

@@ -417,7 +417,12 @@ export const getSubjects = async (req: Request, res: Response) => {
     let client;
     try {
         client = await db.connect();
-        const result = await client.query("SELECT * FROM subjects");
+        const result = await client.query(`
+            SELECT s.*, p.name as tributes_to_name
+            FROM subjects s
+            LEFT JOIN subjects p ON s.tributes_to_subject_id = p.id
+            ORDER BY s.name ASC
+        `);
         res.json(result.rows);
     } catch (error) {
         res.status(500).json({ error: 'Error al obtener asignaturas' });
@@ -429,13 +434,21 @@ export const getSubjects = async (req: Request, res: Response) => {
 export const createSubject = async (req: Request, res: Response) => {
     let client;
     try {
-        const { name } = req.body;
+        const { name, influences_gpa, tributes_to_subject_id, is_qualitative } = req.body;
         client = await db.connect();
         
-        await client.query("INSERT INTO subjects (name) VALUES (?)", [name]);
+        const infGpa = influences_gpa !== undefined ? Boolean(influences_gpa) : true;
+        const tribId = tributes_to_subject_id ? parseInt(String(tributes_to_subject_id), 10) : null;
+        const isQual = is_qualitative !== undefined ? Boolean(is_qualitative) : false;
+
+        await client.query(
+            "INSERT INTO subjects (name, influences_gpa, tributes_to_subject_id, is_qualitative) VALUES (?, ?, ?, ?)",
+            [name, infGpa, tribId, isQual]
+        );
         res.status(201).json({ message: 'Asignatura creada' });
-    } catch (error) {
-        res.status(500).json({ error: 'Error al crear asignatura' });
+    } catch (error: any) {
+        console.error("Error creating subject:", error);
+        res.status(500).json({ error: 'Error al crear asignatura', details: error.message });
     } finally {
         if (client) client.release();
     }
@@ -445,12 +458,24 @@ export const updateSubject = async (req: Request, res: Response) => {
     let client;
     try {
         const { id } = req.params;
-        const { name } = req.body;
+        const { name, influences_gpa, tributes_to_subject_id, is_qualitative } = req.body;
         client = await db.connect();
         
-        await client.query("UPDATE subjects SET name = ? WHERE id = ?", [name, id]);
+        const infGpa = influences_gpa !== undefined ? Boolean(influences_gpa) : true;
+        const tribId = tributes_to_subject_id ? parseInt(String(tributes_to_subject_id), 10) : null;
+        const isQual = is_qualitative !== undefined ? Boolean(is_qualitative) : false;
+
+        if (tribId && String(tribId) === String(id)) {
+            return res.status(400).json({ error: 'Una asignatura no puede tributar a sí misma' });
+        }
+
+        await client.query(
+            "UPDATE subjects SET name = ?, influences_gpa = ?, tributes_to_subject_id = ?, is_qualitative = ? WHERE id = ?",
+            [name, infGpa, tribId, isQual, id]
+        );
         res.json({ message: 'Asignatura actualizada correctamente' });
     } catch (error: any) {
+        console.error("Error updating subject:", error);
         res.status(500).json({ error: 'Error al actualizar asignatura', details: error.message });
     } finally {
         if (client) client.release();
@@ -1285,5 +1310,99 @@ export const updateExternalLink = async (req: Request, res: Response) => {
         res.json({ message: 'Enlace externo actualizado correctamente', link: { id, name, url } });
     } catch (error: any) {
         res.status(500).json({ error: 'Error al actualizar enlace externo', details: error.message });
+    }
+};
+
+// Handlers para configuración de asignaturas por Curso (Nivel)
+export const getLevelSubjectSettings = async (req: Request, res: Response) => {
+    const { levelId } = req.params;
+    try {
+        const settings = await db.all(`
+            SELECT lss.*, s.name as subject_name, p.name as tributes_to_name
+            FROM level_subject_settings lss
+            JOIN subjects s ON lss.subject_id = s.id
+            LEFT JOIN subjects p ON lss.tributes_to_subject_id = p.id
+            WHERE lss.level_id = ?
+        `, [levelId]);
+        res.json(settings);
+    } catch (error: any) {
+        res.status(500).json({ error: 'Error al obtener configuración de asignaturas por curso', details: error.message });
+    }
+};
+
+export const updateLevelSubjectSetting = async (req: Request, res: Response) => {
+    const { levelId } = req.params;
+    const { subjectId, influences_gpa, tributes_to_subject_id } = req.body;
+    try {
+        const infGpa = influences_gpa !== undefined ? Boolean(influences_gpa) : true;
+        const tribId = tributes_to_subject_id ? parseInt(String(tributes_to_subject_id), 10) : null;
+        const id = `${levelId}_${subjectId}`;
+
+        await db.run(`
+            INSERT INTO level_subject_settings (id, level_id, subject_id, influences_gpa, tributes_to_subject_id)
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(level_id, subject_id) DO UPDATE SET
+                influences_gpa = EXCLUDED.influences_gpa,
+                tributes_to_subject_id = EXCLUDED.tributes_to_subject_id
+        `, [id, levelId, subjectId, infGpa, tribId]);
+
+        res.json({ success: true, message: 'Configuración de asignatura para el curso guardada' });
+    } catch (error: any) {
+        res.status(500).json({ error: 'Error al actualizar configuración por curso', details: error.message });
+    }
+};
+
+// Handlers para exenciones / exclusiones de asignaturas por Alumno
+export const getStudentExemptions = async (req: Request, res: Response) => {
+    const { studentId } = req.params;
+    const { year } = req.query;
+    try {
+        const yearNum = year ? parseInt(String(year), 10) : 2026;
+        const exemptions = await db.all(`
+            SELECT sse.*, s.name as subject_name
+            FROM student_subject_exemptions sse
+            JOIN subjects s ON sse.subject_id = s.id
+            WHERE sse.student_id = ? AND sse.academic_year = ?
+        `, [studentId, yearNum]);
+        res.json(exemptions);
+    } catch (error: any) {
+        res.status(500).json({ error: 'Error al obtener exenciones del estudiante', details: error.message });
+    }
+};
+
+export const saveStudentExemption = async (req: Request, res: Response) => {
+    const { studentId } = req.params;
+    const { subjectId, academic_year, influences_gpa, reason } = req.body;
+    try {
+        const yearNum = academic_year ? parseInt(String(academic_year), 10) : 2026;
+        const infGpa = influences_gpa !== undefined ? Boolean(influences_gpa) : false;
+        const id = `${studentId}_${subjectId}_${yearNum}`;
+
+        await db.run(`
+            INSERT INTO student_subject_exemptions (id, student_id, subject_id, academic_year, influences_gpa, reason)
+            VALUES (?, ?, ?, ?, ?, ?)
+            ON CONFLICT(student_id, subject_id, academic_year) DO UPDATE SET
+                influences_gpa = EXCLUDED.influences_gpa,
+                reason = EXCLUDED.reason
+        `, [id, studentId, subjectId, yearNum, infGpa, reason || null]);
+
+        res.json({ success: true, message: 'Exención de asignatura guardada correctamente para el alumno' });
+    } catch (error: any) {
+        res.status(500).json({ error: 'Error al guardar exención del alumno', details: error.message });
+    }
+};
+
+export const deleteStudentExemption = async (req: Request, res: Response) => {
+    const { studentId, subjectId } = req.params;
+    const { year } = req.query;
+    try {
+        const yearNum = year ? parseInt(String(year), 10) : 2026;
+        await db.run(`
+            DELETE FROM student_subject_exemptions 
+            WHERE student_id = ? AND subject_id = ? AND academic_year = ?
+        `, [studentId, subjectId, yearNum]);
+        res.json({ success: true, message: 'Exención eliminada correctamente' });
+    } catch (error: any) {
+        res.status(500).json({ error: 'Error al eliminar exención', details: error.message });
     }
 };

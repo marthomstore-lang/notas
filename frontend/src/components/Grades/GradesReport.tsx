@@ -87,8 +87,10 @@ export const GradesReport: React.FC<Props> = ({ data, period, year, onClose }) =
                 {reports.map((report, rIdx) => {
                     const { student, homeroomTeacherName, directorName, periodData, isAnnual } = report;
 
-                    const isQualitativeSubject = (name: string): boolean => {
-                        const lower = name.toLowerCase();
+                    const isExcludedSubject = (row: any): boolean => {
+                        if (row.influencesGpa === false || row.influencesGpa === 0 || row.influencesGpa === '0' || row.influencesGpa === 'false') return true;
+                        if (row.isQualitative) return true;
+                        const lower = String(row.subjectName || '').toLowerCase();
                         return lower.includes('religión') || lower.includes('religion') || lower.includes('orientación') || lower.includes('orientacion');
                     };
 
@@ -105,7 +107,7 @@ export const GradesReport: React.FC<Props> = ({ data, period, year, onClose }) =
                     if (periodData && Array.isArray(periodData)) {
                         if (isAnnual) {
                             const numericAvgS1 = periodData
-                                .filter((row: any) => !isQualitativeSubject(row.subjectName))
+                                .filter((row: any) => !isExcludedSubject(row))
                                 .map((row: any) => {
                                     if (!row.avgS1 || row.avgS1 === '-') return null;
                                     const val = parseFloat(String(row.avgS1).replace(',', '.'));
@@ -117,7 +119,7 @@ export const GradesReport: React.FC<Props> = ({ data, period, year, onClose }) =
                                 : '-';
 
                             const numericAvgS2 = periodData
-                                .filter((row: any) => !isQualitativeSubject(row.subjectName))
+                                .filter((row: any) => !isExcludedSubject(row))
                                 .map((row: any) => {
                                     if (!row.avgS2 || row.avgS2 === '-') return null;
                                     const val = parseFloat(String(row.avgS2).replace(',', '.'));
@@ -129,7 +131,7 @@ export const GradesReport: React.FC<Props> = ({ data, period, year, onClose }) =
                                 : '-';
 
                             const numericFinal = periodData
-                                .filter((row: any) => !isQualitativeSubject(row.subjectName))
+                                .filter((row: any) => !isExcludedSubject(row))
                                 .map((row: any) => {
                                     if (!row.average || row.average === '-') return null;
                                     const val = parseFloat(String(row.average).replace(',', '.'));
@@ -141,7 +143,7 @@ export const GradesReport: React.FC<Props> = ({ data, period, year, onClose }) =
                                 : '-';
                         } else {
                             const numericAverages = periodData
-                                .filter((row: any) => !isQualitativeSubject(row.subjectName))
+                                .filter((row: any) => !isExcludedSubject(row))
                                 .map((row: any) => {
                                     if (!row.average || row.average === '-') return null;
                                     const val = parseFloat(String(row.average).replace(',', '.'));

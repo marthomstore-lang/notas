@@ -25,7 +25,10 @@ CREATE TABLE IF NOT EXISTS levels (
 -- Tabla de Asignaturas
 CREATE TABLE IF NOT EXISTS subjects (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL
+    name TEXT NOT NULL,
+    influences_gpa BOOLEAN DEFAULT 1,
+    tributes_to_subject_id INTEGER REFERENCES subjects(id) ON DELETE SET NULL,
+    is_qualitative BOOLEAN DEFAULT 0
 );
 
 -- Tabla de Asignación Docente
@@ -239,4 +242,26 @@ CREATE TABLE IF NOT EXISTS external_links (
     name TEXT NOT NULL,
     url TEXT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Configuración de Asignaturas por Curso/Nivel
+CREATE TABLE IF NOT EXISTS level_subject_settings (
+    id TEXT PRIMARY KEY,
+    level_id INTEGER REFERENCES levels(id) ON DELETE CASCADE,
+    subject_id INTEGER REFERENCES subjects(id) ON DELETE CASCADE,
+    influences_gpa BOOLEAN DEFAULT 1,
+    tributes_to_subject_id INTEGER REFERENCES subjects(id) ON DELETE SET NULL,
+    UNIQUE(level_id, subject_id)
+);
+
+-- Exenciones / Exclusiones de Asignaturas por Alumno
+CREATE TABLE IF NOT EXISTS student_subject_exemptions (
+    id TEXT PRIMARY KEY,
+    student_id TEXT REFERENCES students(id) ON DELETE CASCADE,
+    subject_id INTEGER REFERENCES subjects(id) ON DELETE CASCADE,
+    academic_year INTEGER NOT NULL,
+    influences_gpa BOOLEAN DEFAULT 0,
+    reason TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(student_id, subject_id, academic_year)
 );

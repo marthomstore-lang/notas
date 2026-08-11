@@ -5,7 +5,10 @@ dist/
 build/
 backend/src/liceopro.db
 backend/liceopro.db
+backend/database.sqlite
+backend/scratch/
 *.log
+*.xlsx
 .DS_Store
 .vscode/
 

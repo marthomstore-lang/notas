@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { LogOut, Plus, Users, BookOpen, GraduationCap, Menu, X, Printer, User, Upload, Edit2, Trash2, BarChart3, Settings, ListOrdered, PieChart, FileText, Lock, Unlock, Globe, Home } from 'lucide-react';
+import { LogOut, Plus, Users, BookOpen, GraduationCap, Menu, X, Printer, User, Upload, Edit2, Trash2, BarChart3, Settings, ListOrdered, PieChart, FileText, Lock, Unlock, Globe, Home, AlertTriangle, FileSpreadsheet, Download } from 'lucide-react';
 import { getLinkImageUrl, footerColors } from './TeacherDashboard';
 import { EnrollmentForm } from '../components/OfficialForm/EnrollmentForm';
 import { OfficialEnrollmentForm } from '../components/OfficialForm/OfficialEnrollmentForm';
@@ -78,6 +78,8 @@ export const AdminDashboard = () => {
     const [isUploading, setIsUploading] = useState(false);
     const [auditLogs, setAuditLogs] = useState<any[]>([]);
     const [auditFilters, setAuditFilters] = useState({ teacher: '', action: '' });
+    const [subjectSearchQuery, setSubjectSearchQuery] = useState('');
+    const [subjectLevelFilter, setSubjectLevelFilter] = useState('');
     const [assignmentTeacherFilter, setAssignmentTeacherFilter] = useState('');
     const [assignmentLevelFilter, setAssignmentLevelFilter] = useState('');
     const [reportTemplates, setReportTemplates] = useState<any[]>([]);
@@ -889,42 +891,156 @@ export const AdminDashboard = () => {
     };
 
     const handleCreateSubject = async () => {
-        const { value: name } = await MySwal.fire({
+        const otherSubjectsOptions = subjects.map((s: any) => `<option value="${s.id}">${s.name}</option>`).join('');
+
+        const { value: formValues } = await MySwal.fire({
             title: 'Nueva Asignatura Global',
-            input: 'text',
-            inputPlaceholder: 'Nombre de la asignatura',
-            showCancelButton: true
+            html: `
+                <div style="text-align: left; display: flex; flex-direction: column; gap: 14px;">
+                    <div>
+                        <label style="font-weight: 600; font-size: 0.9rem;">Nombre de la Asignatura *</label>
+                        <input id="swal-subject-name" class="swal2-input" placeholder="Ej: Física" style="width: 100%; margin-top: 5px;" />
+                    </div>
+                    <div>
+                        <label style="font-weight: 600; font-size: 0.9rem;">Tributa a Asignatura Padre</label>
+                        <select id="swal-subject-tributes" class="swal2-input" style="width: 100%; margin-top: 5px;">
+                            <option value="">Ninguna (Independiente)</option>
+                            ${otherSubjectsOptions}
+                        </select>
+                        <small style="color: #64748b; font-size: 0.8rem; display: block; margin-top: 4px;">
+                            Ejemplo: Física, Química y Biología tributan a Ciencias Naturales.
+                        </small>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 5px;">
+                        <label style="display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 0.9rem; cursor: pointer;">
+                            <input type="checkbox" id="swal-subject-gpa" checked style="width: 18px; height: 18px;" />
+                            ¿Influye en el Promedio General del Alumno?
+                        </label>
+                        <small style="color: #64748b; font-size: 0.8rem; margin-left: 26px;">
+                            Desmarcar si esta asignatura debe descartarse del cálculo del promedio general.
+                        </small>
+
+                        <label style="display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 0.9rem; cursor: pointer; margin-top: 8px;">
+                            <input type="checkbox" id="swal-subject-qual" style="width: 18px; height: 18px;" />
+                            ¿Evaluación Cualitativa (MB, B, S, I)?
+                        </label>
+                    </div>
+                </div>
+            `,
+            focusConfirm: false,
+            showCancelButton: true,
+            confirmButtonText: 'Crear',
+            cancelButtonText: 'Cancelar',
+            preConfirm: () => {
+                const name = (document.getElementById('swal-subject-name') as HTMLInputElement).value;
+                const tributes_to_subject_id = (document.getElementById('swal-subject-tributes') as HTMLSelectElement).value;
+                const influences_gpa = (document.getElementById('swal-subject-gpa') as HTMLInputElement).checked;
+                const is_qualitative = (document.getElementById('swal-subject-qual') as HTMLInputElement).checked;
+
+                if (!name.trim()) {
+                    Swal.showValidationMessage('Por favor ingrese el nombre de la asignatura');
+                    return false;
+                }
+                return {
+                    name: name.trim(),
+                    tributes_to_subject_id: tributes_to_subject_id ? parseInt(tributes_to_subject_id, 10) : null,
+                    influences_gpa,
+                    is_qualitative
+                };
+            }
         });
-        if (name) {
-            await fetch('/_/backend/api/admin/subjects', {
+
+        if (formValues) {
+            const res = await fetch('/_/backend/api/admin/subjects', {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name })
+                body: JSON.stringify(formValues)
             });
-            fetchData();
-            MySwal.fire('Éxito', 'Asignatura creada', 'success');
+            if (res.ok) {
+                fetchData();
+                MySwal.fire('Éxito', 'Asignatura creada correctamente', 'success');
+            } else {
+                const err = await res.json();
+                MySwal.fire('Error', err.error || 'Error al crear la asignatura', 'error');
+            }
         }
     };
 
     const handleEditSubject = async (subject: any) => {
-        const { value: name } = await MySwal.fire({
+        const otherSubjects = subjects.filter((s: any) => String(s.id) !== String(subject.id));
+        const otherSubjectsOptions = otherSubjects.map((s: any) => 
+            `<option value="${s.id}" ${String(s.id) === String(subject.tributes_to_subject_id) ? 'selected' : ''}>${s.name}</option>`
+        ).join('');
+
+        const isGpaChecked = subject.influences_gpa === undefined || subject.influences_gpa === null || subject.influences_gpa === true || subject.influences_gpa === 1 || subject.influences_gpa === '1';
+        const isQualChecked = subject.is_qualitative === true || subject.is_qualitative === 1 || subject.is_qualitative === '1';
+
+        const { value: formValues } = await MySwal.fire({
             title: 'Editar Asignatura Global',
-            input: 'text',
-            inputValue: subject.name,
-            inputPlaceholder: 'Nombre de la asignatura',
+            html: `
+                <div style="text-align: left; display: flex; flex-direction: column; gap: 14px;">
+                    <div>
+                        <label style="font-weight: 600; font-size: 0.9rem;">Nombre de la Asignatura *</label>
+                        <input id="swal-subject-name" class="swal2-input" value="${subject.name.replace(/"/g, '&quot;')}" style="width: 100%; margin-top: 5px;" />
+                    </div>
+                    <div>
+                        <label style="font-weight: 600; font-size: 0.9rem;">Tributa a Asignatura Padre</label>
+                        <select id="swal-subject-tributes" class="swal2-input" style="width: 100%; margin-top: 5px;">
+                            <option value="">Ninguna (Independiente)</option>
+                            ${otherSubjectsOptions}
+                        </select>
+                        <small style="color: #64748b; font-size: 0.8rem; display: block; margin-top: 4px;">
+                            Ejemplo: Física, Química y Biología tributan a Ciencias Naturales.
+                        </small>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 5px;">
+                        <label style="display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 0.9rem; cursor: pointer;">
+                            <input type="checkbox" id="swal-subject-gpa" ${isGpaChecked ? 'checked' : ''} style="width: 18px; height: 18px;" />
+                            ¿Influye en el Promedio General del Alumno?
+                        </label>
+                        <small style="color: #64748b; font-size: 0.8rem; margin-left: 26px;">
+                            Desmarcar si esta asignatura debe descartarse del cálculo del promedio general.
+                        </small>
+
+                        <label style="display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 0.9rem; cursor: pointer; margin-top: 8px;">
+                            <input type="checkbox" id="swal-subject-qual" ${isQualChecked ? 'checked' : ''} style="width: 18px; height: 18px;" />
+                            ¿Evaluación Cualitativa (MB, B, S, I)?
+                        </label>
+                    </div>
+                </div>
+            `,
+            focusConfirm: false,
             showCancelButton: true,
             confirmButtonText: 'Guardar',
-            cancelButtonText: 'Cancelar'
+            cancelButtonText: 'Cancelar',
+            preConfirm: () => {
+                const name = (document.getElementById('swal-subject-name') as HTMLInputElement).value;
+                const tributes_to_subject_id = (document.getElementById('swal-subject-tributes') as HTMLSelectElement).value;
+                const influences_gpa = (document.getElementById('swal-subject-gpa') as HTMLInputElement).checked;
+                const is_qualitative = (document.getElementById('swal-subject-qual') as HTMLInputElement).checked;
+
+                if (!name.trim()) {
+                    Swal.showValidationMessage('Por favor ingrese el nombre de la asignatura');
+                    return false;
+                }
+                return {
+                    name: name.trim(),
+                    tributes_to_subject_id: tributes_to_subject_id ? parseInt(tributes_to_subject_id, 10) : null,
+                    influences_gpa,
+                    is_qualitative
+                };
+            }
         });
-        if (name && name !== subject.name) {
+
+        if (formValues) {
             const res = await fetch(`/_/backend/api/admin/subjects/${subject.id}`, {
                 method: 'PUT',
                 headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name })
+                body: JSON.stringify(formValues)
             });
             if (res.ok) {
                 fetchData();
-                MySwal.fire('Actualizado', 'La asignatura ha sido renombrada.', 'success');
+                MySwal.fire('Actualizado', 'La asignatura ha sido actualizada.', 'success');
             } else {
                 const err = await res.json();
                 MySwal.fire('Error', err.error || 'Error al actualizar', 'error');
@@ -983,6 +1099,240 @@ export const AdminDashboard = () => {
         } catch (error) {
             console.error("Error deleting subject:", error);
             MySwal.fire('Error', 'No se pudo completar la operación.', 'error');
+        }
+    };
+
+    const handleConfigureLevelSubjects = async (level: any) => {
+        try {
+            const res = await fetch(`/_/backend/api/admin/levels/${level.id}/subject-settings`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const settings = res.ok ? await res.json() : [];
+
+            // Get subjects assigned to this level from assignments
+            const levelAssignments = assignments.filter((a: any) => String(a.level_id) === String(level.id));
+            const levelSubjectIds = Array.from(new Set(levelAssignments.map((a: any) => String(a.subject_id))));
+            
+            let courseSubjects = subjects.filter((s: any) => levelSubjectIds.includes(String(s.id)));
+
+            // Include parent subjects if any assigned subject tributes to them
+            const parentIds = courseSubjects.map((s: any) => s.tributes_to_subject_id).filter(Boolean);
+            for (const pId of parentIds) {
+                if (!courseSubjects.some((s: any) => String(s.id) === String(pId))) {
+                    const parentSub = subjects.find((s: any) => String(s.id) === String(pId));
+                    if (parentSub) courseSubjects.push(parentSub);
+                }
+            }
+
+            if (courseSubjects.length === 0) {
+                courseSubjects = subjects;
+            }
+
+            let htmlForm = `
+                <div style="text-align: left; max-height: 450px; overflow-y: auto; padding-right: 5px;">
+                    <p style="color: #64748b; font-size: 0.85rem; margin-bottom: 15px;">
+                        Define si una asignatura influye en el promedio o tributa a otra <strong>específicamente para ${level.name}</strong> (${courseSubjects.length} asignaturas asignadas al curso).
+                    </p>
+                    <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+                        <thead>
+                            <tr style="border-bottom: 2px solid #e2e8f0; text-align: left;">
+                                <th style="padding: 6px;">Asignatura</th>
+                                <th style="padding: 6px;">Promedio del Curso</th>
+                                <th style="padding: 6px;">Tributación Curso</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+
+            courseSubjects.forEach((s: any) => {
+                const setting = settings.find((set: any) => String(set.subject_id) === String(s.id));
+                const infGpa = setting ? (setting.influences_gpa === true || setting.influences_gpa === 1 || setting.influences_gpa === '1') : (s.influences_gpa === undefined || s.influences_gpa === true || s.influences_gpa === 1 || s.influences_gpa === '1');
+                const tribId = setting ? (setting.tributes_to_subject_id || '') : (s.tributes_to_subject_id || '');
+
+                const otherSubjectsOptions = courseSubjects
+                    .filter((other: any) => String(other.id) !== String(s.id))
+                    .map((other: any) => `<option value="${other.id}" ${String(other.id) === String(tribId) ? 'selected' : ''}>${other.name}</option>`)
+                    .join('');
+
+                htmlForm += `
+                    <tr style="border-bottom: 1px solid #f1f5f9;">
+                        <td style="padding: 8px; font-weight: 600;">${s.name}</td>
+                        <td style="padding: 8px;">
+                            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                                <input type="checkbox" id="lvl-sub-gpa-${s.id}" ${infGpa ? 'checked' : ''} />
+                                Influye
+                            </label>
+                        </td>
+                        <td style="padding: 8px;">
+                            <select id="lvl-sub-trib-${s.id}" style="padding: 4px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 0.8rem; width: 100%;">
+                                <option value="">Independiente</option>
+                                ${otherSubjectsOptions}
+                            </select>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            htmlForm += `
+                        </tbody>
+                    </table>
+                </div>
+            `;
+
+            const { isConfirmed } = await MySwal.fire({
+                title: `Reglas de Asignaturas: ${level.name}`,
+                html: htmlForm,
+                width: '650px',
+                showCancelButton: true,
+                confirmButtonText: 'Guardar Reglas',
+                cancelButtonText: 'Cancelar',
+                preConfirm: async () => {
+                    for (const s of courseSubjects) {
+                        const infGpaEl = document.getElementById(`lvl-sub-gpa-${s.id}`) as HTMLInputElement;
+                        const tribEl = document.getElementById(`lvl-sub-trib-${s.id}`) as HTMLSelectElement;
+
+                        if (infGpaEl && tribEl) {
+                            const influences_gpa = infGpaEl.checked;
+                            const tributes_to_subject_id = tribEl.value ? parseInt(tribEl.value, 10) : null;
+
+                            await fetch(`/_/backend/api/admin/levels/${level.id}/subject-settings`, {
+                                method: 'POST',
+                                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    subjectId: s.id,
+                                    influences_gpa,
+                                    tributes_to_subject_id
+                                })
+                            });
+                        }
+                    }
+                    return true;
+                }
+            });
+
+            if (isConfirmed) {
+                MySwal.fire('Guardado', `Reglas del curso ${level.name} actualizadas correctamente.`, 'success');
+            }
+        } catch (err: any) {
+            console.error("Error en handleConfigureLevelSubjects:", err);
+            MySwal.fire('Error', 'No se pudieron cargar o guardar las reglas del curso', 'error');
+        }
+    };
+
+    const handleConfigureStudentExemptions = async (student: any) => {
+        try {
+            const res = await fetch(`/_/backend/api/admin/students/${student.id}/exemptions?year=2026`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const exemptions = res.ok ? await res.json() : [];
+
+            // Find level for student
+            const stuLevel = levels.find((l: any) => String(l.name) === String(student.level_name) || String(l.id) === String(student.level_id));
+            const levelId = stuLevel ? stuLevel.id : student.level_id;
+
+            const levelAssignments = assignments.filter((a: any) => String(a.level_id) === String(levelId));
+            const levelSubjectIds = Array.from(new Set(levelAssignments.map((a: any) => String(a.subject_id))));
+            
+            let studentCourseSubjects = subjects.filter((s: any) => levelSubjectIds.includes(String(s.id)));
+
+            const parentIds = studentCourseSubjects.map((s: any) => s.tributes_to_subject_id).filter(Boolean);
+            for (const pId of parentIds) {
+                if (!studentCourseSubjects.some((s: any) => String(s.id) === String(pId))) {
+                    const parentSub = subjects.find((s: any) => String(s.id) === String(pId));
+                    if (parentSub) studentCourseSubjects.push(parentSub);
+                }
+            }
+
+            if (studentCourseSubjects.length === 0) {
+                studentCourseSubjects = subjects;
+            }
+
+            let htmlForm = `
+                <div style="text-align: left; max-height: 450px; overflow-y: auto;">
+                    <p style="color: #64748b; font-size: 0.85rem; margin-bottom: 15px;">
+                        Marca las asignaturas asignadas a <strong>${student.level_name || 'su curso'}</strong> (${studentCourseSubjects.length} asignaturas) de las que <strong>${formatName(student.full_name || student.name)}</strong> está eximido o descartado en su promedio general.
+                    </p>
+                    <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+                        <thead>
+                            <tr style="border-bottom: 2px solid #e2e8f0; text-align: left;">
+                                <th style="padding: 6px;">Asignatura</th>
+                                <th style="padding: 6px;">Promedio Alumno</th>
+                                <th style="padding: 6px;">Motivo Exención</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+
+            studentCourseSubjects.forEach((s: any) => {
+                const ex = exemptions.find((e: any) => String(e.subject_id) === String(s.id));
+                const isExempt = ex ? (ex.influences_gpa === false || ex.influences_gpa === 0 || ex.influences_gpa === '0' || ex.influences_gpa === 'false') : false;
+                const reasonVal = ex ? (ex.reason || '') : '';
+
+                htmlForm += `
+                    <tr style="border-bottom: 1px solid #f1f5f9;">
+                        <td style="padding: 8px; font-weight: 600;">${s.name}</td>
+                        <td style="padding: 8px;">
+                            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; color: ${isExempt ? '#dc2626' : '#1e293b'}; font-weight: ${isExempt ? '700' : 'normal'};">
+                                <input type="checkbox" id="stu-ex-check-${s.id}" ${isExempt ? 'checked' : ''} />
+                                Eximido (No Promedia)
+                            </label>
+                        </td>
+                        <td style="padding: 8px;">
+                            <input type="text" id="stu-ex-reason-${s.id}" value="${reasonVal.replace(/"/g, '&quot;')}" placeholder="Ej. Exención Mineduc" style="padding: 4px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 0.8rem; width: 100%;" />
+                        </td>
+                    </tr>
+                `;
+            });
+
+            htmlForm += `
+                        </tbody>
+                    </table>
+                </div>
+            `;
+
+            const { isConfirmed } = await MySwal.fire({
+                title: `Exenciones de Alumno: ${formatName(student.full_name || student.name)}`,
+                html: htmlForm,
+                width: '650px',
+                showCancelButton: true,
+                confirmButtonText: 'Guardar Exenciones',
+                cancelButtonText: 'Cancelar',
+                preConfirm: async () => {
+                    for (const s of studentCourseSubjects) {
+                        const checkEl = document.getElementById(`stu-ex-check-${s.id}`) as HTMLInputElement;
+                        const reasonEl = document.getElementById(`stu-ex-reason-${s.id}`) as HTMLInputElement;
+
+                        if (checkEl) {
+                            if (checkEl.checked) {
+                                await fetch(`/_/backend/api/admin/students/${student.id}/exemptions`, {
+                                    method: 'POST',
+                                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                        subjectId: s.id,
+                                        academic_year: 2026,
+                                        influences_gpa: false,
+                                        reason: reasonEl ? reasonEl.value : ''
+                                    })
+                                });
+                            } else {
+                                await fetch(`/_/backend/api/admin/students/${student.id}/exemptions/${s.id}?year=2026`, {
+                                    method: 'DELETE',
+                                    headers: { 'Authorization': `Bearer ${token}` }
+                                });
+                            }
+                        }
+                    }
+                    return true;
+                }
+            });
+
+            if (isConfirmed) {
+                fetchData();
+                MySwal.fire('Guardado', 'Exenciones del alumno actualizadas correctamente.', 'success');
+            }
+        } catch (err: any) {
+            console.error("Error en handleConfigureStudentExemptions:", err);
+            MySwal.fire('Error', 'No se pudieron guardar las exenciones del alumno', 'error');
         }
     };
 
@@ -1683,6 +2033,45 @@ export const AdminDashboard = () => {
                             </p>
                         </div>
 
+                        {/* Widget de Descarga de Notas Pendientes */}
+                        <div className="card" style={{ marginBottom: '30px', padding: '24px', borderRadius: '16px', background: '#fffbeb', border: '1px solid #fde68a', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
+                                <div>
+                                    <h3 style={{ margin: '0 0 6px 0', color: '#92400e', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.2rem' }}>
+                                        <FileSpreadsheet size={22} style={{ color: '#d97706' }} /> Reporte de Notas Pendientes (Excel)
+                                    </h3>
+                                    <p style={{ margin: 0, color: '#b45309', fontSize: '0.95rem' }}>
+                                        Descargue la planilla con el detalle de estudiantes pendientes por curso y asignatura (excluye Pre-Kinder, Kínder y Taller Laboral).
+                                    </p>
+                                </div>
+                                <button 
+                                    className="primary-btn"
+                                    style={{ background: '#d97706', display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px', fontSize: '0.95rem', borderRadius: '10px' }}
+                                    onClick={async () => {
+                                        try {
+                                            const res = await fetch(`/_/backend/api/admin/reports/pending-grades/export?year=2026&period=1er Semestre`, {
+                                                headers: { 'Authorization': `Bearer ${token}` }
+                                            });
+                                            if (!res.ok) throw new Error("Error al generar reporte Excel");
+                                            const blob = await res.blob();
+                                            const url = window.URL.createObjectURL(blob);
+                                            const a = document.createElement('a');
+                                            a.href = url;
+                                            a.download = `Reporte_Notas_Pendientes_2026_1er_Semestre.xlsx`;
+                                            document.body.appendChild(a);
+                                            a.click();
+                                            a.remove();
+                                        } catch (err: any) {
+                                            console.error("Error descargando reporte:", err);
+                                            MySwal.fire('Error', 'No se pudo descargar el reporte de notas pendientes', 'error');
+                                        }
+                                    }}
+                                >
+                                    <Download size={18} /> Descargar Reporte Excel
+                                </button>
+                            </div>
+                        </div>
+
                         {/* Plataformas de Interés */}
                         <div className="card" style={{ border: 'none', background: 'transparent', padding: 0, boxShadow: 'none' }}>
                             <h3 style={{ margin: '0 0 25px 0', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '1.4rem', color: '#1e293b' }}>
@@ -1977,6 +2366,7 @@ export const AdminDashboard = () => {
                                                 <th>Matriculados</th>
                                                 <th>Cupos Disponibles (SAE)</th>
                                                 <th>Plantilla Informe</th>
+                                                {!isVisita && <th>Reglas Asignaturas</th>}
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -2018,6 +2408,18 @@ export const AdminDashboard = () => {
                                                             ))}
                                                         </select>
                                                     </td>
+                                                    {!isVisita && (
+                                                        <td>
+                                                            <button 
+                                                                type="button"
+                                                                onClick={() => handleConfigureLevelSubjects(l)}
+                                                                style={{ padding: '5px 10px', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '4px', color: '#1e293b', cursor: 'pointer', fontWeight: '600' }}
+                                                                title="Configurar promedios y tributaciones para este curso"
+                                                            >
+                                                                <BookOpen size={14} /> Reglas del Curso
+                                                            </button>
+                                                        </td>
+                                                    )}
                                                 </tr>
                                             ))}
                                         </tbody>
@@ -2029,42 +2431,118 @@ export const AdminDashboard = () => {
                         {configSubTab === 'subjects' && (
                             <div className="card card-split-layout">
                                 <div className="card-split-header">
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
                                         <h3 style={{ margin: 0 }}>Asignaturas Globales</h3>
                                         {!isVisita && <button className="primary-btn" onClick={handleCreateSubject}><Plus size={18} /> Nueva Asignatura</button>}
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '15px', alignItems: 'center', flexWrap: 'wrap' }}>
+                                        <div style={{ flex: 1, minWidth: '220px' }}>
+                                            <input 
+                                                type="text" 
+                                                placeholder="🔍 Buscar asignatura por nombre..." 
+                                                value={subjectSearchQuery} 
+                                                onChange={(e) => setSubjectSearchQuery(e.target.value)} 
+                                                style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.9rem' }} 
+                                            />
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <label style={{ fontWeight: '600', fontSize: '0.85rem', color: '#475569' }}>Filtrar por Curso:</label>
+                                            <select 
+                                                value={subjectLevelFilter} 
+                                                onChange={(e) => setSubjectLevelFilter(e.target.value)} 
+                                                style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.9rem' }}
+                                            >
+                                                <option value="">Todos los Cursos</option>
+                                                {levels.map(l => (
+                                                    <option key={l.id} value={String(l.id)}>{l.name}</option>
+                                                ))}
+                                            </select>
+                                        </div>
                                     </div>
                                 </div>
                                 <div className="card-split-content">
                                     <table className="data-table">
-                                        <thead><tr><th>Nombre</th>{!isVisita && <th>Acciones</th>}</tr></thead>
+                                        <thead>
+                                            <tr>
+                                                <th>Nombre</th>
+                                                <th>Influye en Promedio</th>
+                                                <th>Tributación</th>
+                                                <th>Tipo Evaluación</th>
+                                                {!isVisita && <th>Acciones</th>}
+                                            </tr>
+                                        </thead>
                                         <tbody>
-                                            {subjects.map(s => (
-                                                <tr key={s.id}>
-                                                    <td>{s.name}</td>
-                                                    {!isVisita && (
+                                            {subjects
+                                                .filter(s => {
+                                                    const matchesSearch = subjectSearchQuery === '' || s.name.toLowerCase().includes(subjectSearchQuery.toLowerCase());
+                                                    let matchesLevel = true;
+                                                    if (subjectLevelFilter !== '') {
+                                                        const levelAssignedSubjectIds = assignments
+                                                            .filter(a => String(a.level_id) === String(subjectLevelFilter))
+                                                            .map(a => String(a.subject_id));
+                                                        
+                                                        const levelAssignedSubs = subjects.filter(sub => levelAssignedSubjectIds.includes(String(sub.id)));
+                                                        const parentIds = levelAssignedSubs.map(sub => String(sub.tributes_to_subject_id)).filter(Boolean);
+
+                                                        matchesLevel = levelAssignedSubjectIds.includes(String(s.id)) || parentIds.includes(String(s.id));
+                                                    }
+                                                    return matchesSearch && matchesLevel;
+                                                })
+                                                .map(s => {
+                                                const infGpa = s.influences_gpa === undefined || s.influences_gpa === null || s.influences_gpa === true || s.influences_gpa === 1 || s.influences_gpa === '1';
+                                                const isQual = s.is_qualitative === true || s.is_qualitative === 1 || s.is_qualitative === '1';
+
+                                                return (
+                                                    <tr key={s.id}>
+                                                        <td style={{ fontWeight: '600' }}>{s.name}</td>
                                                         <td>
-                                                            <div style={{ display: 'flex', gap: '15px' }}>
-                                                                <button 
-                                                                    type="button"
-                                                                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#3b82f6', padding: '5px' }}
-                                                                    onClick={(e) => { e.stopPropagation(); handleEditSubject(s); }}
-                                                                    title="Editar Asignatura"
-                                                                >
-                                                                    <Edit2 size={20} />
-                                                                </button>
-                                                                <button 
-                                                                    type="button"
-                                                                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: '5px' }}
-                                                                    onClick={(e) => { e.stopPropagation(); handleDeleteSubject(s); }}
-                                                                    title="Eliminar Asignatura"
-                                                                >
-                                                                    <Trash2 size={20} />
-                                                                </button>
-                                                            </div>
+                                                            {infGpa ? (
+                                                                <span style={{ color: '#16a34a', background: '#dcfce7', padding: '3px 8px', borderRadius: '4px', fontSize: '0.82rem', fontWeight: '600' }}>Sí</span>
+                                                            ) : (
+                                                                <span style={{ color: '#dc2626', background: '#fee2e2', padding: '3px 8px', borderRadius: '4px', fontSize: '0.82rem', fontWeight: '600' }}>No (Descartada)</span>
+                                                            )}
                                                         </td>
-                                                    )}
-                                                </tr>
-                                            ))}
+                                                        <td>
+                                                            {s.tributes_to_name ? (
+                                                                <span style={{ color: '#2563eb', background: '#dbeafe', padding: '3px 8px', borderRadius: '4px', fontSize: '0.82rem', fontWeight: '600' }}>
+                                                                    Tributa a {s.tributes_to_name}
+                                                                </span>
+                                                            ) : (
+                                                                <span style={{ color: '#64748b', fontSize: '0.85rem' }}>Independiente</span>
+                                                            )}
+                                                        </td>
+                                                        <td>
+                                                            {isQual ? (
+                                                                <span style={{ color: '#9333ea', background: '#f3e8ff', padding: '3px 8px', borderRadius: '4px', fontSize: '0.82rem', fontWeight: '600' }}>Cualitativa (MB/B/S/I)</span>
+                                                            ) : (
+                                                                <span style={{ color: '#475569', fontSize: '0.85rem' }}>Numérica (1,0 - 7,0)</span>
+                                                            )}
+                                                        </td>
+                                                        {!isVisita && (
+                                                            <td>
+                                                                <div style={{ display: 'flex', gap: '15px' }}>
+                                                                    <button 
+                                                                        type="button"
+                                                                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#3b82f6', padding: '5px' }}
+                                                                        onClick={(e) => { e.stopPropagation(); handleEditSubject(s); }}
+                                                                        title="Editar Asignatura"
+                                                                    >
+                                                                        <Edit2 size={20} />
+                                                                    </button>
+                                                                    <button 
+                                                                        type="button"
+                                                                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: '5px' }}
+                                                                        onClick={(e) => { e.stopPropagation(); handleDeleteSubject(s); }}
+                                                                        title="Eliminar Asignatura"
+                                                                    >
+                                                                        <Trash2 size={20} />
+                                                                    </button>
+                                                                </div>
+                                                            </td>
+                                                        )}
+                                                    </tr>
+                                                );
+                                            })}
                                         </tbody>
                                     </table>
                                 </div>
@@ -3164,6 +3642,11 @@ export const AdminDashboard = () => {
                                                             <button onClick={() => handleViewObservations(s)} title="Libro de Vida" style={{ padding: '6px', background: '#10b981', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
                                                                 <BookOpen size={14} />
                                                             </button>
+                                                            {!isVisita && (
+                                                                <button onClick={() => handleConfigureStudentExemptions(s)} title="Exenciones / Exclusión de Asignaturas del Promedio Alumno" style={{ padding: '6px', background: '#8b5cf6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+                                                                    <AlertTriangle size={14} />
+                                                                </button>
+                                                            )}
                                                             {!isVisita && (
                                                                 <button onClick={() => handleDeleteStudent(s.id)} title="Dar de baja" style={{ padding: '6px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
                                                                     <X size={14} />

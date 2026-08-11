@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { 
-    FileText, Save, Printer, Lock, Unlock, Edit2, ListOrdered
+    FileText, Save, Printer, Lock, Unlock, Edit2, ListOrdered, Download, Plus, Trash2
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import Swal from 'sweetalert2';
@@ -71,8 +71,36 @@ export const GradesSheet: React.FC<GradesSheetProps> = ({ initialLevelId, initia
 
     const [options, setOptions] = useState({
         levels: [] as any[],
-        subjects: [] as any[]
+        subjects: [] as any[],
+        assignments: [] as any[]
     });
+
+    const availableSubjects = React.useMemo(() => {
+        if (!filters.levelId || !options.assignments) return options.subjects;
+        
+        const levelAssignedSubjectIds = options.assignments
+            .filter((a: any) => String(a.level_id) === String(filters.levelId))
+            .map((a: any) => String(a.subject_id));
+
+        if (levelAssignedSubjectIds.length === 0) {
+            return [];
+        }
+
+        const levelSubs = options.subjects.filter((s: any) => levelAssignedSubjectIds.includes(String(s.id)));
+        const parentIds = levelSubs.map((s: any) => String(s.tributes_to_subject_id)).filter(Boolean);
+
+        return options.subjects.filter((s: any) => levelAssignedSubjectIds.includes(String(s.id)) || parentIds.includes(String(s.id)));
+    }, [filters.levelId, options.subjects, options.assignments]);
+
+    useEffect(() => {
+        if (availableSubjects.length > 0) {
+            if (!availableSubjects.some(s => String(s.id) === String(filters.subjectId))) {
+                setFilters(f => ({ ...f, subjectId: String(availableSubjects[0].id) }));
+            }
+        } else if (filters.levelId && options.assignments && options.assignments.length > 0) {
+            setFilters(f => ({ ...f, subjectId: '' }));
+        }
+    }, [filters.levelId, availableSubjects, options.assignments]);
 
     const isQualitativeSubject = (name: string) => {
         const lower = name.toLowerCase();
@@ -173,6 +201,53 @@ export const GradesSheet: React.FC<GradesSheetProps> = ({ initialLevelId, initia
         }
     };
 
+    const handleAddColumn = () => {
+        if (isLocked || isVisita) return;
+        setColumns(prev => {
+            const nextPos = prev.length + 1;
+            if (nextPos > 12) {
+                MySwal.fire('Límite alcanzado', 'No se pueden agregar más de 12 evaluaciones por período', 'warning');
+                return prev;
+            }
+            return [...prev, { position: nextPos, weighting: 0, title: `Nota ${nextPos}` }];
+        });
+    };
+
+    const handleRemoveColumn = () => {
+        if (isLocked || isVisita) return;
+        if (columns.length <= 1) {
+            MySwal.fire('Aviso', 'Debe existir al menos 1 casillero de nota', 'info');
+            return;
+        }
+
+        const lastCol = columns[columns.length - 1];
+        const hasGrades = Object.keys(grades).some(key => key.endsWith(`_${lastCol.position}`) && grades[key] !== '' && grades[key] !== null && grades[key] !== undefined);
+
+        if (hasGrades) {
+            MySwal.fire({
+                title: '¿Eliminar casillero con notas?',
+                text: `La columna "${lastCol.title || 'Nota ' + lastCol.position}" contiene calificaciones registradas. ¿Desea eliminarla de todas formas?`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Sí, eliminar',
+                cancelButtonText: 'Cancelar'
+            }).then(result => {
+                if (result.isConfirmed) {
+                    setColumns(prev => prev.slice(0, prev.length - 1));
+                    setGrades(prev => {
+                        const copy = { ...prev };
+                        Object.keys(copy).forEach(k => {
+                            if (k.endsWith(`_${lastCol.position}`)) delete copy[k];
+                        });
+                        return copy;
+                    });
+                }
+            });
+        } else {
+            setColumns(prev => prev.slice(0, prev.length - 1));
+        }
+    };
+
     useEffect(() => {
         fetchFilters();
     }, []);
@@ -198,13 +273,14 @@ export const GradesSheet: React.FC<GradesSheetProps> = ({ initialLevelId, initia
                 .sort((a: any, b: any) => levelOrder.indexOf(a.name) - levelOrder.indexOf(b.name));
             
             const subjects = Array.isArray(data.subjects) ? data.subjects : [];
-            setOptions({ levels, subjects });
+            const assignments = Array.isArray(data.assignments) ? data.assignments : [];
+            setOptions({ levels, subjects, assignments });
 
             // Only set defaults if not provided as props
             setFilters(f => ({ 
                 ...f, 
                 levelId: initialLevelId || f.levelId || (levels.length > 0 ? levels[0].id : ''),
-                subjectId: initialSubjectId || f.subjectId || (subjects.length > 0 ? subjects[0].id : '')
+                subjectId: initialSubjectId || f.subjectId || ''
             }));
         } catch (error) {
             console.error("Error fetching filters:", error);
@@ -569,6 +645,52 @@ export const GradesSheet: React.FC<GradesSheetProps> = ({ initialLevelId, initia
                     <button className="secondary-btn" onClick={handlePrintCourse} title="Generar informes de todo el curso">
                         <FileText size={18} /> Informes/Certificados
                     </button>
+                    <button 
+                        className="secondary-btn" 
+                        onClick={async () => {
+                            try {
+                                const res = await fetch(`/_/backend/api/admin/reports/pending-grades/export?year=${filters.year}&period=${filters.period}&levelId=${filters.levelId || 'all'}&subjectId=${filters.subjectId || 'all'}`, {
+                                    headers: { 'Authorization': `Bearer ${token}` }
+                                });
+                                if (!res.ok) throw new Error("Error al generar reporte Excel");
+                                const blob = await res.blob();
+                                const url = window.URL.createObjectURL(blob);
+                                const a = document.createElement('a');
+                                a.href = url;
+                                a.download = `Reporte_Notas_Pendientes_${filters.year}_${filters.period.replace(/\s+/g, '_')}.xlsx`;
+                                document.body.appendChild(a);
+                                a.click();
+                                a.remove();
+                            } catch (err: any) {
+                                console.error("Error descargando reporte:", err);
+                                MySwal.fire('Error', 'No se pudo descargar el reporte de notas pendientes', 'error');
+                            }
+                        }} 
+                        title="Descargar reporte Excel de alumnos con notas pendientes o casilleros vacíos"
+                        style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#b45309', border: '1px solid #fde68a', background: '#fffbeb' }}
+                    >
+                        <Download size={18} /> Pendientes Excel
+                    </button>
+                    {!isVisita && !isLocked && availableSubjects.length > 0 && filters.subjectId && (
+                        <>
+                            <button 
+                                className="secondary-btn"
+                                onClick={handleAddColumn}
+                                title="Agregar una nueva columna de evaluación para esta asignatura"
+                                style={{ display: 'flex', alignItems: 'center', gap: '4px', background: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0' }}
+                            >
+                                <Plus size={18} /> Agregar Nota
+                            </button>
+                            <button 
+                                className="secondary-btn"
+                                onClick={handleRemoveColumn}
+                                title="Eliminar la última columna de evaluación no utilizada"
+                                style={{ display: 'flex', alignItems: 'center', gap: '4px', background: '#fef2f2', color: '#b91c1c', border: '1px solid #fecaca' }}
+                            >
+                                <Trash2 size={18} /> Quitar Nota
+                            </button>
+                        </>
+                    )}
                 </div>
             </header>
 
@@ -594,9 +716,16 @@ export const GradesSheet: React.FC<GradesSheetProps> = ({ initialLevelId, initia
                 {!initialSubjectId && (
                     <div className="filter-item">
                         <label>Asignatura:</label>
-                        <select value={filters.subjectId} onChange={e => setFilters({...filters, subjectId: e.target.value})}>
-                            <option value="">Seleccione</option>
-                            {options.subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                        <select 
+                            value={filters.subjectId} 
+                            onChange={e => setFilters({...filters, subjectId: e.target.value})}
+                            disabled={availableSubjects.length === 0}
+                        >
+                            {availableSubjects.length === 0 ? (
+                                <option value="">(Sin asignaturas asignadas a este curso)</option>
+                            ) : (
+                                availableSubjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)
+                            )}
                         </select>
                     </div>
                 )}
@@ -610,49 +739,59 @@ export const GradesSheet: React.FC<GradesSheetProps> = ({ initialLevelId, initia
                 </div>
             </div>
 
-            <div className="grades-table-container">
-                <table className="grades-table">
-                    <thead>
-                        <tr>
-                            <th style={{ width: '85px' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
-                                    N° Lista
-                                    {!isVisita && (
-                                        <button 
-                                            className="bulk-reorder-btn no-print" 
-                                            onClick={handleBulkReorder} 
-                                            title="Auto-numerar por orden alfabético"
-                                            style={{ 
-                                                background: '#f1f5f9', 
-                                                border: '1px solid #e2e8f0', 
-                                                borderRadius: '4px',
-                                                padding: '2px 4px',
-                                                fontSize: '10px',
-                                                cursor: 'pointer'
-                                            }}
-                                        >
-                                            A-Z
-                                        </button>
-                                    )}
-                                </div>
-                            </th>
-                            <th className="student-name-col">Nombre alumno</th>
-                            {columns.slice(0, 10).map(c => (
-                                <th 
-                                    key={c.position}
-                                    onClick={() => !isLocked && !isVisita && handleEditColumnTitle(c)}
-                                    style={{ cursor: (isLocked || isVisita) ? 'default' : 'pointer' }}
-                                    title={(isLocked || isVisita) ? undefined : "Haga clic para renombrar evaluación"}
-                                >
+            {filters.levelId && availableSubjects.length === 0 && (
+                <div style={{ padding: '25px', textAlign: 'center', background: '#fffbebfb', borderRadius: '12px', border: '1px solid #fde68a', margin: '20px 0', color: '#b45309' }}>
+                    <h3 style={{ margin: '0 0 8px 0', fontSize: '1.1rem' }}>⚠️ Este curso no tiene asignaturas asignadas en la configuración</h3>
+                    <p style={{ margin: 0, fontSize: '0.9rem', color: '#92400e' }}>
+                        Para registrar o revisar calificaciones en este curso, primero debe asignar las asignaturas correspondientes en <strong>Administrador &gt; Configuración &gt; Asignaciones</strong>.
+                    </p>
+                </div>
+            )}
+
+            {filters.subjectId && availableSubjects.length > 0 && (
+                <div className="grades-table-container">
+                    <table className="grades-table">
+                        <thead>
+                            <tr>
+                                <th style={{ width: '85px' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
-                                        {c.title}
-                                        {!isLocked && !isVisita && <Edit2 size={10} style={{ opacity: 0.4 }} />}
+                                        N° Lista
+                                        {!isVisita && (
+                                            <button 
+                                                className="bulk-reorder-btn no-print" 
+                                                onClick={handleBulkReorder} 
+                                                title="Auto-numerar por orden alfabético"
+                                                style={{ 
+                                                    background: '#f1f5f9', 
+                                                    border: '1px solid #e2e8f0', 
+                                                    borderRadius: '4px',
+                                                    padding: '2px 4px',
+                                                    fontSize: '10px',
+                                                    cursor: 'pointer'
+                                                }}
+                                            >
+                                                A-Z
+                                            </button>
+                                        )}
                                     </div>
                                 </th>
-                            ))}
-                            <th>Promedio</th>
-                            <th className="no-print">Acciones</th>
-                        </tr>
+                                <th className="student-name-col">Nombre alumno</th>
+                                {columns.slice(0, 10).map(c => (
+                                    <th 
+                                        key={c.position}
+                                        onClick={() => !isLocked && !isVisita && handleEditColumnTitle(c)}
+                                        style={{ cursor: (isLocked || isVisita) ? 'default' : 'pointer' }}
+                                        title={(isLocked || isVisita) ? undefined : "Haga clic para renombrar evaluación"}
+                                    >
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                                            {c.title}
+                                            {!isLocked && !isVisita && <Edit2 size={10} style={{ opacity: 0.4 }} />}
+                                        </div>
+                                    </th>
+                                ))}
+                                <th>Promedio</th>
+                                <th className="no-print">Acciones</th>
+                            </tr>
                     </thead>
                     <tbody>
                         {[...students].sort((a, b) => {
@@ -780,6 +919,7 @@ export const GradesSheet: React.FC<GradesSheetProps> = ({ initialLevelId, initia
                     </tbody>
                 </table>
             </div>
+            )}
 
             {reportData && (
                 <GradesReport 

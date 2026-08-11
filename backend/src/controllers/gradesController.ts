@@ -92,6 +92,10 @@ export const saveGradesSheet = async (req: Request, res: Response) => {
         const yearNum = year ? parseInt(String(year), 10) : 0;
         const periodStr = String(period || '');
 
+        if (!levelIdNum || !subjectIdNum) {
+            return res.status(400).json({ error: 'ID de curso o asignatura inválido para guardar notas.' });
+        }
+
         const specificLogs = [];
 
         // 1. Sync Grade Columns settings first
@@ -288,10 +292,12 @@ export const bulkUpdateStudentPositions = async (req: Request, res: Response) =>
 export const getFiltersData = async (req: Request, res: Response) => {
     const user = (req as any).user;
     try {
+        const assignments = await db.all('SELECT DISTINCT level_id, subject_id FROM teacher_assignments');
+
         if (user.role === 'Admin' || user.role === 'Visita') {
             const levels = await db.all('SELECT * FROM levels');
             const subjects = await db.all('SELECT * FROM subjects');
-            return res.json({ levels, subjects });
+            return res.json({ levels, subjects, assignments });
         }
 
         const levels = await db.all(`
@@ -314,7 +320,7 @@ export const getFiltersData = async (req: Request, res: Response) => {
             WHERE l.homeroom_teacher_id = ?
         `, [user.id, user.id]);
 
-        res.json({ levels, subjects });
+        res.json({ levels, subjects, assignments });
     } catch (error: any) {
         res.status(500).json({ error: error.message });
     }
@@ -432,22 +438,33 @@ export const getGradesOverview = async (req: Request, res: Response) => {
         let subjects;
         if (isAll) {
             subjects = await db.all(`
-                SELECT sub.id, sub.name, string_agg(DISTINCT u.name, ', ') as teacher_name
+                SELECT sub.id, sub.name, sub.influences_gpa, sub.tributes_to_subject_id, sub.is_qualitative, string_agg(DISTINCT u.name, ', ') as teacher_name
                 FROM teacher_assignments ta
                 JOIN subjects sub ON ta.subject_id = sub.id
                 LEFT JOIN users u ON ta.teacher_id = u.id
                 WHERE ta.academic_year = ?
-                GROUP BY sub.id, sub.name
+                GROUP BY sub.id, sub.name, sub.influences_gpa, sub.tributes_to_subject_id, sub.is_qualitative
             `, [yearNum]);
         } else {
             subjects = await db.all(`
-                SELECT sub.id, sub.name, string_agg(DISTINCT u.name, ', ') as teacher_name
+                SELECT sub.id, sub.name, sub.influences_gpa, sub.tributes_to_subject_id, sub.is_qualitative, string_agg(DISTINCT u.name, ', ') as teacher_name
                 FROM teacher_assignments ta
                 JOIN subjects sub ON ta.subject_id = sub.id
                 LEFT JOIN users u ON ta.teacher_id = u.id
                 WHERE ta.level_id = ? AND ta.academic_year = ?
-                GROUP BY sub.id, sub.name
+                GROUP BY sub.id, sub.name, sub.influences_gpa, sub.tributes_to_subject_id, sub.is_qualitative
             `, [levelIdNum, yearNum]);
+        }
+
+        // Include parent subjects referenced by tributes_to_subject_id if missing
+        const parentSubjectIds = subjects.map((s: any) => s.tributes_to_subject_id).filter(Boolean);
+        for (const pId of parentSubjectIds) {
+            if (!subjects.some((s: any) => String(s.id) === String(pId))) {
+                const parentSub = await db.get("SELECT id, name, influences_gpa, tributes_to_subject_id, is_qualitative FROM subjects WHERE id = ?", [pId]);
+                if (parentSub) {
+                    subjects.push({ ...parentSub, teacher_name: 'No asignado' });
+                }
+            }
         }
 
         // 3. Get all grade columns for this level, period and year
@@ -501,15 +518,22 @@ export const getGradesOverview = async (req: Request, res: Response) => {
             }
         }
 
-        const isQualitativeSubject = (name: string): boolean => {
-            const lower = name.toLowerCase();
+        const isQualitativeSubject = (sub: any): boolean => {
+            if (sub.is_qualitative !== undefined && sub.is_qualitative !== null) {
+                if (sub.is_qualitative === true || sub.is_qualitative === 1 || sub.is_qualitative === '1') return true;
+            }
+            const lower = String(sub.name || '').toLowerCase();
             return lower.includes('religión') || lower.includes('religion') || lower.includes('orientación') || lower.includes('orientacion');
         };
 
-        // 5. Compute stats per subject
+        // 5. Query level_subject_settings and student_subject_exemptions for hierarchy resolution
+        const levelSubjectSettings = await db.all("SELECT * FROM level_subject_settings");
+        const studentExemptions = await db.all("SELECT * FROM student_subject_exemptions WHERE academic_year = ?", [yearNum]);
+
+        // 6. Compute stats per subject
         const subjectsData = [];
         for (const sub of subjects) {
-            const isQual = isQualitativeSubject(sub.name);
+            const isQual = isQualitativeSubject(sub);
             const subCols = columns.filter(c => String(c.subject_id) === String(sub.id));
             const subColIds = subCols.map(c => String(c.id));
 
@@ -571,6 +595,7 @@ export const getGradesOverview = async (req: Request, res: Response) => {
             }
 
             const subjectAverage = countAverages > 0 ? (sumAverages / countAverages) : null;
+            const influencesGpa = sub.influences_gpa === undefined || sub.influences_gpa === null || sub.influences_gpa === true || sub.influences_gpa === 1 || sub.influences_gpa === '1';
 
             subjectsData.push({
                 id: sub.id,
@@ -579,11 +604,13 @@ export const getGradesOverview = async (req: Request, res: Response) => {
                 hasGrades,
                 gradesCount,
                 average: subjectAverage !== null ? (Math.round((subjectAverage + 1e-9) * 10) / 10).toFixed(1).replace('.', ',') : '-',
-                isQualitative: isQual
+                isQualitative: isQual,
+                influencesGpa,
+                tributesToSubjectId: sub.tributes_to_subject_id
             });
         }
 
-        // 6. Compute stats per student
+        // 7. Compute stats per student
         const formatAverage = (val: number | null | undefined, isQual: boolean): string => {
             if (val === null || val === undefined || isNaN(val)) return '-';
             if (isQual) {
@@ -610,12 +637,14 @@ export const getGradesOverview = async (req: Request, res: Response) => {
             let blueCount = 0;
             const failingSubjects: string[] = [];
             const subjectAverages: Record<string, string> = {};
+            const rawSubjectAverages: Record<string, number | null> = {};
 
-            // Calculate averages for this student across all subjects
+            // Calculate direct averages for this student across all subjects
             for (const sub of subjects) {
                 subjectAverages[String(sub.id)] = '-';
+                rawSubjectAverages[String(sub.id)] = null;
 
-                const isQual = isQualitativeSubject(sub.name);
+                const isQual = isQualitativeSubject(sub);
                 const subCols = columns.filter(c => String(c.subject_id) === String(sub.id) && String(c.level_id) === String(stu.level_id));
                 const subColIds = subCols.map(c => String(c.id));
 
@@ -674,8 +703,50 @@ export const getGradesOverview = async (req: Request, res: Response) => {
                 }
 
                 if (subAvg !== null) {
+                    rawSubjectAverages[String(sub.id)] = subAvg;
+                }
+            }
+
+            // Post-process tributing subjects (compute parent subject average from child subjects if needed)
+            for (const sub of subjects) {
+                const lvlSet = levelSubjectSettings.find(l => String(l.level_id) === String(stu.level_id) && String(l.subject_id) === String(sub.id));
+                const effectiveTributesToId = lvlSet && lvlSet.tributes_to_subject_id !== undefined ? lvlSet.tributes_to_subject_id : sub.tributes_to_subject_id;
+                
+                const childSubs = subjects.filter(c => {
+                    const cLvlSet = levelSubjectSettings.find(l => String(l.level_id) === String(stu.level_id) && String(l.subject_id) === String(c.id));
+                    const cEffectiveTribId = cLvlSet && cLvlSet.tributes_to_subject_id !== undefined ? cLvlSet.tributes_to_subject_id : c.tributes_to_subject_id;
+                    return String(cEffectiveTribId) === String(sub.id);
+                });
+
+                if (childSubs.length > 0) {
+                    const childVals = childSubs.map(c => rawSubjectAverages[String(c.id)]).filter(v => v !== null && !isNaN(v as number)) as number[];
+                    if (childVals.length > 0) {
+                        rawSubjectAverages[String(sub.id)] = childVals.reduce((a, b) => a + b, 0) / childVals.length;
+                    }
+                }
+            }
+
+            // Now format subject averages and calculate overall student GPA (including only effective influences_gpa === true)
+            for (const sub of subjects) {
+                const subAvg = rawSubjectAverages[String(sub.id)];
+                const isQual = isQualitativeSubject(sub);
+
+                const stuEx = studentExemptions.find(e => String(e.student_id) === String(stu.id) && String(e.subject_id) === String(sub.id));
+                const lvlSet = levelSubjectSettings.find(l => String(l.level_id) === String(stu.level_id) && String(l.subject_id) === String(sub.id));
+
+                let influencesGpa = true;
+                if (stuEx && stuEx.influences_gpa !== undefined && stuEx.influences_gpa !== null) {
+                    influencesGpa = stuEx.influences_gpa === true || stuEx.influences_gpa === 1 || stuEx.influences_gpa === '1';
+                } else if (lvlSet && lvlSet.influences_gpa !== undefined && lvlSet.influences_gpa !== null) {
+                    influencesGpa = lvlSet.influences_gpa === true || lvlSet.influences_gpa === 1 || lvlSet.influences_gpa === '1';
+                } else {
+                    influencesGpa = sub.influences_gpa === undefined || sub.influences_gpa === null || sub.influences_gpa === true || sub.influences_gpa === 1 || sub.influences_gpa === '1';
+                }
+
+                if (subAvg !== null) {
                     subjectAverages[String(sub.id)] = formatAverage(subAvg, isQual);
-                    if (!isQual) {
+
+                    if (!isQual && influencesGpa) {
                         const roundedSubAvg = Math.round((subAvg + 1e-9) * 10) / 10;
                         studentSumAverages += roundedSubAvg;
                         studentCountAverages++;

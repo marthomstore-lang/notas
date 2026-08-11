@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { BarChart3, Users, AlertTriangle, Check, RefreshCw, BookOpen, Printer } from 'lucide-react';
+import { BarChart3, Users, AlertTriangle, Check, RefreshCw, BookOpen, Printer, Download } from 'lucide-react';
 import Swal from 'sweetalert2';
 import withReactContent from 'sweetalert2-react-content';
 import './GradesOverview.css';
@@ -241,6 +241,33 @@ export const GradesOverview: React.FC<GradesOverviewProps> = ({ restrictToLevelI
                     <div style={{ display: 'flex', gap: '10px' }}>
                         <button className="secondary-btn" onClick={fetchOverview} disabled={loading} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <RefreshCw size={16} className={loading ? 'spin' : ''} /> Actualizar
+                        </button>
+                        <button 
+                            className="primary-btn" 
+                            style={{ background: '#d97706', display: 'flex', alignItems: 'center', gap: '8px' }} 
+                            onClick={async () => {
+                                try {
+                                    const res = await fetch(`/_/backend/api/admin/reports/pending-grades/export?year=${filters.year}&period=${filters.period}&levelId=${filters.levelId}`, {
+                                        headers: { 'Authorization': `Bearer ${token}` }
+                                    });
+                                    if (!res.ok) throw new Error("Error al generar el reporte Excel");
+                                    const blob = await res.blob();
+                                    const url = window.URL.createObjectURL(blob);
+                                    const a = document.createElement('a');
+                                    a.href = url;
+                                    a.download = `Reporte_Notas_Pendientes_${filters.year}_${filters.period.replace(/\s+/g, '_')}.xlsx`;
+                                    document.body.appendChild(a);
+                                    a.click();
+                                    a.remove();
+                                } catch (err: any) {
+                                    console.error("Error descargando reporte de pendientes:", err);
+                                    MySwal.fire('Error', 'No se pudo descargar el reporte de notas pendientes', 'error');
+                                }
+                            }} 
+                            disabled={loading} 
+                            title="Descargar planilla Excel de alumnos con notas pendientes o casilleros vacíos"
+                        >
+                            <Download size={16} /> Notas Pendientes (Excel)
                         </button>
                         <button className="primary-btn" onClick={() => window.print()} disabled={loading} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <Printer size={16} /> Imprimir Panorama
