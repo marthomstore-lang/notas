@@ -1296,41 +1296,49 @@ export const getTransferSubjects = async (req: Request, res: Response) => {
 
         let sourceSubjects: any[] = [];
         if (sourceLevelId > 0) {
-            const srcSubsRes = await client.query(`
+            const srcAssignRes = await client.query(`
                 SELECT DISTINCT sub.id, sub.name
-                FROM subjects sub
-                WHERE sub.id IN (
-                    SELECT subject_id FROM teacher_assignments WHERE level_id = ?
-                    UNION
-                    SELECT subject_id FROM grade_columns WHERE level_id = ?
-                )
+                FROM teacher_assignments ta
+                JOIN subjects sub ON ta.subject_id = sub.id
+                WHERE ta.level_id = ?
                 ORDER BY sub.name ASC
-            `, [sourceLevelId, sourceLevelId]);
-            sourceSubjects = srcSubsRes.rows;
-        }
+            `, [sourceLevelId]);
 
-        if (sourceSubjects.length === 0) {
-            const allSubsRes = await client.query("SELECT id, name FROM subjects ORDER BY name ASC");
-            sourceSubjects = allSubsRes.rows;
+            sourceSubjects = srcAssignRes.rows;
+
+            if (sourceSubjects.length === 0) {
+                const srcColsRes = await client.query(`
+                    SELECT DISTINCT sub.id, sub.name
+                    FROM grade_columns gc
+                    JOIN subjects sub ON gc.subject_id = sub.id
+                    WHERE gc.level_id = ?
+                    ORDER BY sub.name ASC
+                `, [sourceLevelId]);
+                sourceSubjects = srcColsRes.rows;
+            }
         }
 
         let targetSubjects: any[] = [];
         if (targetLevelIdNum > 0) {
-            const tgtSubsRes = await client.query(`
+            const tgtAssignRes = await client.query(`
                 SELECT DISTINCT sub.id, sub.name
-                FROM subjects sub
-                WHERE sub.id IN (
-                    SELECT subject_id FROM teacher_assignments WHERE level_id = ?
-                    UNION
-                    SELECT subject_id FROM grade_columns WHERE level_id = ?
-                )
+                FROM teacher_assignments ta
+                JOIN subjects sub ON ta.subject_id = sub.id
+                WHERE ta.level_id = ?
                 ORDER BY sub.name ASC
-            `, [targetLevelIdNum, targetLevelIdNum]);
-            targetSubjects = tgtSubsRes.rows;
+            `, [targetLevelIdNum]);
+
+            targetSubjects = tgtAssignRes.rows;
 
             if (targetSubjects.length === 0) {
-                const allSubsRes = await client.query("SELECT id, name FROM subjects ORDER BY name ASC");
-                targetSubjects = allSubsRes.rows;
+                const tgtColsRes = await client.query(`
+                    SELECT DISTINCT sub.id, sub.name
+                    FROM grade_columns gc
+                    JOIN subjects sub ON gc.subject_id = sub.id
+                    WHERE gc.level_id = ?
+                    ORDER BY sub.name ASC
+                `, [targetLevelIdNum]);
+                targetSubjects = tgtColsRes.rows;
             }
         }
 
