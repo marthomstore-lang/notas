@@ -1254,14 +1254,14 @@ export const getTransferSubjects = async (req: Request, res: Response) => {
         let currentEnrollment = await db.get(`
             SELECT level_id FROM enrollments 
             WHERE student_id = ? AND academic_year = 2026 AND status = 'Active'
-            ORDER BY enrollment_date DESC LIMIT 1
+            ORDER BY created_at DESC LIMIT 1
         `, [id]);
 
         if (!currentEnrollment) {
             currentEnrollment = await db.get(`
                 SELECT level_id FROM enrollments 
                 WHERE student_id = ? AND status = 'Active'
-                ORDER BY enrollment_date DESC LIMIT 1
+                ORDER BY created_at DESC LIMIT 1
             `, [id]);
         }
 
@@ -1269,7 +1269,7 @@ export const getTransferSubjects = async (req: Request, res: Response) => {
             currentEnrollment = await db.get(`
                 SELECT level_id FROM enrollments 
                 WHERE student_id = ?
-                ORDER BY enrollment_date DESC LIMIT 1
+                ORDER BY created_at DESC LIMIT 1
             `, [id]);
         }
 
@@ -1355,14 +1355,14 @@ export const transferStudentWithMapping = async (req: Request, res: Response) =>
         let activeEnrollmentRes = await client.query(`
             SELECT * FROM enrollments 
             WHERE student_id = ? AND academic_year = 2026 AND status = 'Active'
-            ORDER BY enrollment_date DESC LIMIT 1
+            ORDER BY created_at DESC LIMIT 1
         `, [id]);
 
         if (activeEnrollmentRes.rows.length === 0) {
             activeEnrollmentRes = await client.query(`
                 SELECT * FROM enrollments 
                 WHERE student_id = ? AND status = 'Active'
-                ORDER BY enrollment_date DESC LIMIT 1
+                ORDER BY created_at DESC LIMIT 1
             `, [id]);
         }
 
@@ -1370,7 +1370,7 @@ export const transferStudentWithMapping = async (req: Request, res: Response) =>
             activeEnrollmentRes = await client.query(`
                 SELECT * FROM enrollments 
                 WHERE student_id = ? 
-                ORDER BY enrollment_date DESC LIMIT 1
+                ORDER BY created_at DESC LIMIT 1
             `, [id]);
         }
 
@@ -1397,7 +1397,7 @@ export const transferStudentWithMapping = async (req: Request, res: Response) =>
         // 1. NORMATIVA MINEDUC: Mark old enrollment as RETIRADO
         await client.query(`
             UPDATE enrollments 
-            SET status = 'RETIRADO', withdrawal_date = CURRENT_TIMESTAMP
+            SET status = 'RETIRADO'
             WHERE id = ?
         `, [oldEnrollment.id]);
 
@@ -1409,7 +1409,7 @@ export const transferStudentWithMapping = async (req: Request, res: Response) =>
 
         const newEnrollmentId = crypto.randomUUID();
         await client.query(`
-            INSERT INTO enrollments (id, student_id, level_id, academic_year, list_number, status, enrollment_date)
+            INSERT INTO enrollments (id, student_id, level_id, academic_year, list_number, status, created_at)
             VALUES (?, ?, ?, 2026, ?, 'Active', CURRENT_TIMESTAMP)
         `, [newEnrollmentId, id, targetLevelIdNum, newListNumber]);
 
