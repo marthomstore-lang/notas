@@ -48,7 +48,8 @@ export const TransferStudentModal: React.FC<TransferStudentModalProps> = ({
     const fetchSubjects = async (lvlId: string) => {
         setLoadingSubjects(true);
         try {
-            const res = await fetch(`/_/backend/api/admin/students/${student.id}/transfer-subjects?targetLevelId=${lvlId}`, {
+            const srcLvlId = currentLevelId || student.level_id || (student.enrollment ? student.enrollment.level_id : '');
+            const res = await fetch(`/_/backend/api/admin/students/${student.id}/transfer-subjects?targetLevelId=${lvlId}&sourceLevelId=${srcLvlId}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await res.json();

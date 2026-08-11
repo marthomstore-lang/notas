@@ -1247,57 +1247,76 @@ export const changeStudentLevel = async (req: Request, res: Response) => {
 };
 
 export const getTransferSubjects = async (req: Request, res: Response) => {
-    const { id } = req.params;
-    const { targetLevelId } = req.query;
-
+    let client;
     try {
-        let currentEnrollment = await db.get(`
-            SELECT level_id FROM enrollments 
-            WHERE student_id = ? AND academic_year = 2026 AND status = 'Active'
-            ORDER BY created_at DESC LIMIT 1
-        `, [id]);
+        const { id } = req.params;
+        const { targetLevelId, sourceLevelId: reqSourceLevelId } = req.query;
 
-        if (!currentEnrollment) {
-            currentEnrollment = await db.get(`
+        client = await db.connect();
+
+        let sourceLevelId = reqSourceLevelId ? parseInt(String(reqSourceLevelId), 10) : 0;
+
+        if (!sourceLevelId) {
+            const currentEnrollmentRes = await client.query(`
+                SELECT level_id FROM enrollments 
+                WHERE student_id = ? AND academic_year = 2026 AND status = 'Active'
+                ORDER BY created_at DESC LIMIT 1
+            `, [id]);
+
+            if (currentEnrollmentRes.rows.length > 0) {
+                sourceLevelId = parseInt(String(currentEnrollmentRes.rows[0].level_id), 10);
+            }
+        }
+
+        if (!sourceLevelId) {
+            const fallbackActiveRes = await client.query(`
                 SELECT level_id FROM enrollments 
                 WHERE student_id = ? AND status = 'Active'
                 ORDER BY created_at DESC LIMIT 1
             `, [id]);
+
+            if (fallbackActiveRes.rows.length > 0) {
+                sourceLevelId = parseInt(String(fallbackActiveRes.rows[0].level_id), 10);
+            }
         }
 
-        if (!currentEnrollment) {
-            currentEnrollment = await db.get(`
+        if (!sourceLevelId) {
+            const fallbackAnyRes = await client.query(`
                 SELECT level_id FROM enrollments 
                 WHERE student_id = ?
                 ORDER BY created_at DESC LIMIT 1
             `, [id]);
+
+            if (fallbackAnyRes.rows.length > 0) {
+                sourceLevelId = parseInt(String(fallbackAnyRes.rows[0].level_id), 10);
+            }
         }
 
-        if (!currentEnrollment) {
-            return res.status(404).json({ error: 'El estudiante no tiene una matrícula registrada' });
-        }
-
-        const sourceLevelId = currentEnrollment.level_id;
         const targetLevelIdNum = targetLevelId ? parseInt(String(targetLevelId), 10) : 0;
 
-        let sourceSubjects = await db.all(`
-            SELECT DISTINCT sub.id, sub.name
-            FROM subjects sub
-            WHERE sub.id IN (
-                SELECT subject_id FROM teacher_assignments WHERE level_id = ?
-                UNION
-                SELECT subject_id FROM grade_columns WHERE level_id = ?
-            )
-            ORDER BY sub.name ASC
-        `, [sourceLevelId, sourceLevelId]);
+        let sourceSubjects: any[] = [];
+        if (sourceLevelId > 0) {
+            const srcSubsRes = await client.query(`
+                SELECT DISTINCT sub.id, sub.name
+                FROM subjects sub
+                WHERE sub.id IN (
+                    SELECT subject_id FROM teacher_assignments WHERE level_id = ?
+                    UNION
+                    SELECT subject_id FROM grade_columns WHERE level_id = ?
+                )
+                ORDER BY sub.name ASC
+            `, [sourceLevelId, sourceLevelId]);
+            sourceSubjects = srcSubsRes.rows;
+        }
 
-        if (!sourceSubjects || sourceSubjects.length === 0) {
-            sourceSubjects = await db.all("SELECT id, name FROM subjects ORDER BY name ASC");
+        if (sourceSubjects.length === 0) {
+            const allSubsRes = await client.query("SELECT id, name FROM subjects ORDER BY name ASC");
+            sourceSubjects = allSubsRes.rows;
         }
 
         let targetSubjects: any[] = [];
         if (targetLevelIdNum > 0) {
-            targetSubjects = await db.all(`
+            const tgtSubsRes = await client.query(`
                 SELECT DISTINCT sub.id, sub.name
                 FROM subjects sub
                 WHERE sub.id IN (
@@ -1307,24 +1326,28 @@ export const getTransferSubjects = async (req: Request, res: Response) => {
                 )
                 ORDER BY sub.name ASC
             `, [targetLevelIdNum, targetLevelIdNum]);
+            targetSubjects = tgtSubsRes.rows;
 
-            if (!targetSubjects || targetSubjects.length === 0) {
-                targetSubjects = await db.all("SELECT id, name FROM subjects ORDER BY name ASC");
+            if (targetSubjects.length === 0) {
+                const allSubsRes = await client.query("SELECT id, name FROM subjects ORDER BY name ASC");
+                targetSubjects = allSubsRes.rows;
             }
         }
 
-        const sourceLevel = await db.get("SELECT id, name FROM levels WHERE id = ?", [sourceLevelId]);
-        const targetLevel = targetLevelIdNum > 0 ? await db.get("SELECT id, name FROM levels WHERE id = ?", [targetLevelIdNum]) : null;
+        const sourceLevelRes = sourceLevelId > 0 ? await client.query("SELECT id, name FROM levels WHERE id = ?", [sourceLevelId]) : { rows: [] };
+        const targetLevelRes = targetLevelIdNum > 0 ? await client.query("SELECT id, name FROM levels WHERE id = ?", [targetLevelIdNum]) : { rows: [] };
 
         res.json({
-            sourceLevel,
-            targetLevel,
+            sourceLevel: sourceLevelRes.rows[0] || (sourceLevelId > 0 ? { id: sourceLevelId, name: `Curso #${sourceLevelId}` } : null),
+            targetLevel: targetLevelRes.rows[0] || (targetLevelIdNum > 0 ? { id: targetLevelIdNum, name: `Curso #${targetLevelIdNum}` } : null),
             sourceSubjects,
             targetSubjects
         });
     } catch (error: any) {
         console.error("Error in getTransferSubjects", error);
         res.status(500).json({ error: error.message });
+    } finally {
+        if (client) client.release();
     }
 };
 
