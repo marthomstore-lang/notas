@@ -881,13 +881,22 @@ export const getGradesLocksStatus = async (req: Request, res: Response) => {
 };
 
 export const toggleGlobalGradesLock = async (req: Request, res: Response) => {
-    const { lock } = req.body;
+    const { lock, year, period } = req.body;
+    const yearNum = year ? parseInt(String(year), 10) : 2026;
+    const periodStr = String(period || '1er Semestre');
+
     try {
         await db.run(`
             INSERT INTO institutional_settings (key, value)
             VALUES ('global_grades_lock', ?)
             ON CONFLICT(key) DO UPDATE SET value = EXCLUDED.value
         `, [lock ? '1' : '0']);
+
+        // Delete all specific overrides for this year & period so all courses follow the global state
+        await db.run(`
+            DELETE FROM grades_locks
+            WHERE academic_year = ? AND period = ?
+        `, [yearNum, periodStr]);
 
         // Log audit
         const user = (req as any).user;

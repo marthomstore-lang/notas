@@ -219,7 +219,7 @@ export const AdminDashboard = () => {
                         'Authorization': `Bearer ${token}`,
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ lock: !globalLock })
+                    body: JSON.stringify({ lock: !globalLock, year: locksYear, period: locksPeriod })
                 });
                 if (res.ok) {
                     MySwal.fire({
