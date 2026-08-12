@@ -141,13 +141,18 @@ router.get('/debug/db', async (req, res) => {
     try {
         const isPostgres = !!(process.env.DATABASE_URL || process.env.POSTGRES_URL);
         const result = await db.all('SELECT COUNT(*) as count FROM users');
+        const connUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL || '';
+        const maskedUrl = connUrl.replace(/:[^:@]+@/, ':***@');
         res.json({
             status: 'ok',
             database: isPostgres ? 'PostgreSQL (Supabase)' : 'SQLite (Local)',
             userCount: result[0]?.count || 0,
             env: {
                 hasDatabaseUrl: !!(process.env.DATABASE_URL || process.env.POSTGRES_URL),
-                nodeEnv: process.env.NODE_ENV
+                nodeEnv: process.env.NODE_ENV,
+                databaseUrl: maskedUrl,
+                pgHost: process.env.PGHOST,
+                postgresHost: process.env.POSTGRES_HOST
             }
         });
     } catch (err: any) {
