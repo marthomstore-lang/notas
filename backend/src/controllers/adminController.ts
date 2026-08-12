@@ -17,6 +17,7 @@ export const getStudents = async (req: Request, res: Response) => {
         `);
         res.json(result.rows);
     } catch (error) {
+        console.error('Error in getStudents API:', error);
         res.status(500).json({ error: 'Error al obtener estudiantes' });
     } finally {
         if (client) client.release();

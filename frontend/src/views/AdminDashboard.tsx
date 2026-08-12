@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { LogOut, Plus, Users, BookOpen, GraduationCap, Menu, X, Printer, User, Upload, Edit2, Trash2, BarChart3, Settings, ListOrdered, PieChart, FileText, Lock, Unlock, Globe, Home, AlertTriangle, FileSpreadsheet, Download, RefreshCw } from 'lucide-react';
 import { getLinkImageUrl, footerColors } from './TeacherDashboard';
@@ -77,6 +77,25 @@ export const AdminDashboard = () => {
     useEffect(() => {
         localStorage.setItem('adminStudentLevelFilter', selectedLevelFilter);
     }, [selectedLevelFilter]);
+
+    const courseStudents = useMemo(() => {
+        if (!selectedLevelFilter) return [];
+        
+        const targetLvl = levels.find((l: any) => 
+            l.name === selectedLevelFilter || 
+            l.name.trim().toLowerCase() === selectedLevelFilter.trim().toLowerCase()
+        );
+
+        return students.filter((s: any) => {
+            if (targetLvl && s.level_id !== undefined && s.level_id !== null) {
+                if (String(s.level_id) === String(targetLvl.id)) return true;
+            }
+            if (s.level_name && selectedLevelFilter) {
+                return s.level_name.trim().toLowerCase() === selectedLevelFilter.trim().toLowerCase();
+            }
+            return false;
+        });
+    }, [students, levels, selectedLevelFilter]);
     const [isUploading, setIsUploading] = useState(false);
     const [auditLogs, setAuditLogs] = useState<any[]>([]);
     const [auditFilters, setAuditFilters] = useState({ teacher: '', action: '' });
@@ -3607,8 +3626,7 @@ export const AdminDashboard = () => {
                                         <table className="data-table">
                                             <thead><tr><th>N°</th><th>RUT</th><th>Nombre</th><th>Curso</th><th>Registrado</th><th>Acciones</th></tr></thead>
                                             <tbody>
-                                                {students
-                                                    .filter(s => s.level_name === selectedLevelFilter)
+                                                {courseStudents
                                                     .sort((a, b) => {
                                                         const listA = a.list_number ?? 999999;
                                                         const listB = b.list_number ?? 999999;
@@ -3662,7 +3680,7 @@ export const AdminDashboard = () => {
                                                         </td>
                                                     </tr>
                                                 ))}
-                                                {students.filter(s => s.level_name === selectedLevelFilter).length === 0 && (
+                                                {courseStudents.length === 0 && (
                                                     <tr>
                                                         <td colSpan={6} style={{ textAlign: 'center', padding: '20px', color: '#64748b' }}>
                                                             No hay estudiantes registrados en este curso.
@@ -3693,7 +3711,7 @@ export const AdminDashboard = () => {
                         onClose={() => setShowReorderModal(false)}
                         levelName={selectedLevelFilter}
                         levelId={String(levels.find(l => l.name === selectedLevelFilter)?.id || '')}
-                        students={students.filter(s => s.level_name === selectedLevelFilter)}
+                        students={courseStudents}
                         token={token || ''}
                         onSaveSuccess={fetchData}
                     />
