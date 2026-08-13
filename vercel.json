@@ -7,8 +7,9 @@
     },
     "backend": {
       "entrypoint": "backend",
-      "routePrefix": "/_/backend"
+      "routePrefix": "/_/backend",
+      "installCommand": "npm install",
+      "buildCommand": "npm run build"
     }
   }
 }
-
