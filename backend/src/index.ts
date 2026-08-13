@@ -543,4 +543,4 @@ app.listen(PORT, async () => {
     }
 });
 
-module.exports = app;
+export default app;
