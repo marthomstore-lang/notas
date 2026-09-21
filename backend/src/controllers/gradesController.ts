@@ -854,6 +854,27 @@ export const getGradesLocksStatus = async (req: Request, res: Response) => {
             }
         }
 
+        // Also get sem1 and sem2 status for quick display
+        const sem1Key = getGlobalLockKey(year, '1er Semestre');
+        const sem2Key = getGlobalLockKey(year, '2do Semestre');
+        const sem1Setting = await db.get("SELECT value FROM institutional_settings WHERE key = ?", [sem1Key]);
+        const sem2Setting = await db.get("SELECT value FROM institutional_settings WHERE key = ?", [sem2Key]);
+
+        let lockSem1 = true;
+        if (sem1Setting) {
+            lockSem1 = sem1Setting.value === '1';
+        } else {
+            const legacy = await db.get("SELECT value FROM institutional_settings WHERE key = 'global_grades_lock'");
+            lockSem1 = legacy ? legacy.value === '1' : true;
+        }
+
+        let lockSem2 = false;
+        if (sem2Setting) {
+            lockSem2 = sem2Setting.value === '1';
+        } else {
+            lockSem2 = false;
+        }
+
         const levels = await db.all("SELECT id, name FROM levels ORDER BY name ASC");
         const locks = await db.all("SELECT level_id, subject_id, is_locked FROM grades_locks WHERE academic_year = ? AND period = ?", [year, period]);
 
@@ -883,19 +904,19 @@ export const getGradesLocksStatus = async (req: Request, res: Response) => {
                 const unlockedCount = lvlLocks.filter(l => lvlSubjects.has(l.subject_id) && l.is_locked === 0).length;
                 if (unlockedCount === 0) {
                     status = 'Locked';
-                } else if (unlockedCount === subjectCount && subjectCount > 0) {
-                    status = 'Unlocked';
-                } else {
+                } else if (unlockedCount < subjectCount) {
                     status = 'Partially Unlocked';
+                } else {
+                    status = 'Unlocked';
                 }
             } else {
                 const lockedCount = lvlLocks.filter(l => lvlSubjects.has(l.subject_id) && l.is_locked === 1).length;
                 if (lockedCount === 0) {
                     status = 'Unlocked';
-                } else if (lockedCount === subjectCount && subjectCount > 0) {
-                    status = 'Locked';
-                } else {
+                } else if (lockedCount < subjectCount) {
                     status = 'Partially Locked';
+                } else {
+                    status = 'Locked';
                 }
             }
 
@@ -907,7 +928,7 @@ export const getGradesLocksStatus = async (req: Request, res: Response) => {
             };
         });
 
-        res.json({ globalLock, levelsStatus });
+        res.json({ globalLock, lockSem1, lockSem2, levelsStatus });
     } catch (error: any) {
         console.error("Error in getGradesLocksStatus", error);
         res.status(500).json({ error: error.message });
@@ -918,20 +939,46 @@ export const toggleGlobalGradesLock = async (req: Request, res: Response) => {
     const { lock, year, period } = req.body;
     const yearNum = year ? parseInt(String(year), 10) : 2026;
     const periodStr = String(period || '1er Semestre');
-    const periodKey = getGlobalLockKey(yearNum, periodStr);
 
     try {
-        await db.run(`
-            INSERT INTO institutional_settings (key, value)
-            VALUES (?, ?)
-            ON CONFLICT(key) DO UPDATE SET value = EXCLUDED.value
-        `, [periodKey, lock ? '1' : '0']);
+        const isBoth = periodStr.toLowerCase().includes('ambos') || periodStr.toLowerCase().includes('all') || periodStr.toLowerCase().includes('both');
 
-        // Delete all specific overrides for this year & period so all courses follow the global state
-        await db.run(`
-            DELETE FROM grades_locks
-            WHERE academic_year = ? AND period = ?
-        `, [yearNum, periodStr]);
+        if (isBoth) {
+            const sem1Key = getGlobalLockKey(yearNum, '1er Semestre');
+            const sem2Key = getGlobalLockKey(yearNum, '2do Semestre');
+
+            await db.run(`
+                INSERT INTO institutional_settings (key, value)
+                VALUES (?, ?)
+                ON CONFLICT(key) DO UPDATE SET value = EXCLUDED.value
+            `, [sem1Key, lock ? '1' : '0']);
+
+            await db.run(`
+                INSERT INTO institutional_settings (key, value)
+                VALUES (?, ?)
+                ON CONFLICT(key) DO UPDATE SET value = EXCLUDED.value
+            `, [sem2Key, lock ? '1' : '0']);
+
+            // Delete all specific overrides for this year so everything follows global
+            await db.run(`
+                DELETE FROM grades_locks
+                WHERE academic_year = ?
+            `, [yearNum]);
+        } else {
+            const periodKey = getGlobalLockKey(yearNum, periodStr);
+
+            await db.run(`
+                INSERT INTO institutional_settings (key, value)
+                VALUES (?, ?)
+                ON CONFLICT(key) DO UPDATE SET value = EXCLUDED.value
+            `, [periodKey, lock ? '1' : '0']);
+
+            // Delete all specific overrides for this year & period so all courses follow the global state
+            await db.run(`
+                DELETE FROM grades_locks
+                WHERE academic_year = ? AND period = ?
+            `, [yearNum, periodStr]);
+        }
 
         // Log audit
         const user = (req as any).user;
@@ -942,7 +989,7 @@ export const toggleGlobalGradesLock = async (req: Request, res: Response) => {
             `, [
                 crypto.randomUUID(), user?.id, user?.name || user?.run || 'Sistema', 
                 lock ? 'LOCK_ALL_GRADES' : 'UNLOCK_ALL_GRADES',
-                `${lock ? 'Bloqueo' : 'Desbloqueo'} general de calificaciones para ${periodStr} (${yearNum})`
+                `${lock ? 'Bloqueo' : 'Desbloqueo'} general de calificaciones para ${isBoth ? 'Ambos Semestres' : periodStr} (${yearNum})`
             ]);
         } catch (auditError) {
             console.error("Audit log error for global lock:", auditError);

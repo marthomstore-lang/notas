@@ -95,6 +95,8 @@ export const AdminDashboard = () => {
 
     // States for Grades Locks
     const [globalLock, setGlobalLock] = useState<boolean>(false);
+    const [lockSem1, setLockSem1] = useState<boolean>(true);
+    const [lockSem2, setLockSem2] = useState<boolean>(false);
     const [levelsLocksStatus, setLevelsLocksStatus] = useState<any[]>([]);
     const [locksPeriod, setLocksPeriod] = useState<string>('1er Semestre');
     const [locksYear, setLocksYear] = useState<number>(2026);
@@ -176,6 +178,8 @@ export const AdminDashboard = () => {
             if (res.ok) {
                 const data = await res.json();
                 setGlobalLock(data.globalLock);
+                if (typeof data.lockSem1 === 'boolean') setLockSem1(data.lockSem1);
+                if (typeof data.lockSem2 === 'boolean') setLockSem2(data.lockSem2);
                 const levelOrder = [
                     'Pre-Kinder', 'Kínder', 
                     '1° Básico', '2° Básico', '3° Básico', '4° Básico', 
@@ -197,19 +201,21 @@ export const AdminDashboard = () => {
         }
     };
 
-    const handleToggleGlobalLock = async () => {
+    const handleToggleSemesterLock = async (targetPeriod: '1er Semestre' | '2do Semestre' | 'Ambos', lockToSet: boolean) => {
         if (isVisita) return;
-        const actionText = globalLock ? 'desbloquear' : 'bloquear';
-        const confirmText = globalLock ? 'Esto permitirá el ingreso de notas de forma predeterminada.' : 'Esto bloqueará el ingreso de notas para todos los cursos del liceo.';
-        
+        const actionVerb = lockToSet ? 'bloquear' : 'desbloquear';
+        const labelPeriod = targetPeriod === 'Ambos' ? 'Ambos Semestres (1° y 2°)' : targetPeriod;
+
         const result = await MySwal.fire({
-            title: `¿Confirmas ${actionText} todas las notas?`,
-            text: confirmText,
+            title: `¿Confirmas ${actionVerb} ${labelPeriod}?`,
+            text: lockToSet 
+                ? `Esto cerrará el ingreso de notas para todos los cursos en ${labelPeriod} (${locksYear}).`
+                : `Esto habilitará el ingreso de notas para todos los cursos en ${labelPeriod} (${locksYear}).`,
             icon: 'warning',
             showCancelButton: true,
-            confirmButtonColor: globalLock ? '#10b981' : '#ef4444',
+            confirmButtonColor: lockToSet ? '#ef4444' : '#10b981',
             cancelButtonColor: '#64748b',
-            confirmButtonText: globalLock ? 'Sí, desbloquear todo' : 'Sí, bloquear todo',
+            confirmButtonText: lockToSet ? `Sí, bloquear` : `Sí, desbloquear`,
             cancelButtonText: 'Cancelar'
         });
 
@@ -221,16 +227,23 @@ export const AdminDashboard = () => {
                         'Authorization': `Bearer ${token}`,
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ lock: !globalLock, year: locksYear, period: locksPeriod })
+                    body: JSON.stringify({ 
+                        lock: lockToSet, 
+                        year: locksYear, 
+                        period: targetPeriod === 'Ambos' ? 'Ambos Semestres' : targetPeriod 
+                    })
                 });
                 if (res.ok) {
                     MySwal.fire({
                         icon: 'success',
-                        title: globalLock ? 'Notas Desbloqueadas' : 'Notas Bloqueadas',
-                        text: `Se ha realizado el cambio de bloqueo global correctamente.`,
+                        title: lockToSet ? 'Notas Bloqueadas' : 'Notas Desbloqueadas',
+                        text: `Se ha realizado el cambio de bloqueo para ${labelPeriod} correctamente.`,
                         timer: 2000,
                         showConfirmButton: false
                     });
+                    if (targetPeriod !== 'Ambos') {
+                        setLocksPeriod(targetPeriod);
+                    }
                     fetchLocksStatus();
                 } else {
                     const err = await res.json();
@@ -2893,77 +2906,285 @@ export const AdminDashboard = () => {
                                 <div className="card-split-header">
                                     <h3 style={{ margin: 0, marginBottom: '20px' }}>Bloqueo de Calificaciones</h3>
                                     
-                                    <div style={{ display: 'flex', gap: '15px', marginBottom: '25px', flexWrap: 'wrap' }}>
-                                        <div>
-                                            <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', color: '#64748b', marginBottom: '5px' }}>Semestre:</label>
-                                            <select 
-                                                value={locksPeriod} 
-                                                onChange={e => setLocksPeriod(e.target.value)} 
-                                                style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '14px', background: '#fff' }}
-                                            >
-                                                <option value="1er Semestre">1er Semestre</option>
-                                                <option value="2do Semestre">2do Semestre</option>
-                                            </select>
-                                        </div>
-                                        <div>
-                                            <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', color: '#64748b', marginBottom: '5px' }}>Año:</label>
+                                    {/* Controles de Año y Estado por Semestre */}
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '15px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                            <label style={{ fontSize: '13px', fontWeight: 'bold', color: '#475569' }}>Año Escolar:</label>
                                             <select 
                                                 value={locksYear} 
                                                 onChange={e => setLocksYear(Number(e.target.value))} 
-                                                style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '14px', background: '#fff' }}
+                                                style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '14px', background: '#fff', fontWeight: 'bold' }}
                                             >
                                                 <option value="2026">2026</option>
                                                 <option value="2025">2025</option>
                                             </select>
                                         </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <button 
+                                                onClick={fetchLocksStatus} 
+                                                className="secondary-btn" 
+                                                style={{ padding: '6px 12px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '5px' }}
+                                                title="Recargar estado de bloqueos"
+                                            >
+                                                <RefreshCw size={13} className={locksLoading ? 'spinning' : ''} /> Actualizar
+                                            </button>
+                                        </div>
                                     </div>
 
-                                    {/* Global Lock Card Banner */}
-                                    <div style={{ 
-                                        padding: '20px', 
-                                        borderRadius: '8px', 
-                                        background: globalLock ? '#fef2f2' : '#f0fdf4',
-                                        border: `1px solid ${globalLock ? '#fee2e2' : '#dcfce7'}`,
-                                        marginBottom: '20px',
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        gap: '12px'
-                                    }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                                <span style={{ fontSize: '16px', fontWeight: 'bold', color: globalLock ? '#991b1b' : '#166534' }}>
-                                                    Estado de Bloqueo General: {globalLock ? 'ACTIVADO' : 'DESACTIVADO'}
-                                                </span>
-                                                <span style={{ fontSize: '12px', color: globalLock ? '#b91c1c' : '#15803d', marginTop: '2px' }}>
-                                                    {globalLock 
-                                                        ? 'Todas las planillas de notas del liceo están bloqueadas para los docentes, excepto los cursos desbloqueados individualmente.'
-                                                        : 'Las planillas están habilitadas para ingreso por defecto, a menos que existan bloqueos particulares por curso.'
+                                    {/* Panel de 2 Tarjetas por Semestre */}
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', marginBottom: '20px' }}>
+                                        {/* Card 1er Semestre */}
+                                        <div style={{ 
+                                            padding: '16px 20px', 
+                                            borderRadius: '10px', 
+                                            background: lockSem1 ? '#fef2f2' : '#f0fdf4',
+                                            border: `1.5px solid ${lockSem1 ? '#fca5a5' : '#86efac'}`,
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            justifyContent: 'space-between',
+                                            gap: '12px',
+                                            boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+                                        }}>
+                                            <div>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                                                    <span style={{ fontSize: '15px', fontWeight: 'bold', color: '#1e293b' }}>
+                                                        1er Semestre
+                                                    </span>
+                                                    <span style={{ 
+                                                        fontSize: '11px', 
+                                                        fontWeight: 'bold', 
+                                                        padding: '3px 8px', 
+                                                        borderRadius: '12px',
+                                                        background: lockSem1 ? '#fee2e2' : '#dcfce7',
+                                                        color: lockSem1 ? '#991b1b' : '#166534',
+                                                        border: `1px solid ${lockSem1 ? '#f87171' : '#4ade80'}`,
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        gap: '4px'
+                                                    }}>
+                                                        {lockSem1 ? <Lock size={12} /> : <Unlock size={12} />}
+                                                        {lockSem1 ? 'BLOQUEADO' : 'HABILITADO'}
+                                                    </span>
+                                                </div>
+                                                <p style={{ margin: 0, fontSize: '12px', color: '#64748b', lineHeight: '1.4' }}>
+                                                    {lockSem1 
+                                                        ? 'Ingreso de notas cerrado para los docentes en el 1er semestre.' 
+                                                        : 'Ingreso de notas abierto para los docentes en el 1er semestre.'
                                                     }
-                                                </span>
+                                                </p>
                                             </div>
                                             {!isVisita && (
                                                 <button 
-                                                    onClick={handleToggleGlobalLock}
+                                                    onClick={() => handleToggleSemesterLock('1er Semestre', !lockSem1)}
                                                     className="primary-btn" 
                                                     style={{ 
-                                                        background: globalLock ? '#10b981' : '#ef4444',
-                                                        padding: '10px 16px',
+                                                        background: lockSem1 ? '#10b981' : '#ef4444',
+                                                        padding: '8px 14px',
+                                                        fontSize: '13px',
                                                         fontWeight: 'bold',
-                                                        border: 'none'
+                                                        border: 'none',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        gap: '6px',
+                                                        width: '100%'
                                                     }}
                                                 >
-                                                    {globalLock ? 'Desbloquear Todo' : 'Bloquear Todo'}
+                                                    {lockSem1 ? <Unlock size={15} /> : <Lock size={15} />}
+                                                    {lockSem1 ? 'Desbloquear 1er Semestre' : 'Bloquear 1er Semestre'}
+                                                </button>
+                                            )}
+                                        </div>
+
+                                        {/* Card 2do Semestre */}
+                                        <div style={{ 
+                                            padding: '16px 20px', 
+                                            borderRadius: '10px', 
+                                            background: lockSem2 ? '#fef2f2' : '#f0fdf4',
+                                            border: `1.5px solid ${lockSem2 ? '#fca5a5' : '#86efac'}`,
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            justifyContent: 'space-between',
+                                            gap: '12px',
+                                            boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+                                        }}>
+                                            <div>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                                                    <span style={{ fontSize: '15px', fontWeight: 'bold', color: '#1e293b' }}>
+                                                        2do Semestre
+                                                    </span>
+                                                    <span style={{ 
+                                                        fontSize: '11px', 
+                                                        fontWeight: 'bold', 
+                                                        padding: '3px 8px', 
+                                                        borderRadius: '12px',
+                                                        background: lockSem2 ? '#fee2e2' : '#dcfce7',
+                                                        color: lockSem2 ? '#991b1b' : '#166534',
+                                                        border: `1px solid ${lockSem2 ? '#f87171' : '#4ade80'}`,
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        gap: '4px'
+                                                    }}>
+                                                        {lockSem2 ? <Lock size={12} /> : <Unlock size={12} />}
+                                                        {lockSem2 ? 'BLOQUEADO' : 'HABILITADO'}
+                                                    </span>
+                                                </div>
+                                                <p style={{ margin: 0, fontSize: '12px', color: '#64748b', lineHeight: '1.4' }}>
+                                                    {lockSem2 
+                                                        ? 'Ingreso de notas cerrado para los docentes en el 2do semestre.' 
+                                                        : 'Ingreso de notas abierto para los docentes en el 2do semestre.'
+                                                    }
+                                                </p>
+                                            </div>
+                                            {!isVisita && (
+                                                <button 
+                                                    onClick={() => handleToggleSemesterLock('2do Semestre', !lockSem2)}
+                                                    className="primary-btn" 
+                                                    style={{ 
+                                                        background: lockSem2 ? '#10b981' : '#ef4444',
+                                                        padding: '8px 14px',
+                                                        fontSize: '13px',
+                                                        fontWeight: 'bold',
+                                                        border: 'none',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        gap: '6px',
+                                                        width: '100%'
+                                                    }}
+                                                >
+                                                    {lockSem2 ? <Unlock size={15} /> : <Lock size={15} />}
+                                                    {lockSem2 ? 'Desbloquear 2do Semestre' : 'Bloquear 2do Semestre'}
                                                 </button>
                                             )}
                                         </div>
                                     </div>
+
+                                    {/* Barra de Bloquear / Desbloquear Ambos Semestres */}
+                                    {!isVisita && (
+                                        <div style={{
+                                            padding: '12px 18px',
+                                            borderRadius: '8px',
+                                            background: '#f8fafc',
+                                            border: '1px solid #e2e8f0',
+                                            marginBottom: '25px',
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            alignItems: 'center',
+                                            flexWrap: 'wrap',
+                                            gap: '12px'
+                                        }}>
+                                            <div>
+                                                <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#334155' }}>
+                                                    Acción Rápida para Ambos Semestres:
+                                                </span>
+                                                <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: '#64748b' }}>
+                                                    Aplica el bloqueo o desbloqueo general para el 1er y 2do semestre simultáneamente ({locksYear}).
+                                                </p>
+                                            </div>
+                                            <div style={{ display: 'flex', gap: '10px' }}>
+                                                <button 
+                                                    onClick={() => handleToggleSemesterLock('Ambos', true)}
+                                                    className="secondary-btn" 
+                                                    style={{ 
+                                                        background: '#fff', 
+                                                        color: '#dc2626', 
+                                                        borderColor: '#fca5a5',
+                                                        padding: '7px 12px',
+                                                        fontSize: '12px',
+                                                        fontWeight: 'bold',
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        gap: '5px'
+                                                    }}
+                                                >
+                                                    <Lock size={14} /> Bloquear Ambos Semestres
+                                                </button>
+                                                <button 
+                                                    onClick={() => handleToggleSemesterLock('Ambos', false)}
+                                                    className="secondary-btn" 
+                                                    style={{ 
+                                                        background: '#fff', 
+                                                        color: '#16a34a', 
+                                                        borderColor: '#86efac',
+                                                        padding: '7px 12px',
+                                                        fontSize: '12px',
+                                                        fontWeight: 'bold',
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        gap: '5px'
+                                                    }}
+                                                >
+                                                    <Unlock size={14} /> Desbloquear Ambos Semestres
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                                 <div className="card-split-content">
                                     {locksLoading ? (
                                         <p>Cargando información de bloqueos...</p>
                                     ) : (
                                         <div>
-                                            <h4 style={{ margin: '0 0 15px 0', color: '#1e293b' }}>Control Parcial de Bloqueos por Curso</h4>
+                                            <div style={{ 
+                                                display: 'flex', 
+                                                justifyContent: 'space-between', 
+                                                alignItems: 'center', 
+                                                borderBottom: '1px solid #e2e8f0', 
+                                                paddingBottom: '12px', 
+                                                marginBottom: '15px',
+                                                flexWrap: 'wrap',
+                                                gap: '10px'
+                                            }}>
+                                                <div>
+                                                    <h4 style={{ margin: 0, color: '#1e293b' }}>Control Parcial de Bloqueos por Curso</h4>
+                                                    <span style={{ fontSize: '12px', color: '#64748b' }}>
+                                                        Ajusta bloqueos o excepciones individuales para cada curso en el período seleccionado.
+                                                    </span>
+                                                </div>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#f1f5f9', padding: '4px', borderRadius: '8px' }}>
+                                                    <button 
+                                                        onClick={() => setLocksPeriod('1er Semestre')}
+                                                        style={{
+                                                            padding: '6px 14px',
+                                                            fontSize: '12px',
+                                                            fontWeight: 'bold',
+                                                            borderRadius: '6px',
+                                                            border: 'none',
+                                                            cursor: 'pointer',
+                                                            background: locksPeriod === '1er Semestre' ? '#fff' : 'transparent',
+                                                            color: locksPeriod === '1er Semestre' ? '#2563eb' : '#64748b',
+                                                            boxShadow: locksPeriod === '1er Semestre' ? '0 1px 2px rgba(0,0,0,0.1)' : 'none',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            gap: '5px'
+                                                        }}
+                                                    >
+                                                        {lockSem1 ? <Lock size={12} color="#ef4444" /> : <Unlock size={12} color="#10b981" />}
+                                                        1er Semestre
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => setLocksPeriod('2do Semestre')}
+                                                        style={{
+                                                            padding: '6px 14px',
+                                                            fontSize: '12px',
+                                                            fontWeight: 'bold',
+                                                            borderRadius: '6px',
+                                                            border: 'none',
+                                                            cursor: 'pointer',
+                                                            background: locksPeriod === '2do Semestre' ? '#fff' : 'transparent',
+                                                            color: locksPeriod === '2do Semestre' ? '#2563eb' : '#64748b',
+                                                            boxShadow: locksPeriod === '2do Semestre' ? '0 1px 2px rgba(0,0,0,0.1)' : 'none',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            gap: '5px'
+                                                        }}
+                                                    >
+                                                        {lockSem2 ? <Lock size={12} color="#ef4444" /> : <Unlock size={12} color="#10b981" />}
+                                                        2do Semestre
+                                                    </button>
+                                                </div>
+                                            </div>
                                             <table className="data-table">
                                                 <thead>
                                                     <tr>
