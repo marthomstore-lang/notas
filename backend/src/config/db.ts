@@ -3,6 +3,10 @@ import { Pool } from 'pg';
 import dotenv from 'dotenv';
 
 dotenv.config({ path: path.join(__dirname, '../../.env') });
+dotenv.config({ path: path.join(__dirname, '../.env') });
+dotenv.config({ path: path.join(process.cwd(), '.env') });
+dotenv.config({ path: path.join(process.cwd(), 'backend/.env') });
+dotenv.config();
 
 const connectionString = process.env.DATABASE_URL || process.env.POSTGRES_URL;
 const pgHost = process.env.PGHOST;

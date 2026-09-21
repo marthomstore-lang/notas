@@ -85149,6 +85149,10 @@ var defaults = import_lib.default.defaults;
 // src/config/db.ts
 var import_dotenv = __toESM(require_main());
 import_dotenv.default.config({ path: import_path.default.join(__dirname, "../../.env") });
+import_dotenv.default.config({ path: import_path.default.join(__dirname, "../.env") });
+import_dotenv.default.config({ path: import_path.default.join(process.cwd(), ".env") });
+import_dotenv.default.config({ path: import_path.default.join(process.cwd(), "backend/.env") });
+import_dotenv.default.config();
 var connectionString = process.env.DATABASE_URL || process.env.POSTGRES_URL;
 var pgHost = process.env.PGHOST;
 var poolConfig = {
