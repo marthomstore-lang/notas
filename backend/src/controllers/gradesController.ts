@@ -2,6 +2,13 @@ import { Request, Response } from 'express';
 import db from '../config/db';
 import crypto from 'crypto';
 
+export const getGlobalLockKey = (year: number | string, period: string) => {
+    const p = String(period || '1er Semestre').trim();
+    if (p.includes('2') || p.toLowerCase().includes('segundo')) return `global_grades_lock_${year}_2do Semestre`;
+    if (p.includes('1') || p.toLowerCase().includes('primer')) return `global_grades_lock_${year}_1er Semestre`;
+    return `global_grades_lock_${year}_${p}`;
+};
+
 export const getGradesSheet = async (req: Request, res: Response) => {
     const { levelId, subjectId, period, year } = req.query;
     const user = (req as any).user;
@@ -55,9 +62,23 @@ export const getGradesSheet = async (req: Request, res: Response) => {
             `, [...columnIds]);
         }
 
-        // 4. Get Lock Status (Global + Local override logic)
-        const globalLockSetting = await db.get("SELECT value FROM institutional_settings WHERE key = 'global_grades_lock'");
-        const isGloballyLocked = globalLockSetting ? globalLockSetting.value === '1' : false;
+        // 4. Get Lock Status (Global + Local override logic per semester and year)
+        const periodLockKey = getGlobalLockKey(yearNum, periodStr);
+        const globalLockSetting = await db.get("SELECT value FROM institutional_settings WHERE key = ?", [periodLockKey]);
+        
+        let isGloballyLocked = false;
+        if (globalLockSetting) {
+            isGloballyLocked = globalLockSetting.value === '1';
+        } else {
+            // Default: 1er Semestre default locked, 2do Semestre default unlocked
+            const is1S = String(periodStr).includes('1') || String(periodStr).toLowerCase().includes('primer');
+            if (is1S) {
+                const legacy = await db.get("SELECT value FROM institutional_settings WHERE key = 'global_grades_lock'");
+                isGloballyLocked = legacy ? legacy.value === '1' : true;
+            } else {
+                isGloballyLocked = false;
+            }
+        }
 
         const lockInfo = await db.get(`
             SELECT is_locked FROM grades_locks 
@@ -817,8 +838,21 @@ export const getGradesLocksStatus = async (req: Request, res: Response) => {
     const period = req.query.period ? String(req.query.period) : '1er Semestre';
     const year = req.query.year ? parseInt(String(req.query.year), 10) : new Date().getFullYear();
     try {
-        const globalLockSetting = await db.get("SELECT value FROM institutional_settings WHERE key = 'global_grades_lock'");
-        const globalLock = globalLockSetting ? globalLockSetting.value === '1' : false;
+        const periodKey = getGlobalLockKey(year, period);
+        const globalLockSetting = await db.get("SELECT value FROM institutional_settings WHERE key = ?", [periodKey]);
+        
+        let globalLock = false;
+        if (globalLockSetting) {
+            globalLock = globalLockSetting.value === '1';
+        } else {
+            const is1S = String(period).includes('1') || String(period).toLowerCase().includes('primer');
+            if (is1S) {
+                const legacy = await db.get("SELECT value FROM institutional_settings WHERE key = 'global_grades_lock'");
+                globalLock = legacy ? legacy.value === '1' : true;
+            } else {
+                globalLock = false;
+            }
+        }
 
         const levels = await db.all("SELECT id, name FROM levels ORDER BY name ASC");
         const locks = await db.all("SELECT level_id, subject_id, is_locked FROM grades_locks WHERE academic_year = ? AND period = ?", [year, period]);
@@ -884,13 +918,14 @@ export const toggleGlobalGradesLock = async (req: Request, res: Response) => {
     const { lock, year, period } = req.body;
     const yearNum = year ? parseInt(String(year), 10) : 2026;
     const periodStr = String(period || '1er Semestre');
+    const periodKey = getGlobalLockKey(yearNum, periodStr);
 
     try {
         await db.run(`
             INSERT INTO institutional_settings (key, value)
-            VALUES ('global_grades_lock', ?)
+            VALUES (?, ?)
             ON CONFLICT(key) DO UPDATE SET value = EXCLUDED.value
-        `, [lock ? '1' : '0']);
+        `, [periodKey, lock ? '1' : '0']);
 
         // Delete all specific overrides for this year & period so all courses follow the global state
         await db.run(`
@@ -907,7 +942,7 @@ export const toggleGlobalGradesLock = async (req: Request, res: Response) => {
             `, [
                 crypto.randomUUID(), user?.id, user?.name || user?.run || 'Sistema', 
                 lock ? 'LOCK_ALL_GRADES' : 'UNLOCK_ALL_GRADES',
-                `${lock ? 'Bloqueo' : 'Desbloqueo'} general de calificaciones`
+                `${lock ? 'Bloqueo' : 'Desbloqueo'} general de calificaciones para ${periodStr} (${yearNum})`
             ]);
         } catch (auditError) {
             console.error("Audit log error for global lock:", auditError);
@@ -969,8 +1004,21 @@ export const getLevelGradesLocksDetail = async (req: Request, res: Response) => 
     const year = req.query.year ? parseInt(String(req.query.year), 10) : new Date().getFullYear();
 
     try {
-        const globalLockSetting = await db.get("SELECT value FROM institutional_settings WHERE key = 'global_grades_lock'");
-        const globalLock = globalLockSetting ? globalLockSetting.value === '1' : false;
+        const periodKey = getGlobalLockKey(year, period);
+        const globalLockSetting = await db.get("SELECT value FROM institutional_settings WHERE key = ?", [periodKey]);
+        
+        let globalLock = false;
+        if (globalLockSetting) {
+            globalLock = globalLockSetting.value === '1';
+        } else {
+            const is1S = String(period).includes('1') || String(period).toLowerCase().includes('primer');
+            if (is1S) {
+                const legacy = await db.get("SELECT value FROM institutional_settings WHERE key = 'global_grades_lock'");
+                globalLock = legacy ? legacy.value === '1' : true;
+            } else {
+                globalLock = false;
+            }
+        }
 
         // Fetch all assignments for this level with subject details and teacher name
         const subjectsList = await db.all(`
