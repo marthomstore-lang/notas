@@ -22,13 +22,13 @@
 .report-paper {
     background: white;
     width: 210mm;
-    min-height: 297mm;
-    padding: 20mm;
+    min-height: 279mm;
+    padding: 10mm 14mm;
     box-shadow: 0 0 20px rgba(0,0,0,0.3);
     font-family: 'Times New Roman', Times, serif;
     color: #333;
     position: relative;
-    overflow: hidden;
+    overflow: visible;
 }
 
 /* Watermark */
@@ -363,38 +363,155 @@
         box-shadow: none !important; 
         margin: 0 auto !important; 
         width: 100% !important; 
-        max-width: 210mm !important;
-        min-height: 250mm !important;
-        height: 250mm !important; 
-        padding: 10mm 15mm !important; 
+        max-width: 200mm !important;
+        min-height: 0 !important;
+        height: auto !important; 
+        padding: 5mm 8mm 4mm 8mm !important; 
         border: none !important; 
         page-break-inside: avoid !important;
         break-inside: avoid !important;
         position: relative !important;
-        display: flex !important; /* Keep internal flex layout of paper components */
+        display: flex !important;
         flex-direction: column !important;
-        overflow: hidden !important;
+        overflow: visible !important;
         box-sizing: border-box !important;
     }
 
-    .report-paper::before { opacity: 0.05 !important; }
+    .report-paper::before { opacity: 0.04 !important; }
 
-    /* Override margins to ensure report fits completely within 250mm height */
+    .report-header {
+        padding-bottom: 2px !important;
+        margin-bottom: 4px !important;
+        border-bottom: 1.5px solid #1e293b !important;
+    }
+
+    .institutional-header {
+        gap: 10px !important;
+    }
+
+    .header-logo {
+        width: 40px !important;
+        height: auto !important;
+    }
+
+    .school-info h2 {
+        font-size: 0.9rem !important;
+        letter-spacing: 0.5px !important;
+    }
+
+    .school-info p {
+        font-size: 0.62rem !important;
+    }
+
     .report-title-centered {
-        margin-bottom: 15px !important;
+        margin-bottom: 4px !important;
+    }
+
+    .report-title-centered h1 {
+        font-size: 1.1rem !important;
+        padding-bottom: 2px !important;
+        margin-bottom: 2px !important;
+        letter-spacing: 0.5px !important;
+    }
+
+    .report-title-centered p {
+        font-size: 0.68rem !important;
     }
 
     .student-info-section {
-        margin-bottom: 15px !important;
+        margin-bottom: 4px !important;
+    }
+
+    .info-grid {
+        row-gap: 2px !important;
+        column-gap: 20px !important;
+    }
+
+    .info-item {
+        padding-bottom: 1px !important;
+    }
+
+    .info-item label {
+        font-size: 0.62rem !important;
+        min-width: 70px !important;
+    }
+
+    .info-value {
+        font-size: 0.72rem !important;
+        padding-left: 4px !important;
     }
 
     .report-table {
-        margin-bottom: 15px !important;
+        margin-bottom: 4px !important;
+    }
+
+    .report-table th, .report-table td {
+        border: 1px solid #1e293b !important;
+        padding: 1.5px 2px !important;
+        font-size: 0.62rem !important;
+        line-height: 1.15 !important;
+    }
+
+    .report-table th {
+        font-size: 0.58rem !important;
+        padding: 2.5px 2px !important;
+    }
+
+    .report-table td.subject-name {
+        font-size: 0.62rem !important;
+        padding: 1.5px 3px !important;
+        line-height: 1.1 !important;
+    }
+
+    .report-table td.subject-name.s2-label {
+        font-size: 0.56rem !important;
+        padding: 0 3px 1px !important;
+    }
+
+    .report-table td.grade-cell {
+        font-size: 0.62rem !important;
+        padding: 1px 1px !important;
+    }
+
+    .report-table td.average-cell {
+        font-size: 0.68rem !important;
+        padding: 1.5px 2px !important;
+    }
+
+    .annual-final-avg {
+        font-size: 0.72rem !important;
     }
 
     .signatures {
-        margin-top: 25px !important;
-        margin-bottom: 10px !important;
+        margin-top: 8px !important;
+        margin-bottom: 3px !important;
+    }
+
+    .signature-box {
+        width: 200px !important;
+    }
+
+    .signature-box .line {
+        margin-bottom: 3px !important;
+        border-top: 1px solid #1e293b !important;
+    }
+
+    .signature-box .name {
+        font-size: 0.68rem !important;
+    }
+
+    .signature-box .title {
+        font-size: 0.58rem !important;
+    }
+
+    .footer-notes {
+        padding-top: 2px !important;
+        font-size: 0.5rem !important;
+        line-height: 1.1 !important;
+    }
+
+    .footer-notes p {
+        margin: 1px 0 !important;
     }
 }
 
@@ -405,4 +522,8 @@
 
 .annual-s2-row td {
     border-bottom: 2px solid #1e293b !important;
+}
+
+.annual-final-avg {
+    font-size: 0.95rem;
 }

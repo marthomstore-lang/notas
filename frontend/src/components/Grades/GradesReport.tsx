@@ -225,7 +225,7 @@ export const GradesReport: React.FC<Props> = ({ data, period, year, onClose }) =
                                                                 <td key={i} className={`grade-cell ${isFailingGrade(g) ? 'grade-fail' : ''}`}>{g || ''}</td>
                                                             ))}
                                                             <td className={`average-cell ${isFailingGrade(row.avgS1) ? 'grade-fail' : ''}`}>{row.avgS1}</td>
-                                                            <td className={`average-cell ${isFailingGrade(row.average) ? 'grade-fail' : ''}`} rowSpan={2} style={{ verticalAlign: 'middle', fontSize: '1.05rem', fontWeight: 800 }}>{row.average}</td>
+                                                            <td className={`average-cell annual-final-avg ${isFailingGrade(row.average) ? 'grade-fail' : ''}`} rowSpan={2} style={{ verticalAlign: 'middle', fontWeight: 800 }}>{row.average}</td>
                                                         </tr>
                                                         <tr className="annual-s2-row">
                                                             <td className="subject-name s2-label" style={{ fontSize: '0.65rem', color: '#64748b', paddingTop: 0 }}>2DO SEMESTRE</td>
@@ -256,7 +256,7 @@ export const GradesReport: React.FC<Props> = ({ data, period, year, onClose }) =
                                                         <td key={i} className="grade-cell" style={{ background: '#f8fafc' }}></td>
                                                     ))}
                                                     <td className={`average-cell ${isFailingGrade(generalAvgS1) ? 'grade-fail' : ''}`} style={{ fontWeight: 'bold' }}>{generalAvgS1}</td>
-                                                    <td className={`average-cell ${isFailingGrade(generalAvgFinal) ? 'grade-fail' : ''}`} rowSpan={2} style={{ verticalAlign: 'middle', fontSize: '1.1rem', fontWeight: 'bold', background: '#f1f5f9' }}>{generalAvgFinal}</td>
+                                                    <td className={`average-cell annual-final-avg ${isFailingGrade(generalAvgFinal) ? 'grade-fail' : ''}`} rowSpan={2} style={{ verticalAlign: 'middle', fontWeight: 'bold', background: '#f1f5f9' }}>{generalAvgFinal}</td>
                                                 </tr>
                                                 <tr className="general-average-row annual-s2-row" style={{ background: '#f8fafc' }}>
                                                     <td className="subject-name" style={{ fontSize: '0.65rem', color: '#475569', paddingTop: 0, fontWeight: 'bold' }}>PROMEDIO GENERAL (2DO SEMESTRE)</td>
