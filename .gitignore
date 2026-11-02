@@ -4,11 +4,16 @@ node_modules/
 dist/
 !backend/dist/
 !backend/dist/index.js
+backend/dist/*
+!backend/dist/index.js
 build/
 backend/src/liceopro.db
 backend/liceopro.db
 backend/database.sqlite
 backend/scratch/
+backend/extract_reports.js
+scratch/
+extraccion_migracion_2026/
 *.log
 *.xlsx
 .DS_Store

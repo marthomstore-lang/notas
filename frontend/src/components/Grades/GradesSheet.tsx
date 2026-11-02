@@ -124,6 +124,11 @@ export const GradesSheet: React.FC<GradesSheetProps> = ({ initialLevelId, initia
     const [isLocked, setIsLocked] = useState(false);
     const [viewingStudentId, setViewingStudentId] = useState<string | null>(null);
     const [showReorderModal, setShowReorderModal] = useState(false);
+    const [isAnnualSheet, setIsAnnualSheet] = useState(false);
+    const [annualViewMode, setAnnualViewMode] = useState<'summary' | 'detailed'>('summary');
+    const [annualData, setAnnualData] = useState<Record<string, any>>({});
+    const [annualS1Columns, setAnnualS1Columns] = useState<any[]>([]);
+    const [annualS2Columns, setAnnualS2Columns] = useState<any[]>([]);
 
     // Autosave logic
     useEffect(() => {
@@ -136,7 +141,7 @@ export const GradesSheet: React.FC<GradesSheetProps> = ({ initialLevelId, initia
     }, [grades, columns]);
 
     const autosave = async () => {
-        if (isSaving || isVisita) return;
+        if (isSaving || isVisita || isAnnualSheet) return;
         
         const gradesData = Object.entries(grades).map(([key, val]) => {
             const [studentId, position] = key.split('_');
@@ -300,6 +305,19 @@ export const GradesSheet: React.FC<GradesSheetProps> = ({ initialLevelId, initia
             const fetchedGrades = Array.isArray(data.grades) ? data.grades : [];
 
             setStudents(fetchedStudents);
+
+            if (data.isAnnual || filters.period === 'Finalización de año') {
+                setIsAnnualSheet(true);
+                setAnnualData(data.annualData || {});
+                setAnnualS1Columns(data.s1Columns || []);
+                setAnnualS2Columns(data.s2Columns || []);
+                setIsLocked(true);
+                setGrades({});
+                return;
+            }
+
+            setIsAnnualSheet(false);
+            setAnnualData({});
             
             const selectedSub = options.subjects.find(s => String(s.id) === String(filters.subjectId));
             const subName = selectedSub ? selectedSub.name : '';
@@ -641,7 +659,9 @@ export const GradesSheet: React.FC<GradesSheetProps> = ({ initialLevelId, initia
                             <ListOrdered size={18} /> Ordenar Alumnos
                         </button>
                     )}
-                    <button className="save-btn" onClick={saveAll} title="Guardar Manualmente" disabled={isVisita || (isLocked && (user as any).role !== 'Admin')}><Save size={20} /></button>
+                    {!isAnnualSheet && (
+                        <button className="save-btn" onClick={saveAll} title="Guardar Manualmente" disabled={isVisita || (isLocked && (user as any).role !== 'Admin')}><Save size={20} /></button>
+                    )}
                     <button className="secondary-btn" onClick={handlePrintCourse} title="Generar informes de todo el curso">
                         <FileText size={18} /> Informes/Certificados
                     </button>
@@ -671,7 +691,7 @@ export const GradesSheet: React.FC<GradesSheetProps> = ({ initialLevelId, initia
                     >
                         <Download size={18} /> Pendientes Excel
                     </button>
-                    {!isVisita && !isLocked && availableSubjects.length > 0 && filters.subjectId && (
+                    {!isVisita && !isLocked && !isAnnualSheet && availableSubjects.length > 0 && filters.subjectId && (
                         <>
                             <button 
                                 className="secondary-btn"
@@ -750,7 +770,324 @@ export const GradesSheet: React.FC<GradesSheetProps> = ({ initialLevelId, initia
 
             {filters.subjectId && availableSubjects.length > 0 && (
                 <div className="grades-table-container">
-                    <table className="grades-table">
+                    {isAnnualSheet && (
+                        <div className="annual-banner no-print">
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <span style={{ fontSize: '1.4rem' }}>🎓</span>
+                                <div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <strong style={{ color: '#0369a1', fontSize: '1rem' }}>Consolidado Anual de Calificaciones</strong>
+                                        <span style={{ background: '#dbeafe', color: '#1e40af', padding: '2px 8px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 'bold' }}>
+                                            Finalización de año
+                                        </span>
+                                    </div>
+                                    <p style={{ margin: 0, fontSize: '0.8rem', color: '#475569' }}>
+                                        Visualización del 1er Semestre, 2do Semestre y Promedio Final Anual calculado automáticamente.
+                                    </p>
+                                </div>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <button
+                                    type="button"
+                                    className={`annual-view-btn ${annualViewMode === 'summary' ? 'active' : ''}`}
+                                    onClick={() => setAnnualViewMode('summary')}
+                                    title="Ver solo columnas de promedio"
+                                >
+                                    📊 Resumen de Promedios
+                                </button>
+                                <button
+                                    type="button"
+                                    className={`annual-view-btn ${annualViewMode === 'detailed' ? 'active' : ''}`}
+                                    onClick={() => setAnnualViewMode('detailed')}
+                                    title="Ver desglose completo de notas parciales de ambos semestres"
+                                >
+                                    📝 Detalle Completo de Notas
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {isAnnualSheet ? (
+                        <table className="grades-table annual-table">
+                            {annualViewMode === 'summary' ? (
+                                <>
+                                    <thead>
+                                        <tr>
+                                            <th style={{ width: '85px' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                                                    N° Lista
+                                                    {!isVisita && (
+                                                        <button 
+                                                            className="bulk-reorder-btn no-print" 
+                                                            onClick={handleBulkReorder} 
+                                                            title="Auto-numerar por orden alfabético"
+                                                            style={{ background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: '4px', padding: '2px 4px', fontSize: '10px', cursor: 'pointer' }}
+                                                        >
+                                                            A-Z
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </th>
+                                            <th className="student-name-col">Nombre alumno</th>
+                                            <th style={{ width: '160px', textAlign: 'center', background: '#f0f9ff', color: '#0369a1', fontWeight: 700 }}>
+                                                Prom. 1° Semestre
+                                            </th>
+                                            <th style={{ width: '160px', textAlign: 'center', background: '#fefce8', color: '#854d0e', fontWeight: 700 }}>
+                                                Prom. 2° Semestre
+                                            </th>
+                                            <th style={{ width: '170px', textAlign: 'center', background: '#ecfdf5', color: '#065f46', fontWeight: 800 }}>
+                                                Promedio Final Anual
+                                            </th>
+                                            <th style={{ width: '120px', textAlign: 'center' }}>Situación</th>
+                                            <th className="no-print" style={{ width: '80px', textAlign: 'center' }}>Acciones</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {[...students].sort((a, b) => {
+                                            const listA = a.list_number ?? 999999;
+                                            const listB = b.list_number ?? 999999;
+                                            if (listA !== listB) return listA - listB;
+                                            return a.full_name.localeCompare(b.full_name, 'es', { sensitivity: 'base' });
+                                        }).map((s) => {
+                                            const stData = annualData[s.id] || { avgS1: '-', avgS2: '-', finalAvg: '-' };
+                                            const isFail = (val: string) => {
+                                                if (!val || val === '-') return false;
+                                                if (val === 'I') return true;
+                                                const n = parseFloat(String(val).replace(',', '.'));
+                                                return !isNaN(n) && n < 4.0;
+                                            };
+                                            const passState = (() => {
+                                                if (!stData.finalAvg || stData.finalAvg === '-') return null;
+                                                if (stData.finalAvg === 'I') return false;
+                                                const n = parseFloat(String(stData.finalAvg).replace(',', '.'));
+                                                return !isNaN(n) && n >= 4.0;
+                                            })();
+
+                                            return (
+                                                <tr key={s.id} style={s.status === 'RETIRADO' ? { color: '#dc2626', textDecoration: 'line-through' } : {}}>
+                                                    <td style={{ textAlign: 'center' }}>
+                                                        <input 
+                                                            type="number" 
+                                                            className="list-number-input"
+                                                            value={s.list_number}
+                                                            onChange={e => handleListNumberChange(s.id, e.target.value)}
+                                                            disabled={s.status === 'RETIRADO' || isVisita}
+                                                        />
+                                                    </td>
+                                                    <td className="student-name-col">
+                                                        <span 
+                                                            style={{ 
+                                                                cursor: 'pointer', 
+                                                                color: s.status === 'RETIRADO' ? '#ef4444' : '#2563eb', 
+                                                                fontWeight: '500' 
+                                                            }}
+                                                            onClick={() => setViewingStudentId(s.id)}
+                                                            title="Ver Expediente"
+                                                        >
+                                                            {formatName(s.full_name)}
+                                                        </span>
+                                                    </td>
+                                                    <td className={`annual-avg-cell ${isFail(stData.avgS1) ? 'grade-fail' : 'grade-pass'}`}>
+                                                        {stData.avgS1}
+                                                    </td>
+                                                    <td className={`annual-avg-cell ${isFail(stData.avgS2) ? 'grade-fail' : 'grade-pass'}`}>
+                                                        {stData.avgS2}
+                                                    </td>
+                                                    <td className={`annual-final-cell ${isFail(stData.finalAvg) ? 'grade-fail' : 'grade-pass'}`}>
+                                                        {stData.finalAvg}
+                                                    </td>
+                                                    <td>
+                                                        {passState === true && <span className="status-badge passed">Aprobado</span>}
+                                                        {passState === false && <span className="status-badge failed">Reprobado</span>}
+                                                        {passState === null && <span className="status-badge pending">-</span>}
+                                                    </td>
+                                                    <td className="no-print">
+                                                        <button className="icon-btn" onClick={() => handlePrint(s.id)} title="Imprimir Informe Anual">
+                                                            <Printer size={16} />
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </>
+                            ) : (
+                                <>
+                                    <thead>
+                                        <tr>
+                                            <th rowSpan={2} style={{ width: '70px' }}>N° Lista</th>
+                                            <th rowSpan={2} className="student-name-col">Nombre alumno</th>
+                                            <th colSpan={11} className="header-group-s1">1ER SEMESTRE</th>
+                                            <th colSpan={11} className="header-group-s2">2DO SEMESTRE</th>
+                                            <th rowSpan={2} className="header-group-final" style={{ width: '90px' }}>PROM. FINAL</th>
+                                            <th rowSpan={2} className="no-print" style={{ width: '60px' }}>Acciones</th>
+                                        </tr>
+                                        <tr>
+                                            {Array.from({ length: 10 }).map((_, i) => {
+                                                const c = annualS1Columns.find((col: any) => col.position === i + 1);
+                                                return (
+                                                    <th key={`s1-${i}`} style={{ width: '38px', fontSize: '0.75rem', background: '#f0f9ff' }} title={c?.title || `Nota ${i + 1}`}>
+                                                        {c?.title ? (c.title.length > 5 ? c.title.substring(0, 4) + '..' : c.title) : `N${i + 1}`}
+                                                    </th>
+                                                );
+                                            })}
+                                            <th style={{ width: '60px', background: '#e0f2fe', fontWeight: 800 }}>P. 1S</th>
+                                            {Array.from({ length: 10 }).map((_, i) => {
+                                                const c = annualS2Columns.find((col: any) => col.position === i + 1);
+                                                return (
+                                                    <th key={`s2-${i}`} style={{ width: '38px', fontSize: '0.75rem', background: '#fefce8' }} title={c?.title || `Nota ${i + 1}`}>
+                                                        {c?.title ? (c.title.length > 5 ? c.title.substring(0, 4) + '..' : c.title) : `N${i + 1}`}
+                                                    </th>
+                                                );
+                                            })}
+                                            <th style={{ width: '60px', background: '#fef08a', fontWeight: 800 }}>P. 2S</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {[...students].sort((a, b) => {
+                                            const listA = a.list_number ?? 999999;
+                                            const listB = b.list_number ?? 999999;
+                                            if (listA !== listB) return listA - listB;
+                                            return a.full_name.localeCompare(b.full_name, 'es', { sensitivity: 'base' });
+                                        }).map((s) => {
+                                            const stData = annualData[s.id] || { avgS1: '-', avgS2: '-', finalAvg: '-', s1Partials: {}, s2Partials: {} };
+                                            const isFail = (val: string) => {
+                                                if (!val || val === '-') return false;
+                                                if (val === 'I') return true;
+                                                const n = parseFloat(String(val).replace(',', '.'));
+                                                return !isNaN(n) && n < 4.0;
+                                            };
+
+                                            return (
+                                                <tr key={s.id} style={s.status === 'RETIRADO' ? { color: '#dc2626', textDecoration: 'line-through' } : {}}>
+                                                    <td style={{ textAlign: 'center' }}>
+                                                        <input 
+                                                            type="number" 
+                                                            className="list-number-input"
+                                                            value={s.list_number}
+                                                            onChange={e => handleListNumberChange(s.id, e.target.value)}
+                                                            disabled={s.status === 'RETIRADO' || isVisita}
+                                                        />
+                                                    </td>
+                                                    <td className="student-name-col">
+                                                        <span 
+                                                            style={{ 
+                                                                cursor: 'pointer', 
+                                                                color: s.status === 'RETIRADO' ? '#ef4444' : '#2563eb', 
+                                                                fontWeight: '500' 
+                                                            }}
+                                                            onClick={() => setViewingStudentId(s.id)}
+                                                            title="Ver Expediente"
+                                                        >
+                                                            {formatName(s.full_name)}
+                                                        </span>
+                                                    </td>
+                                                    {Array.from({ length: 10 }).map((_, i) => {
+                                                        const g = stData.s1Partials ? stData.s1Partials[i + 1] : '';
+                                                        return (
+                                                            <td key={`g-s1-${i}`} className={`grade-cell ${isFail(g) ? 'grade-fail' : ''}`} style={{ fontSize: '0.8rem' }}>
+                                                                {g || ''}
+                                                            </td>
+                                                        );
+                                                    })}
+                                                    <td className={`annual-avg-cell ${isFail(stData.avgS1) ? 'grade-fail' : 'grade-pass'}`} style={{ background: '#f0f9ff' }}>
+                                                        {stData.avgS1}
+                                                    </td>
+                                                    {Array.from({ length: 10 }).map((_, i) => {
+                                                        const g = stData.s2Partials ? stData.s2Partials[i + 1] : '';
+                                                        return (
+                                                            <td key={`g-s2-${i}`} className={`grade-cell ${isFail(g) ? 'grade-fail' : ''}`} style={{ fontSize: '0.8rem' }}>
+                                                                {g || ''}
+                                                            </td>
+                                                        );
+                                                    })}
+                                                    <td className={`annual-avg-cell ${isFail(stData.avgS2) ? 'grade-fail' : 'grade-pass'}`} style={{ background: '#fefce8' }}>
+                                                        {stData.avgS2}
+                                                    </td>
+                                                    <td className={`annual-final-cell ${isFail(stData.finalAvg) ? 'grade-fail' : 'grade-pass'}`}>
+                                                        {stData.finalAvg}
+                                                    </td>
+                                                    <td className="no-print">
+                                                        <button className="icon-btn" onClick={() => handlePrint(s.id)} title="Imprimir Informe Anual">
+                                                            <Printer size={16} />
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </>
+                            )}
+                            <tfoot>
+                                <tr className="annual-footer-row">
+                                    <td colSpan={2} style={{ textAlign: 'right', paddingRight: '15px' }}>
+                                        PROMEDIO GENERAL DEL CURSO:
+                                    </td>
+                                    {annualViewMode === 'summary' ? (
+                                        <>
+                                            <td style={{ textAlign: 'center', color: '#0369a1' }}>
+                                                {(() => {
+                                                    const vals = students.map(s => annualData[s.id]?.rawAvgS1).filter(v => v !== null && v !== undefined && !isNaN(v));
+                                                    return vals.length > 0 ? (vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1).replace('.', ',') : '-';
+                                                })()}
+                                            </td>
+                                            <td style={{ textAlign: 'center', color: '#854d0e' }}>
+                                                {(() => {
+                                                    const vals = students.map(s => annualData[s.id]?.rawAvgS2).filter(v => v !== null && v !== undefined && !isNaN(v));
+                                                    return vals.length > 0 ? (vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1).replace('.', ',') : '-';
+                                                })()}
+                                            </td>
+                                            <td style={{ textAlign: 'center', color: '#065f46', fontSize: '1.1rem' }}>
+                                                {(() => {
+                                                    const vals = students.map(s => annualData[s.id]?.rawFinalAvg).filter(v => v !== null && v !== undefined && !isNaN(v));
+                                                    return vals.length > 0 ? (vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1).replace('.', ',') : '-';
+                                                })()}
+                                            </td>
+                                            <td style={{ textAlign: 'center', fontSize: '0.75rem', color: '#475569' }}>
+                                                {(() => {
+                                                    const passed = students.filter(s => {
+                                                        const v = annualData[s.id]?.rawFinalAvg;
+                                                        return v !== null && v !== undefined && !isNaN(v) && v >= 4.0;
+                                                    }).length;
+                                                    const failed = students.filter(s => {
+                                                        const v = annualData[s.id]?.rawFinalAvg;
+                                                        return v !== null && v !== undefined && !isNaN(v) && v < 4.0;
+                                                    }).length;
+                                                    return `${passed} Aprob. / ${failed} Repr.`;
+                                                })()}
+                                            </td>
+                                            <td className="no-print"></td>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <td colSpan={10}></td>
+                                            <td style={{ textAlign: 'center', color: '#0369a1' }}>
+                                                {(() => {
+                                                    const vals = students.map(s => annualData[s.id]?.rawAvgS1).filter(v => v !== null && v !== undefined && !isNaN(v));
+                                                    return vals.length > 0 ? (vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1).replace('.', ',') : '-';
+                                                })()}
+                                            </td>
+                                            <td colSpan={10}></td>
+                                            <td style={{ textAlign: 'center', color: '#854d0e' }}>
+                                                {(() => {
+                                                    const vals = students.map(s => annualData[s.id]?.rawAvgS2).filter(v => v !== null && v !== undefined && !isNaN(v));
+                                                    return vals.length > 0 ? (vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1).replace('.', ',') : '-';
+                                                })()}
+                                            </td>
+                                            <td style={{ textAlign: 'center', color: '#065f46', fontSize: '1.05rem' }}>
+                                                {(() => {
+                                                    const vals = students.map(s => annualData[s.id]?.rawFinalAvg).filter(v => v !== null && v !== undefined && !isNaN(v));
+                                                    return vals.length > 0 ? (vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1).replace('.', ',') : '-';
+                                                })()}
+                                            </td>
+                                            <td className="no-print"></td>
+                                        </>
+                                    )}
+                                </tr>
+                            </tfoot>
+                        </table>
+                    ) : (
+                        <table className="grades-table">
                         <thead>
                             <tr>
                                 <th style={{ width: '85px' }}>
@@ -918,6 +1255,7 @@ export const GradesSheet: React.FC<GradesSheetProps> = ({ initialLevelId, initia
                         ))}
                     </tbody>
                 </table>
+                )}
             </div>
             )}
 

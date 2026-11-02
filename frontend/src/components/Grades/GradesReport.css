@@ -401,3 +401,8 @@
 .grade-fail {
     color: #ef4444 !important;
 }
+
+
+.annual-s2-row td {
+    border-bottom: 2px solid #1e293b !important;
+}

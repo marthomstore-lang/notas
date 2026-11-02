@@ -87153,6 +87153,190 @@ var getGradesSheet = async (req, res) => {
             WHERE e.level_id = ? AND e.academic_year = ?
             ORDER BY COALESCE(e.list_number, 999999) ASC, s.full_name ASC
         `, [levelIdNum, yearNum]);
+    if (periodStr === "Finalizaci\xF3n de a\xF1o") {
+      const sub = await db_default.get("SELECT id, name, is_qualitative, tributes_to_subject_id FROM subjects WHERE id = ?", [subjectIdNum]);
+      const isQualitativeSubject = (sName, isQual2) => {
+        if (isQual2 === true || isQual2 === 1 || isQual2 === "1") return true;
+        const lower = String(sName || "").toLowerCase();
+        return lower.includes("religi\xF3n") || lower.includes("religion") || lower.includes("orientaci\xF3n") || lower.includes("orientacion");
+      };
+      const isQual = sub ? isQualitativeSubject(sub.name, sub.is_qualitative) : false;
+      const s1Cols = await db_default.all(`
+                SELECT * FROM grade_columns 
+                WHERE level_id = ? AND subject_id = ? AND period = '1er Semestre' AND academic_year = ?
+                ORDER BY position ASC
+            `, [levelIdNum, subjectIdNum, yearNum]);
+      const s1ColIds = s1Cols.map((c) => c.id);
+      const s1Grades = s1ColIds.length > 0 ? await db_default.all(`
+                SELECT * FROM grades WHERE grade_column_id IN (${s1ColIds.map(() => "?").join(",")})
+            `, [...s1ColIds]) : [];
+      const s2Cols = await db_default.all(`
+                SELECT * FROM grade_columns 
+                WHERE level_id = ? AND subject_id = ? AND period = '2do Semestre' AND academic_year = ?
+                ORDER BY position ASC
+            `, [levelIdNum, subjectIdNum, yearNum]);
+      const s2ColIds = s2Cols.map((c) => c.id);
+      const s2Grades = s2ColIds.length > 0 ? await db_default.all(`
+                SELECT * FROM grades WHERE grade_column_id IN (${s2ColIds.map(() => "?").join(",")})
+            `, [...s2ColIds]) : [];
+      const childSubjects = await db_default.all(`
+                SELECT id, name, is_qualitative FROM subjects WHERE tributes_to_subject_id = ?
+            `, [subjectIdNum]);
+      let childS1Data = { cols: [], grades: [] };
+      let childS2Data = { cols: [], grades: [] };
+      if (childSubjects.length > 0) {
+        const childIds = childSubjects.map((c) => c.id);
+        const cCols = await db_default.all(`
+                    SELECT * FROM grade_columns 
+                    WHERE level_id = ? AND subject_id IN (${childIds.map(() => "?").join(",")}) AND academic_year = ?
+                    ORDER BY position ASC
+                `, [levelIdNum, ...childIds, yearNum]);
+        const cColIds = cCols.map((c) => c.id);
+        const cGrades = cColIds.length > 0 ? await db_default.all(`
+                    SELECT * FROM grades WHERE grade_column_id IN (${cColIds.map(() => "?").join(",")})
+                `, [...cColIds]) : [];
+        childS1Data = { cols: cCols.filter((c) => c.period === "1er Semestre"), grades: cGrades };
+        childS2Data = { cols: cCols.filter((c) => c.period === "2do Semestre"), grades: cGrades };
+      }
+      const formatVal = (v) => {
+        if (v === null || isNaN(v)) return "-";
+        if (isQual) {
+          if (v >= 6) return "MB";
+          if (v >= 5) return "B";
+          if (v >= 4) return "S";
+          return "I";
+        }
+        return (Math.round((Number(v) + 1e-9) * 10) / 10).toFixed(1).replace(".", ",");
+      };
+      const annualData = {};
+      for (const st of students) {
+        let avgS1 = null;
+        let avgS2 = null;
+        const s1Partials = {};
+        const s2Partials = {};
+        if (childSubjects.length > 0) {
+          const s1ChildAvgs = [];
+          const s2ChildAvgs = [];
+          for (const cs of childSubjects) {
+            const csCols1 = childS1Data.cols.filter((c) => c.subject_id === cs.id);
+            let sum = 0, wSum = 0, sSum = 0, sCount = 0;
+            for (const col of csCols1) {
+              const g = childS1Data.grades.find((g2) => g2.student_id === st.id && g2.grade_column_id === col.id);
+              if (g && g.grade_value !== null && g.grade_value !== "") {
+                const gVal = parseFloat(g.grade_value) || 0;
+                const w = parseFloat(col.weighting) || 0;
+                sum += gVal * w;
+                wSum += w;
+                sSum += gVal;
+                sCount++;
+              }
+            }
+            const csAvg1 = wSum > 0 ? sum / wSum : sCount > 0 ? sSum / sCount : null;
+            if (csAvg1 !== null) s1ChildAvgs.push(csAvg1);
+            const csCols2 = childS2Data.cols.filter((c) => c.subject_id === cs.id);
+            sum = 0;
+            wSum = 0;
+            sSum = 0;
+            sCount = 0;
+            for (const col of csCols2) {
+              const g = childS2Data.grades.find((g2) => g2.student_id === st.id && g2.grade_column_id === col.id);
+              if (g && g.grade_value !== null && g.grade_value !== "") {
+                const gVal = parseFloat(g.grade_value) || 0;
+                const w = parseFloat(col.weighting) || 0;
+                sum += gVal * w;
+                wSum += w;
+                sSum += gVal;
+                sCount++;
+              }
+            }
+            const csAvg2 = wSum > 0 ? sum / wSum : sCount > 0 ? sSum / sCount : null;
+            if (csAvg2 !== null) s2ChildAvgs.push(csAvg2);
+          }
+          if (s1ChildAvgs.length > 0) avgS1 = s1ChildAvgs.reduce((a, b) => a + b, 0) / s1ChildAvgs.length;
+          if (s2ChildAvgs.length > 0) avgS2 = s2ChildAvgs.reduce((a, b) => a + b, 0) / s2ChildAvgs.length;
+        } else {
+          let sum1 = 0, weight1 = 0, sSum1 = 0, sCount1 = 0;
+          for (let i = 1; i <= 10; i++) {
+            const col = s1Cols.find((c) => c.position === i);
+            const g = col ? s1Grades.find((g2) => g2.student_id === st.id && g2.grade_column_id === col.id) : null;
+            if (g && g.grade_value !== null && g.grade_value !== "") {
+              const gVal = parseFloat(g.grade_value) || 0;
+              const w = parseFloat(col.weighting) || 0;
+              sum1 += gVal * w;
+              weight1 += w;
+              sSum1 += gVal;
+              sCount1++;
+              s1Partials[i] = formatVal(gVal);
+            } else {
+              s1Partials[i] = "";
+            }
+          }
+          if (isQual) {
+            const avgCol = s1Cols.find((c) => c.position === 11);
+            const avgG = avgCol ? s1Grades.find((g) => g.student_id === st.id && g.grade_column_id === avgCol.id) : null;
+            avgS1 = avgG && avgG.grade_value ? parseFloat(avgG.grade_value) : null;
+          } else {
+            if (weight1 > 0) avgS1 = sum1 / weight1;
+            else if (sCount1 > 0) avgS1 = sSum1 / sCount1;
+          }
+          let sum2 = 0, weight2 = 0, sSum2 = 0, sCount2 = 0;
+          for (let i = 1; i <= 10; i++) {
+            const col = s2Cols.find((c) => c.position === i);
+            const g = col ? s2Grades.find((g2) => g2.student_id === st.id && g2.grade_column_id === col.id) : null;
+            if (g && g.grade_value !== null && g.grade_value !== "") {
+              const gVal = parseFloat(g.grade_value) || 0;
+              const w = parseFloat(col.weighting) || 0;
+              sum2 += gVal * w;
+              weight2 += w;
+              sSum2 += gVal;
+              sCount2++;
+              s2Partials[i] = formatVal(gVal);
+            } else {
+              s2Partials[i] = "";
+            }
+          }
+          if (isQual) {
+            const avgCol = s2Cols.find((c) => c.position === 11);
+            const avgG = avgCol ? s2Grades.find((g) => g.student_id === st.id && g.grade_column_id === avgCol.id) : null;
+            avgS2 = avgG && avgG.grade_value ? parseFloat(avgG.grade_value) : null;
+          } else {
+            if (weight2 > 0) avgS2 = sum2 / weight2;
+            else if (sCount2 > 0) avgS2 = sSum2 / sCount2;
+          }
+        }
+        let finalAvg = null;
+        if (avgS1 !== null && avgS2 !== null) {
+          const r1 = Math.round((avgS1 + 1e-9) * 10) / 10;
+          const r2 = Math.round((avgS2 + 1e-9) * 10) / 10;
+          finalAvg = (r1 + r2) / 2;
+        } else if (avgS1 !== null) {
+          finalAvg = Math.round((avgS1 + 1e-9) * 10) / 10;
+        } else if (avgS2 !== null) {
+          finalAvg = Math.round((avgS2 + 1e-9) * 10) / 10;
+        }
+        annualData[st.id] = {
+          s1Partials,
+          s2Partials,
+          avgS1: formatVal(avgS1),
+          avgS2: formatVal(avgS2),
+          finalAvg: formatVal(finalAvg),
+          rawAvgS1: avgS1,
+          rawAvgS2: avgS2,
+          rawFinalAvg: finalAvg
+        };
+      }
+      return res.json({
+        students,
+        columns: [],
+        grades: [],
+        isLocked: true,
+        isAnnual: true,
+        isQualitative: isQual,
+        s1Columns: s1Cols,
+        s2Columns: s2Cols,
+        annualData
+      });
+    }
     const columns = await db_default.all(`
             SELECT * FROM grade_columns 
             WHERE level_id = ? AND subject_id = ? AND period = ? AND academic_year = ?
