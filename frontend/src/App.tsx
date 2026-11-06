@@ -6,6 +6,8 @@ import { AdminDashboard } from './views/AdminDashboard';
 import { TeacherDashboard } from './views/TeacherDashboard';
 import { GradesSheet } from './components/Grades/GradesSheet';
 import { TeacherGradesSheetWrapper } from './components/Grades/TeacherGradesSheetWrapper';
+import { A11yProvider } from './context/A11yContext';
+import { MigrationNotice } from './components/MigrationNotice/MigrationNotice';
 
 const ProtectedRoute = ({ children, allowedRole }: { children: React.ReactNode, allowedRole: string }) => {
     const { user } = useAuth();
@@ -59,11 +61,10 @@ const AppRoutes = () => {
     );
 };
 
-import { A11yProvider } from './context/A11yContext';
-
 function App() {
   return (
     <A11yProvider>
+      <MigrationNotice targetUrl="https://ltp-v2.vercel.app/" initialSeconds={10} />
       <AuthProvider>
         <HashRouter>
           <AppRoutes />
